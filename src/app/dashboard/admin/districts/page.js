@@ -14,16 +14,33 @@ import {
   MenuItem,
   Alert,
   Snackbar,
-  CircularProgress
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Paper
 } from '@mui/material';
-import DataTable from '@/components/DataTable';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FormDialog from '@/components/FormDialog';
+import { useRouter } from 'next/navigation';
 
 // Districts Page Component
 export default function Districts() {
+  const router = useRouter();
   const [districts, setDistricts] = useState([]);
   const [regions, setRegions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingDistricts, setLoadingDistricts] = useState(true);
+  const [loadingRegions, setLoadingRegions] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentDistrict, setCurrentDistrict] = useState(null);
@@ -38,36 +55,40 @@ export default function Districts() {
     pages: 0
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
 
-  // Table columns
-  const columns = [
-    { id: 'id', label: 'ID' },
-    { id: 'name', label: 'Name' },
-    { id: 'code', label: 'Code' },
-    { id: 'region_name', label: 'Region' },
-    { 
-      id: 'created_at', 
-      label: 'Created Date',
-      format: (value) => new Date(value).toLocaleString()
-    },
-  ];
+  // Fetch regions only once on mount
+  useEffect(() => {
+    fetchRegions();
+  }, []);
 
   // Fetch districts on mount and pagination change
   useEffect(() => {
     fetchDistricts();
-    fetchRegions();
   }, [pagination.page, pagination.limit]);
+
+  // Add useEffect to refetch districts when regionFilter or searchTerm changes
+  useEffect(() => {
+    fetchDistricts();
+  }, [regionFilter, searchTerm]);
 
   // Fetch districts from API
   const fetchDistricts = async () => {
-    setLoading(true);
+    setLoadingDistricts(true);
     try {
-      const response = await fetch(
-        `/api/districts?page=${pagination.page + 1}&limit=${pagination.limit}${searchTerm ? `&search=${searchTerm}` : ''}`
-      );
+      let url = `/api/districts?page=${pagination.page + 1}&limit=${pagination.limit}`;
+      if (searchTerm) {
+        url += `&search=${searchTerm}`;
+      }
+      if (regionFilter) {
+        url += `&region_id=${regionFilter}`;
+      }
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.districts) {
+        console.log('Fetched districts:', data.districts);
+        
         setDistricts(data.districts);
         setPagination({
           page: data.pagination.page - 1,
@@ -80,14 +101,15 @@ export default function Districts() {
       console.error('Error fetching districts:', error);
       showAlert('Failed to fetch districts', 'error');
     } finally {
-      setLoading(false);
+      setLoadingDistricts(false);
     }
   };
 
   // Fetch regions for district form
   const fetchRegions = async () => {
+    setLoadingRegions(true);
     try {
-      const response = await fetch('/api/regions?limit=100');
+      const response = await fetch('/api/regions?limit=20');
       const data = await response.json();
       
       if (data.regions) {
@@ -95,6 +117,8 @@ export default function Districts() {
       }
     } catch (error) {
       console.error('Error fetching regions:', error);
+    } finally {
+      setLoadingRegions(false);
     }
   };
 
@@ -112,7 +136,6 @@ export default function Districts() {
   const handleSearch = (query) => {
     setSearchTerm(query);
     setPagination({ ...pagination, page: 0 });
-    fetchDistricts();
   };
 
   // Show form for adding new district
@@ -166,7 +189,6 @@ export default function Districts() {
           body: JSON.stringify({
             id: currentDistrict.id,
             name: currentDistrict.name,
-            code: currentDistrict.code,
             region_id: currentDistrict.region_id
           }),
         });
@@ -241,26 +263,105 @@ export default function Districts() {
         <Typography variant="body1" color="text.secondary" paragraph>
           Add, edit, and manage districts across regions
         </Typography>
+        <Grid container spacing={2} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
+              <InputLabel>Filter by Region</InputLabel>
+              <Select
+                value={regionFilter}
+                label="Filter by Region"
+                onChange={e => {
+                  setRegionFilter(e.target.value);
+                  setPagination({ ...pagination, page: 0 });
+                }}
+              >
+                <MenuItem value="">
+                  <em>All Regions</em>
+                </MenuItem>
+                {regions.map(region => (
+                  <MenuItem key={region.id} value={region.id}>{region.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Search Districts"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(e.target.value); }}
+              sx={{ minWidth: 240 }}
+              placeholder="Type to search by name..."
+            />
+          </Grid>
+        </Grid>
       </Box>
 
       {/* Districts Table */}
-      <DataTable
-        title="Districts"
-        columns={columns}
-        data={districts}
-        isLoading={loading}
-        totalCount={pagination.total}
-        page={pagination.page}
-        rowsPerPage={pagination.limit}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSearch={handleSearch}
-        onRefresh={fetchDistricts}
-        onAdd={handleAddClick}
-        onEdit={handleEditClick}
-        onDelete={handleDeleteClick}
-        searchPlaceholder="Search districts..."
-      />
+      {(loadingDistricts || loadingRegions) ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+          <TableContainer>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Region</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {districts
+                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
+                  .map((district) => (
+                    <TableRow 
+                      hover 
+                      key={district.id}
+                      onClick={() => router.push(`/dashboard/admin/districts/${district.id}`)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <TableCell>{district.name}</TableCell>
+                      <TableCell>{district.region_name}</TableCell>
+                      <TableCell>{district.description}</TableCell>
+                      <TableCell align="right">
+                        <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(district); }} size="small">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" onClick={e => { e.stopPropagation(); handleDeleteClick([district.id]); }} size="small">
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {districts.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      <Typography variant="body1" sx={{ py: 3 }}>
+                        No districts found. Click the "Add District" button to create one.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={pagination.limit}
+            page={pagination.page}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+          />
+        </Paper>
+      )}
 
       {/* Add/Edit District Form */}
       <FormDialog

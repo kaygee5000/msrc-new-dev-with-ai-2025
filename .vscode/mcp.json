@@ -1,0 +1,21 @@
+{
+    "servers": {
+        "mcp_server_mysql": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@benborla29/mcp-server-mysql"
+            ],
+            "env": {
+                "MYSQL_HOST": "field.msrcghana.org",
+                "MYSQL_PORT": "3306",
+                "MYSQL_USER": "forge",
+                "MYSQL_PASS": "qv0NqfPLRLPEtMHm4snH",
+                "MYSQL_DB": "field_msrcghana_db",
+                "ALLOW_INSERT_OPERATION": "true",
+                "ALLOW_UPDATE_OPERATION": "true",
+                "ALLOW_DELETE_OPERATION": "true"
+            }
+        }
+    }
+}

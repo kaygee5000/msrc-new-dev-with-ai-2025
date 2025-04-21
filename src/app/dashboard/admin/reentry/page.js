@@ -2,8 +2,10 @@
 import { useEffect, useState } from 'react';
 import { Box, Typography, Paper, Grid, MenuItem, FormControl, InputLabel, Select, Card, CardContent } from '@mui/material';
 import { fetchAPI } from '@/utils/api';
-import Charts from '@/components/Charts';
+import dynamic from 'next/dynamic';
 import DataTable from '@/components/DataTable';
+
+const Charts = dynamic(() => import('@/components/Charts'), { ssr: false });
 
 export default function ReentryAdminDashboard() {
   // Filter state
@@ -27,10 +29,10 @@ export default function ReentryAdminDashboard() {
 
   // Fetch filter options on mount
   useEffect(() => {
-    fetchAPI('regions').then(setRegions);
-    fetchAPI('districts').then(setDistricts);
-    fetchAPI('circuits').then(setCircuits);
-    fetchAPI('schools').then(setSchools);
+    fetchAPI('regions').then(data => setRegions(data.regions || []));
+    fetchAPI('districts').then(data => setDistricts(data.districts || []));
+    fetchAPI('circuits').then(data => setCircuits(data.circuits || []));
+    fetchAPI('schools').then(data => setSchools(data.schools || []));
     fetchAPI('system-config').then(cfg => setTerms(cfg.availableTerms || []));
   }, []);
 

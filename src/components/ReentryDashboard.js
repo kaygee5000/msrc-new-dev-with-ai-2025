@@ -34,6 +34,21 @@ import ReentryFormPage from './ReentryFormPage';
 import DataTable from './DataTable';
 
 export default function ReentryDashboard({ user }) {
+  if (!user || !user.id) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8 }}>
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
+          <Typography variant="h6" color="error" gutterBottom>
+            You must be logged in to access this page.
+          </Typography>
+          <Button variant="contained" color="primary" href="/login">
+            Go to Login
+          </Button>
+        </Box>
+      </Container>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState(0);
   const [schools, setSchools] = useState([]);
   const [submissions, setSubmissions] = useState([]);

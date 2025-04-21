@@ -9,13 +9,14 @@ export async function GET(request) {
     // Get search params
     const { searchParams } = new URL(request.url);
     const regionId = searchParams.get('region_id');
-    const districtId = searchParams.get('district_id') || '2'; // Default to district ID 2
+    const districtId = searchParams.get('district_id');
     const circuitId = searchParams.get('circuit_id');
     
     let query = `
       SELECT 
         s.id, 
         s.name, 
+        s.ges_code,
         s.district_id,
         s.circuit_id,
         d.region_id,
@@ -23,10 +24,10 @@ export async function GET(request) {
         c.name AS circuit_name,
         r.name AS region_name
       FROM 
-        field_msrcghana_db.schools s
-        JOIN field_msrcghana_db.districts d ON s.district_id = d.id
-        JOIN field_msrcghana_db.circuits c ON s.circuit_id = c.id
-        JOIN field_msrcghana_db.regions r ON d.region_id = r.id
+        schools s
+        JOIN districts d ON s.district_id = d.id
+        JOIN circuits c ON s.circuit_id = c.id
+        JOIN regions r ON d.region_id = r.id
       WHERE 1=1
     `;
     
@@ -37,26 +38,22 @@ export async function GET(request) {
       query += " AND d.region_id = ?";
       queryParams.push(regionId);
     }
-    
     if (districtId) {
       query += " AND s.district_id = ?";
       queryParams.push(districtId);
     }
-    
     if (circuitId) {
       query += " AND s.circuit_id = ?";
       queryParams.push(circuitId);
     }
-    
     query += " ORDER BY s.name ASC";
-    
     // Execute the query
     const [rows] = await db.query(query, queryParams);
-    
     // Transform the data to match the expected format
     const schools = rows.map(school => ({
       id: school.id,
       name: school.name,
+      gesCode: school.ges_code,
       regionId: school.region_id,
       districtId: school.district_id,
       circuitId: school.circuit_id,
@@ -73,7 +70,6 @@ export async function GET(request) {
         name: school.region_name 
       }
     }));
-    
     return NextResponse.json({ schools }, { status: 200 });
   } catch (error) {
     console.error('Error fetching schools:', error);
@@ -87,31 +83,26 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, code, circuit_id, address = null, contact = null, type = null } = body;
-
-    if (!name || !code || !circuit_id) {
+    const { name, ges_code, circuit_id, address = null, contact = null, type = null } = body;
+    if (!name || !ges_code || !circuit_id) {
       return NextResponse.json(
-        { error: 'Name, code, and circuit_id are required' },
+        { error: 'Name, ges_code, and circuit_id are required' },
         { status: 400 }
       );
     }
-
     // Verify circuit exists
     const [circuitRows] = await db.query('SELECT id FROM circuits WHERE id = ?', [circuit_id]);
-    
     if (circuitRows.length === 0) {
       return NextResponse.json(
         { error: 'Circuit not found' },
         { status: 400 }
       );
     }
-
     // Insert a new school into the database
     const [result] = await db.query(
-      'INSERT INTO schools (name, code, circuit_id, address, contact, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
-      [name, code, circuit_id, address, contact, type]
+      'INSERT INTO schools (name, ges_code, circuit_id, address, contact, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
+      [name, ges_code, circuit_id, address, contact, type]
     );
-
     return NextResponse.json(
       { message: 'School created successfully', id: result.insertId },
       { status: 201 }
@@ -119,7 +110,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating school:', error);
     return NextResponse.json(
-      { error: 'Failed to create school' },
+      { error: 'Failed to create school', details: error.message },
       { status: 500 }
     );
   }
@@ -132,11 +123,11 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, name, code, circuit_id, address = null, contact = null, type = null } = body;
+    const { id, name, ges_code, circuit_id, address = null, contact = null, type = null } = body;
 
-    if (!id || !name || !code || !circuit_id) {
+    if (!id || !name || !ges_code || !circuit_id) {
       return NextResponse.json(
-        { error: 'ID, name, code, and circuit_id are required' },
+        { error: 'ID, name, ges_code, and circuit_id are required' },
         { status: 400 }
       );
     }
@@ -163,8 +154,8 @@ export async function PUT(request) {
 
     // Update school
     await db.query(
-      'UPDATE schools SET name = ?, code = ?, circuit_id = ?, address = ?, contact = ?, type = ?, updated_at = NOW() WHERE id = ?',
-      [name, code, circuit_id, address, contact, type, id]
+      'UPDATE schools SET name = ?, ges_code = ?, circuit_id = ?, address = ?, contact = ?, type = ?, updated_at = NOW() WHERE id = ?',
+      [name, ges_code, circuit_id, address, contact, type, id]
     );
 
     return NextResponse.json(
@@ -173,7 +164,7 @@ export async function PUT(request) {
   } catch (error) {
     console.error('Error updating school:', error);
     return NextResponse.json(
-      { error: 'Failed to update school' },
+      { error: 'Failed to update school', details: error.message },
       { status: 500 }
     );
   }
@@ -217,7 +208,7 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Error deleting school:', error);
     return NextResponse.json(
-      { error: 'Failed to delete school' },
+      { error: 'Failed to delete school', details: error.message },
       { status: 500 }
     );
   }

@@ -1,9 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
-import { Box, Paper, Typography, ButtonGroup, Button } from '@mui/material';
+import { Box, Paper, Typography, ButtonGroup, Button, CircularProgress } from '@mui/material';
 
 // Dynamically import ApexCharts with no SSR to avoid window reference errors
 const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false });
@@ -17,15 +16,85 @@ const ReactApexChart = dynamic(() => import('react-apexcharts'), { ssr: false })
  * @param {string} props.type - Chart type (bar, line, pie, etc.)
  * @param {number} props.height - Chart height in pixels
  * @param {string} props.width - Chart width (can be percentage or pixels)
+ * @param {string} props.itineraryId - Optional itinerary ID for RTP analytics
  * @returns {React.Component} - Chart component
  */
-const Charts = ({ options, series, type, height = 350, width = '100%' }) => {
+const Charts = ({ options, series, type, height = 350, width = '100%', itineraryId }) => {
+  const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState({ options, series });
+  const [error, setError] = useState(null);
+
+  // Fetch data if itineraryId is provided
+  useEffect(() => {
+    if (itineraryId) {
+      fetchItineraryData(itineraryId);
+    }
+  }, [itineraryId]);
+
+  // Function to fetch data for RTP itinerary analytics
+  const fetchItineraryData = async (id) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/rtp/analytics?itineraryId=${id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+      
+      const data = await response.json();
+      
+      // Format the data for charts
+      setChartData({
+        options: {
+          chart: {
+            type: 'bar',
+            toolbar: {
+              show: false
+            }
+          },
+          xaxis: {
+            categories: data.categories || ['No data available']
+          },
+          title: {
+            text: 'Itinerary Analytics',
+            align: 'center'
+          }
+        },
+        series: data.series || [{
+          name: 'No data',
+          data: [0]
+        }]
+      });
+    } catch (err) {
+      console.error('Error fetching itinerary data:', err);
+      setError('Failed to load analytics data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: height }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: height }}>
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
+
   return (
     <div className="chart-container">
       {typeof window !== 'undefined' && (
         <ReactApexChart
-          options={options}
-          series={series}
+          options={chartData.options || options}
+          series={chartData.series || series}
           type={type}
           height={height}
           width={width}

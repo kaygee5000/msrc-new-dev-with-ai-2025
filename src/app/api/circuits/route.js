@@ -67,7 +67,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('Error fetching circuits:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch circuits' },
+      { error: 'Failed to fetch circuits', details: error.message },
       { status: 500 }
     );
   }
@@ -79,11 +79,11 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, code, district_id } = body;
+    const { name, district_id, description } = body;
 
-    if (!name || !code || !district_id) {
+    if (!name || !district_id) {
       return NextResponse.json(
-        { error: 'Name, code, and district_id are required' },
+        { error: 'Name and district_id are required' },
         { status: 400 }
       );
     }
@@ -100,8 +100,8 @@ export async function POST(request) {
 
     // Insert a new circuit into the database
     const [result] = await pool.query(
-      'INSERT INTO circuits (name, code, district_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
-      [name, code, district_id]
+      'INSERT INTO circuits (name, district_id, description, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+      [name, district_id, description || null]
     );
 
     return NextResponse.json(
@@ -111,7 +111,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating circuit:', error);
     return NextResponse.json(
-      { error: 'Failed to create circuit' },
+      { error: 'Failed to create circuit', details: error.message },
       { status: 500 }
     );
   }
@@ -124,11 +124,11 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, name, code, district_id } = body;
+    const { id, name, district_id, description } = body;
 
-    if (!id || !name || !code || !district_id) {
+    if (!id || !name || !district_id) {
       return NextResponse.json(
-        { error: 'ID, name, code, and district_id are required' },
+        { error: 'ID, name, and district_id are required' },
         { status: 400 }
       );
     }
@@ -155,8 +155,8 @@ export async function PUT(request) {
 
     // Update circuit
     await pool.query(
-      'UPDATE circuits SET name = ?, code = ?, district_id = ?, updated_at = NOW() WHERE id = ?',
-      [name, code, district_id, id]
+      'UPDATE circuits SET name = ?, district_id = ?, description = ?, updated_at = NOW() WHERE id = ?',
+      [name, district_id, description || null, id]
     );
 
     return NextResponse.json(
@@ -165,7 +165,7 @@ export async function PUT(request) {
   } catch (error) {
     console.error('Error updating circuit:', error);
     return NextResponse.json(
-      { error: 'Failed to update circuit' },
+      { error: 'Failed to update circuit', details: error.message },
       { status: 500 }
     );
   }
@@ -209,7 +209,7 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Error deleting circuit:', error);
     return NextResponse.json(
-      { error: 'Failed to delete circuit' },
+      { error: 'Failed to delete circuit', details: error.message },
       { status: 500 }
     );
   }

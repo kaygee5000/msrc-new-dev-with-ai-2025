@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/utils/db';
-import hashPassword from '../../../../../hash.js';
+import { verifyPassword } from '@/utils/hash.js';
 
 export async function POST(request) {
   try {
@@ -19,6 +19,9 @@ export async function POST(request) {
     );
     
     const user = users[0];
+
+    console.log(`User fetched: ${JSON.stringify(user)}`);
+    
     
     // Check if user exists
     if (!user) {
@@ -26,34 +29,33 @@ export async function POST(request) {
         message: 'Invalid email or password' 
       }, { status: 401 });
     }
-    
-    // Verify the password hash using the same hashing as the old implementation
-    const hashedInput = hashPassword(password, user.password_salt);
-    if (hashedInput !== user.password_hash) {
+
+    // Verify the password using the same hashing as the old implementation
+    if (!verifyPassword(password, user.password)) {
       return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
     }
     
-    // Get user's jurisdiction info
-    const [jurisdictions] = await db.query(`
-      SELECT 
-        j.user_id,
-        j.region_id,
-        j.district_id,
-        j.circuit_id,
-        r.name as region_name,
-        d.name as district_name,
-        c.name as circuit_name
-      FROM 
-        field_msrcghana_db.user_jurisdictions j
-        LEFT JOIN field_msrcghana_db.regions r ON j.region_id = r.id
-        LEFT JOIN field_msrcghana_db.districts d ON j.district_id = d.id
-        LEFT JOIN field_msrcghana_db.circuits c ON j.circuit_id = c.id
-      WHERE 
-        j.user_id = ?
-    `, [user.id]);
-    
-    const jurisdiction = jurisdictions[0] || {};
-    
+    // Jurisdiction logic based on user.type and user.scope
+    let jurisdiction = null;
+    switch (user.type) {
+      case 'regional_admin':
+        jurisdiction = { type: 'region', scopeId: user.scope_id || null };
+        break;
+      case 'district_admin':
+        jurisdiction = { type: 'district', scopeId: user.scope_id || null };
+        break;
+      case 'circuit_supervisor':
+        jurisdiction = { type: 'circuit', scopeId: user.scope_id || null };
+        break;
+      case 'head_teacher':
+        jurisdiction = { type: 'school', scopeId: user.scope_id || null };
+        break;
+      case 'data_collector':
+        jurisdiction = { type: 'data_collector', scopeId: user.scope_id || null };
+        break;
+      // national_admin and any others: skip
+    }
+
     // Create a clean user object (without password) to return
     const userResponse = {
       id: user.id,
@@ -61,12 +63,7 @@ export async function POST(request) {
       email: user.email,
       type: user.type, // maintain type for RBAC
       role: user.role, // keep for legacy compatibility if needed
-      regionId: jurisdiction.region_id || null,
-      districtId: jurisdiction.district_id || null,
-      circuitId: jurisdiction.circuit_id || null,
-      regionName: jurisdiction.region_name || null,
-      districtName: jurisdiction.district_name || null,
-      circuitName: jurisdiction.circuit_name || null,
+      jurisdiction,
       createdAt: user.created_at
     };
     

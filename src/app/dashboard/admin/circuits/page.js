@@ -12,10 +12,26 @@ import {
   Select,
   MenuItem,
   Alert,
-  Snackbar
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Paper,
+  CircularProgress
 } from '@mui/material';
-import DataTable from '@/components/DataTable';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FormDialog from '@/components/FormDialog';
+import { useRouter } from 'next/navigation';
 
 // Circuits Page Component
 export default function Circuits() {
@@ -42,19 +58,7 @@ export default function Circuits() {
     district_id: ''
   });
 
-  // Table columns
-  const columns = [
-    { id: 'id', label: 'ID' },
-    { id: 'name', label: 'Name' },
-    { id: 'code', label: 'Code' },
-    { id: 'district_name', label: 'District' },
-    { id: 'region_name', label: 'Region' },
-    { 
-      id: 'created_at', 
-      label: 'Created Date',
-      format: (value) => new Date(value).toLocaleString()
-    },
-  ];
+  const router = useRouter();
 
   // Fetch circuits on mount and pagination change
   useEffect(() => {
@@ -146,7 +150,6 @@ export default function Circuits() {
   const handleSearch = (query) => {
     setSearchTerm(query);
     setPagination({ ...pagination, page: 0 });
-    fetchCircuits();
   };
 
   // Show form for adding new circuit
@@ -287,10 +290,10 @@ export default function Circuits() {
     // Fetch will happen in useEffect
   };
 
-  // Apply filters
+  // Apply filters and search term
   useEffect(() => {
     fetchCircuits();
-  }, [filters]);
+  }, [filters, searchTerm]);
 
   // Display alert notification
   const showAlert = (message, severity = 'success') => {
@@ -315,7 +318,7 @@ export default function Circuits() {
         {/* Filters */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Filter by Region</InputLabel>
               <Select
                 name="region_id"
@@ -335,7 +338,7 @@ export default function Circuits() {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth size="small" disabled={!filters.region_id}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.region_id}>
               <InputLabel>Filter by District</InputLabel>
               <Select
                 name="district_id"
@@ -354,27 +357,81 @@ export default function Circuits() {
               </Select>
             </FormControl>
           </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Search Circuits"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(e.target.value); }}
+              sx={{ minWidth: 240 }}
+              placeholder="Type to search by name..."
+            />
+          </Grid>
         </Grid>
       </Box>
 
       {/* Circuits Table */}
-      <DataTable
-        title="Circuits"
-        columns={columns}
-        data={circuits}
-        isLoading={loading}
-        totalCount={pagination.total}
-        page={pagination.page}
-        rowsPerPage={pagination.limit}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSearch={handleSearch}
-        onRefresh={fetchCircuits}
-        onAdd={handleAddClick}
-        onEdit={handleEditClick}
-        onDelete={handleDeleteClick}
-        searchPlaceholder="Search circuits..."
-      />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+          <TableContainer>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>District</TableCell>
+                  <TableCell>Region</TableCell>
+                  <TableCell>Description</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {circuits
+                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
+                  .map((circuit) => (
+                    <TableRow hover key={circuit.id} onClick={() => router.push(`/dashboard/admin/circuits/${circuit.id}`)} style={{ cursor: 'pointer' }}>
+                      <TableCell>{circuit.name}</TableCell>
+                      <TableCell>{circuit.district_name}</TableCell>
+                      <TableCell>{circuit.region_name}</TableCell>
+                      <TableCell>{circuit.description}</TableCell>
+                      <TableCell align="right">
+                        <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(circuit); }} size="small">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" onClick={e => { e.stopPropagation(); handleDeleteClick([circuit.id]); }} size="small">
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {circuits.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="body1" sx={{ py: 3 }}>
+                        No circuits found. Click the "Add Circuit" button to create one.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={pagination.limit}
+            page={pagination.page}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+          />
+        </Paper>
+      )}
 
       {/* Add/Edit Circuit Form */}
       <FormDialog

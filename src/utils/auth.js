@@ -22,23 +22,61 @@ export const USER_TYPES = {
   CIRCUIT_SUPERVISOR: 'circuit_supervisor',
   HEAD_TEACHER: 'head_teacher',
   DATA_COLLECTOR: 'data_collector',
+  RTP_ADMIN: 'rtp_admin',      // Adding specific RTP admin role
+  RTP_COLLECTOR: 'data_collector' // Adding RTP data collector role
 };
 
+// Define all admin types including RTP admin
 export const ADMIN_TYPES = [
   USER_TYPES.NATIONAL_ADMIN,
   USER_TYPES.REGIONAL_ADMIN,
   USER_TYPES.DISTRICT_ADMIN,
-  USER_TYPES.CIRCUIT_SUPERVISOR
+  USER_TYPES.CIRCUIT_SUPERVISOR,
+  USER_TYPES.RTP_ADMIN
 ];
+
+// Routes that require admin access
+export const ADMIN_ROUTES = [
+  '/dashboard',
+  '/dashboard/admin',
+  '/dashboard/admin/regions',
+  '/dashboard/admin/districts', 
+  '/dashboard/admin/circuits',
+  '/dashboard/admin/schools',
+  '/dashboard/admin/users',
+  '/dashboard/admin/reentry',
+  '/dashboard/admin/rtp',     // Adding the RTP admin route
+  '/dashboard/reports',
+  '/dashboard/analytics',
+  '/dashboard/submissions',
+  '/dashboard/settings'
+];
+
+// Check if a route requires admin privileges
+export function isAdminRoute(pathname) {
+  return ADMIN_ROUTES.some(route => pathname.startsWith(route));
+}
+
+// Utility to check if localStorage is available (client-side only)
+function hasLocalStorage() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
 
 /**
  * Store authenticated user data with expiration time
  */
 export function setAuthUser(user) {
-  if (!user) return;
+  if (!user || !hasLocalStorage()) return;
+  
+  // Ensure both role and type are set for consistent checking
+  const normalizedUser = {
+    ...user,
+    role: user.role || (ADMIN_TYPES.includes(user.type) ? ROLES.ADMIN : ROLES.DATA_COLLECTOR),
+    type: user.type || (user.role === ROLES.ADMIN ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR)
+  };
   
   const authData = {
-    user,
+    user: normalizedUser,
     expiresAt: Date.now() + SESSION_DURATION,
   };
   
@@ -50,6 +88,7 @@ export function setAuthUser(user) {
  */
 export function getAuthUser() {
   try {
+    if (!hasLocalStorage()) return null;
     const authDataString = localStorage.getItem(AUTH_KEY);
     if (!authDataString) return null;
     
@@ -59,6 +98,12 @@ export function getAuthUser() {
     if (Date.now() > authData.expiresAt) {
       clearAuthUser();
       return null;
+    }
+    
+    // Ensure both role and type exist on returned user for consistent checking
+    if (authData.user && (!authData.user.role || !authData.user.type)) {
+      authData.user.role = authData.user.role || (ADMIN_TYPES.includes(authData.user.type) ? ROLES.ADMIN : ROLES.DATA_COLLECTOR);
+      authData.user.type = authData.user.type || (authData.user.role === ROLES.ADMIN ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR);
     }
     
     return authData.user;
@@ -90,17 +135,61 @@ export function hasType(types) {
 }
 
 /**
+ * Check if the authenticated user has a specific role
+ * @param {string|string[]} roles - Role(s) to check
+ * @returns {boolean} True if the user has any of the specified roles
+ */
+export function hasRole(roles) {
+  const user = getAuthUser();
+  if (!user || !user.role) return false;
+  if (Array.isArray(roles)) {
+    return roles.includes(user.role);
+  }
+  return user.role === roles;
+}
+
+/**
  * Check if the current user is an admin (any admin type)
  */
 export function isAdmin() {
-  return hasType(ADMIN_TYPES);
+  const user = getAuthUser();
+  if (!user) return false;
+  
+  // Check both role and type for admin status
+  return (user.role === ROLES.ADMIN || ADMIN_TYPES.includes(user.type));
 }
 
 /**
  * Check if the current user is a data collector
  */
 export function isDataCollector() {
-  return hasType(USER_TYPES.DATA_COLLECTOR);
+  const user = getAuthUser();
+  if (!user) return false;
+  
+  // Check both role and type for data collector status
+  return (user.role === ROLES.DATA_COLLECTOR || user.type === USER_TYPES.DATA_COLLECTOR);
+}
+
+/**
+ * Check if the current user is authorized for RTP
+ */
+export function isRtpAuthorized() {
+  const user = getAuthUser();
+  if (!user) return false;
+  
+  // Only RTP collector role has access to RTP data collection routes
+  return user.type === USER_TYPES.RTP_COLLECTOR;
+}
+
+/**
+ * Check if the current user is authorized for Reentry
+ */
+export function isReentryAuthorized() {
+  const user = getAuthUser();
+  if (!user) return false;
+  
+  // Only data collectors of reentry type have access to reentry data collection routes
+  return user.type === USER_TYPES.DATA_COLLECTOR;
 }
 
 /**
@@ -117,6 +206,9 @@ export function renewSession() {
  * Clear auth data from storage
  */
 export function clearAuthUser() {
+  if (!hasLocalStorage()) return;
+  console.log('Clearing auth user data from local storage');
+  
   localStorage.removeItem(AUTH_KEY);
 }
 
@@ -127,6 +219,7 @@ export function clearAuthUser() {
  */
 export function saveFormData(formId, data) {
   try {
+    if (!hasLocalStorage()) return;
     const user = getAuthUser();
     if (!user) return; // Only save data for authenticated users
     
@@ -156,6 +249,7 @@ export function saveFormData(formId, data) {
  */
 export function getFormData(formId) {
   try {
+    if (!hasLocalStorage()) return null;
     const user = getAuthUser();
     if (!user) return null;
     
@@ -178,6 +272,7 @@ export function getFormData(formId) {
  */
 export function clearFormData(formId) {
   try {
+    if (!hasLocalStorage()) return;
     const user = getAuthUser();
     if (!user) return;
     
@@ -203,6 +298,7 @@ export function clearFormData(formId) {
  */
 export function saveNavigationState(page, state) {
   try {
+    if (!hasLocalStorage()) return;
     const user = getAuthUser();
     if (!user) return;
     
@@ -219,6 +315,7 @@ export function saveNavigationState(page, state) {
  */
 export function getNavigationState() {
   try {
+    if (!hasLocalStorage()) return null;
     const user = getAuthUser();
     if (!user) return null;
     

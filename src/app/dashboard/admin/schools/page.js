@@ -13,13 +13,30 @@ import {
   MenuItem,
   Alert,
   Snackbar,
-  Chip
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Paper,
+  CircularProgress
 } from '@mui/material';
-import DataTable from '@/components/DataTable';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FormDialog from '@/components/FormDialog';
+import { useRouter } from 'next/navigation';
 
 // Schools Page Component
 export default function Schools() {
+  const router = useRouter();
   const [schools, setSchools] = useState([]);
   const [circuits, setCircuits] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -53,29 +70,6 @@ export default function Schools() {
     { value: 'shs', label: 'Senior High School' },
     { value: 'technical', label: 'Technical/Vocational School' },
     { value: 'special', label: 'Special Education School' }
-  ];
-
-  // Table columns
-  const columns = [
-    { id: 'id', label: 'ID' },
-    { id: 'name', label: 'Name' },
-    { id: 'code', label: 'Code' },
-    { 
-      id: 'type', 
-      label: 'Type',
-      format: (value) => {
-        const type = schoolTypes.find(t => t.value === value);
-        return type ? type.label : value;
-      }
-    },
-    { id: 'circuit_name', label: 'Circuit' },
-    { id: 'district_name', label: 'District' },
-    { id: 'region_name', label: 'Region' },
-    { 
-      id: 'created_at', 
-      label: 'Created Date',
-      format: (value) => new Date(value).toLocaleString()
-    },
   ];
 
   // Fetch schools on mount and pagination change
@@ -188,7 +182,6 @@ export default function Schools() {
   const handleSearch = (query) => {
     setSearchTerm(query);
     setPagination({ ...pagination, page: 0 });
-    fetchSchools();
   };
 
   // Show form for adding new school
@@ -343,7 +336,7 @@ export default function Schools() {
   // Apply filters
   useEffect(() => {
     fetchSchools();
-  }, [filters]);
+  }, [filters, searchTerm]);
 
   // Display alert notification
   const showAlert = (message, severity = 'success') => {
@@ -368,7 +361,7 @@ export default function Schools() {
         {/* Filters */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={4} md={4}>
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Filter by Region</InputLabel>
               <Select
                 name="region_id"
@@ -388,7 +381,7 @@ export default function Schools() {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={4} md={4}>
-            <FormControl fullWidth size="small" disabled={!filters.region_id}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.region_id}>
               <InputLabel>Filter by District</InputLabel>
               <Select
                 name="district_id"
@@ -408,7 +401,7 @@ export default function Schools() {
             </FormControl>
           </Grid>
           <Grid item xs={12} sm={4} md={4}>
-            <FormControl fullWidth size="small" disabled={!filters.district_id}>
+            <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.district_id}>
               <InputLabel>Filter by Circuit</InputLabel>
               <Select
                 name="circuit_id"
@@ -427,27 +420,85 @@ export default function Schools() {
               </Select>
             </FormControl>
           </Grid>
+          <Grid item xs={12} sm={12} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Search Schools"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(e.target.value); }}
+              sx={{ minWidth: 240 }}
+              placeholder="Type to search by name..."
+            />
+          </Grid>
         </Grid>
       </Box>
 
       {/* Schools Table */}
-      <DataTable
-        title="Schools"
-        columns={columns}
-        data={schools}
-        isLoading={loading}
-        totalCount={pagination.total}
-        page={pagination.page}
-        rowsPerPage={pagination.limit}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSearch={handleSearch}
-        onRefresh={fetchSchools}
-        onAdd={handleAddClick}
-        onEdit={handleEditClick}
-        onDelete={handleDeleteClick}
-        searchPlaceholder="Search schools..."
-      />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+          <TableContainer>
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>GES Code</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Circuit</TableCell>
+                  <TableCell>District</TableCell>
+                  <TableCell>Region</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {schools
+                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
+                  .map((school) => (
+                    <TableRow hover key={school.id} onClick={() => router.push(`/dashboard/admin/schools/${school.id}`)} style={{ cursor: 'pointer' }}>
+                      <TableCell>{school.name}</TableCell>
+                      <TableCell>{school.gesCode}</TableCell>
+                      <TableCell>{school.type}</TableCell>
+                      <TableCell>{school.circuit_name}</TableCell>
+                      <TableCell>{school.district_name}</TableCell>
+                      <TableCell>{school.region_name}</TableCell>
+                      <TableCell align="right">
+                        <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(school); }} size="small">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton color="error" onClick={e => { e.stopPropagation(); handleDeleteClick([school.id]); }} size="small">
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                {schools.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography variant="body1" sx={{ py: 3 }}>
+                        No schools found. Click the "Add School" button to create one.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={pagination.total}
+            rowsPerPage={pagination.limit}
+            page={pagination.page}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+          />
+        </Paper>
+      )}
 
       {/* Add/Edit School Form */}
       <FormDialog

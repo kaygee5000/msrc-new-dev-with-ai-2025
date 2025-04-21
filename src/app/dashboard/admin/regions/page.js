@@ -56,16 +56,20 @@ export default function RegionsAdmin() {
 
   // Check user authentication and admin status
   useEffect(() => {
-    const userData = localStorage.getItem('msrc_user');
+    const userData = localStorage.getItem('msrc_auth');
     if (userData) {
+      console.log('User data found, in region view:', userData);
+      
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       
       // Redirect if not admin
-      if (parsedUser.role !== 'admin') {
-        router.push('/dashboard');
-      }
+      // if (parsedUser.role !== 'admin') {
+      //   router.push('/dashboard');
+      // }
     } else {
+      console.log('User data not found, in region view:', userData);
+
       router.push('/login');
     }
   }, [router]);
@@ -82,7 +86,13 @@ export default function RegionsAdmin() {
         }
         
         const data = await response.json();
-        setRegions(data);
+        console.log(data.regions, 'regions data');	
+        
+        if (Array.isArray(data.regions)) {
+          setRegions(data.regions);
+        } else {
+          setRegions([]);
+        }
       } catch (err) {
         setError(err.message);
         setSnackbar({
@@ -308,9 +318,9 @@ export default function RegionsAdmin() {
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell>ID</TableCell>
+                    {/* <TableCell>ID</TableCell> */}
                     <TableCell>Name</TableCell>
-                    <TableCell>Code</TableCell>
+                    {/* <TableCell>Code</TableCell> */}
                     <TableCell>Description</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -320,9 +330,9 @@ export default function RegionsAdmin() {
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((region) => (
                       <TableRow hover key={region.id}>
-                        <TableCell>{region.id}</TableCell>
+                        {/* <TableCell>{region.id}</TableCell> */}
                         <TableCell>{region.name}</TableCell>
-                        <TableCell>{region.code}</TableCell>
+                        {/* <TableCell>{region.code}</TableCell> */}
                         <TableCell>{region.description}</TableCell>
                         <TableCell align="right">
                           <IconButton 

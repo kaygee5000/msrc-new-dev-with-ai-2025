@@ -30,7 +30,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     // Check if user is logged in and is admin
-    const userData = localStorage.getItem('msrc_user');
+    const userData = localStorage.getItem('msrc_auth');
     if (userData) {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
@@ -43,6 +43,13 @@ export default function AdminPage() {
       router.push('/login');
     }
   }, [router]);
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem('msrc_auth');
+    setUser(null);
+    router.push('/login');
+  };
 
   const adminModules = [
     {
@@ -97,6 +104,12 @@ export default function AdminPage() {
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f5f7fa', minHeight: 'calc(100vh - 64px)' }}>
+      {/* Logout Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="outlined" color="error" onClick={handleLogout}>
+          Logout
+        </Button>
+      </Box>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 3 }}>
         <Link 

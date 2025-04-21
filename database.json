@@ -1,0 +1,19 @@
+{
+  "dev": {
+    "driver": "mysql",
+    "host": "field.msrcghana.org",
+    "port": 3306,
+    "user": "forge",
+    "password": "qv0NqfPLRLPEtMHm4snH",
+    "database": "field_msrcghana_db",
+    "multipleStatements": true
+  },
+  "production": {
+    "driver": "mysql",
+    "host": "YOUR_PRODUCTION_HOST",
+    "user": "YOUR_PRODUCTION_USER",
+    "password": "YOUR_PRODUCTION_PASSWORD",
+    "database": "msrcghana_db",
+    "multipleStatements": true
+  }
+}

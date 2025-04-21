@@ -21,7 +21,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Link from 'next/link';
-import { setAuthUser, isAuthenticated, getAuthUser } from '@/utils/auth';
+import { setAuthUser, isAuthenticated, getAuthUser, ROLES, USER_TYPES, ADMIN_TYPES } from '@/utils/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,15 +37,9 @@ export default function LoginPage() {
   useEffect(() => {
     const user = isAuthenticated() ? getAuthUser() : null;
     if (user) {
-      const ADMIN_TYPES = [
-        'national_admin',
-        'regional_admin',
-        'district_admin',
-        'circuit_supervisor'
-      ];
-      if (user.type === 'data_collector') {
+      if (user.type === USER_TYPES.DATA_COLLECTOR || user.role === ROLES.DATA_COLLECTOR) {
         router.push('/reentry');
-      } else if (ADMIN_TYPES.includes(user.type)) {
+      } else if (ADMIN_TYPES.includes(user.type) || user.role === ROLES.ADMIN) {
         router.push('/dashboard');
       } else {
         router.push('/unauthorized');
@@ -96,21 +90,19 @@ export default function LoginPage() {
 
       const userData = await response.json();
       
-      // Normalize type for app logic
+      // Ensure both role and type are set consistently
       const normalizedUser = {
         ...userData.user,
-        type: userData.user.type || userData.user.role
+        // Ensure both role and type are set
+        role: userData.user.role || (ADMIN_TYPES.includes(userData.user.type) ? ROLES.ADMIN : ROLES.DATA_COLLECTOR),
+        type: userData.user.type || (userData.user.role === ROLES.ADMIN ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR)
       };
+      
       setAuthUser(normalizedUser);
-      const ADMIN_TYPES = [
-        'national_admin',
-        'regional_admin',
-        'district_admin',
-        'circuit_supervisor'
-      ];
-      if (normalizedUser.type === 'data_collector') {
+      
+      if (normalizedUser.type === USER_TYPES.DATA_COLLECTOR || normalizedUser.role === ROLES.DATA_COLLECTOR) {
         router.push('/reentry');
-      } else if (ADMIN_TYPES.includes(normalizedUser.type)) {
+      } else if (ADMIN_TYPES.includes(normalizedUser.type) || normalizedUser.role === ROLES.ADMIN) {
         router.push('/dashboard');
       } else {
         router.push('/unauthorized');
@@ -136,15 +128,19 @@ export default function LoginPage() {
         id: role === 'admin' ? 1 : 2,
         email: role === 'admin' ? 'admin@msrc.edu' : 'datacollector@msrc.edu',
         name: role === 'admin' ? 'Admin User' : 'Data Collector',
-        type: role === 'admin' ? 'national_admin' : 'data_collector',
+        // Set both role and type for consistent checking
+        role: role === 'admin' ? ROLES.ADMIN : ROLES.DATA_COLLECTOR,
+        type: role === 'admin' ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR,
         regionId: role === 'admin' ? null : 3,
         districtId: role === 'admin' ? null : 2,
         circuitId: role === 'admin' ? null : 5,
       };
+      
       setAuthUser(demoUser);
-      if (demoUser.type === 'data_collector') {
+      
+      if (demoUser.type === USER_TYPES.DATA_COLLECTOR || demoUser.role === ROLES.DATA_COLLECTOR) {
         router.push('/reentry');
-      } else if (['national_admin','regional_admin','district_admin','circuit_supervisor'].includes(demoUser.type)) {
+      } else if (ADMIN_TYPES.includes(demoUser.type) || demoUser.role === ROLES.ADMIN) {
         router.push('/dashboard');
       } else {
         router.push('/unauthorized');

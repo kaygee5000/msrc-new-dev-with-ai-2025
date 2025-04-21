@@ -59,7 +59,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('Error fetching districts:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch districts' },
+      { error: 'Failed to fetch districts', details: error.message },
       { status: 500 }
     );
   }
@@ -71,11 +71,11 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, code, region_id } = body;
+    const { name, region_id, description } = body;
 
-    if (!name || !code || !region_id) {
+    if (!name || !region_id) {
       return NextResponse.json(
-        { error: 'Name, code, and region_id are required' },
+        { error: 'Name and region_id are required' },
         { status: 400 }
       );
     }
@@ -92,8 +92,8 @@ export async function POST(request) {
 
     // Insert a new district into the database
     const [result] = await pool.query(
-      'INSERT INTO districts (name, code, region_id, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
-      [name, code, region_id]
+      'INSERT INTO districts (name, region_id, description, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+      [name, region_id, description || null]
     );
 
     return NextResponse.json(
@@ -103,7 +103,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating district:', error);
     return NextResponse.json(
-      { error: 'Failed to create district' },
+      { error: 'Failed to create district', details: error.message },
       { status: 500 }
     );
   }
@@ -116,11 +116,11 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, name, code, region_id } = body;
+    const { id, name, region_id, description } = body;
 
-    if (!id || !name || !code || !region_id) {
+    if (!id || !name || !region_id) {
       return NextResponse.json(
-        { error: 'ID, name, code, and region_id are required' },
+        { error: 'ID, name, and region_id are required' },
         { status: 400 }
       );
     }
@@ -147,8 +147,8 @@ export async function PUT(request) {
 
     // Update district
     await pool.query(
-      'UPDATE districts SET name = ?, code = ?, region_id = ?, updated_at = NOW() WHERE id = ?',
-      [name, code, region_id, id]
+      'UPDATE districts SET name = ?, region_id = ?, description = ?, updated_at = NOW() WHERE id = ?',
+      [name, region_id, description || null, id]
     );
 
     return NextResponse.json(
@@ -157,7 +157,7 @@ export async function PUT(request) {
   } catch (error) {
     console.error('Error updating district:', error);
     return NextResponse.json(
-      { error: 'Failed to update district' },
+      { error: 'Failed to update district', details: error.message },
       { status: 500 }
     );
   }
@@ -201,7 +201,7 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Error deleting district:', error);
     return NextResponse.json(
-      { error: 'Failed to delete district' },
+      { error: 'Failed to delete district', details: error.message },
       { status: 500 }
     );
   }

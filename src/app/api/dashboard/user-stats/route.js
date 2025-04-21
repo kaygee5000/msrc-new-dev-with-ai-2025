@@ -115,7 +115,7 @@ export async function GET(request) {
     // Latest activity for this user's scope
     let activityQuery = `
       SELECT al.*, u.name as user_name, u.role
-      FROM activity_logs al
+      FROM user_logs al
       JOIN users u ON al.user_id = u.id
     `;
 

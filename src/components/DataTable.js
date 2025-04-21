@@ -11,6 +11,7 @@ import {
   Paper,
   TablePagination
 } from '@mui/material';
+import { formatDate, formatDateTime } from '@/utils/dates';
 
 /**
  * DataTable component for displaying tabular data with pagination
@@ -23,6 +24,8 @@ import {
  * @returns {React.Component} - DataTable component
  */
 const DataTable = ({ columns = [], rows = [], pageSize = 10, onRowClick }) => {
+  console.log('[DataTable] rows prop:', rows);
+
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(pageSize);
 
@@ -35,12 +38,41 @@ const DataTable = ({ columns = [], rows = [], pageSize = 10, onRowClick }) => {
     setPage(0);
   };
 
+  // Helper to generate a unique key for each row
+  const getRowKey = (row, index) => {
+    const key = (row.id !== undefined && row.id !== null) ? row.id : (Object.values(row).join('-') + '-' + index);
+    // console.log('[DataTable] Row key:', key, '| Row:', row);
+    return key;
+  };
+
   // Format cell value based on valueFormatter if provided in column definition
   const formatCellValue = (row, column) => {
     const value = row[column.field];
+    
+    // If column has a valueFormatter, use it
     if (column.valueFormatter && value !== undefined && value !== null) {
       return column.valueFormatter({ value, row });
     }
+    
+    // Auto-format date fields with our standard format
+    if (value instanceof Date || (typeof value === 'string' && !isNaN(Date.parse(value)))) {
+      // Check if field name likely contains a date
+      const fieldName = column.field.toLowerCase();
+      if (fieldName.includes('date') || 
+          fieldName.includes('created_at') || 
+          fieldName.includes('updated_at') ||
+          fieldName.includes('submitted_at') ||
+          fieldName === 'timestamp' ||
+          fieldName.includes('_at')) {
+        
+        // Use time if field likely contains time information
+        if (fieldName.includes('time') || fieldName.includes('created_at')) {
+          return formatDateTime(value);
+        }
+        return formatDate(value);
+      }
+    }
+    
     return value;
   };
 
@@ -66,12 +98,12 @@ const DataTable = ({ columns = [], rows = [], pageSize = 10, onRowClick }) => {
               .map((row, index) => (
                 <TableRow 
                   hover 
-                  key={row.id || index}
+                  key={getRowKey(row, index)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   style={onRowClick ? { cursor: 'pointer' } : {}}
                 >
                   {columns.map((column) => (
-                    <TableCell key={`${row.id || index}-${column.field}`}>
+                    <TableCell key={`${getRowKey(row, index)}-${column.field}`}>
                       {formatCellValue(row, column)}
                     </TableCell>
                   ))}

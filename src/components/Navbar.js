@@ -12,12 +12,22 @@ import {
   Drawer,
   List,
   ListItem,
-  ListItemButton,
+  ListItemIcon,
   ListItemText,
+  ListItemButton,
   Container,
   useScrollTrigger,
+  Divider,
+  Menu,
+  MenuItem,
+  Avatar
 } from "@mui/material";
 import MenuIcon from '@mui/icons-material/Menu';
+import SettingsIcon from '@mui/icons-material/Settings';
+import PersonIcon from '@mui/icons-material/Person';
+import { useAuth } from '@/components/AuthProvider';
+import { usePathname } from 'next/navigation';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
 // Fix the ElevationScroll component
 const ElevationScroll = ({ children }) => {
@@ -43,6 +53,17 @@ const ElevationScroll = ({ children }) => {
 
 export default function Navbar() {
   const [openDrawer, setOpenDrawer] = useState(false);
+  const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
+  const [profileMenuAnchor, setProfileMenuAnchor] = useState(null);
+  const { user, isAuthenticated, logout } = useAuth();
+  const pathname = usePathname();
+
+  // Handle client-side authenticated rendering to avoid hydration issues
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const toggleDrawer = (open) => (event) => {
     if (event.type === 'keydown' && (event.key === 'Tab' || event.key === 'Shift')) {
@@ -51,34 +72,163 @@ export default function Navbar() {
     setOpenDrawer(open);
   };
 
-  const navItems = [
+  // Base navigation items - shown to all users
+  const publicNavItems = [
     { name: 'Home', path: '/' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
   ];
 
+  // Dashboard menu items - only shown when logged in
+  const dashboardItems = [
+    { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Right to Play', path: '/rtp' },
+  ];
+
+  // Admin menu items - only shown for admin users
+  const adminItems = user?.role === 'admin' ? [
+    { name: 'Admin Dashboard', path: '/dashboard/admin' },
+    { name: 'RTP Dashboard', path: '/dashboard/admin/rtp' },
+  ] : [];
+
+  // Profile menu items - only shown when logged in
+  const profileItems = [
+    { name: 'Profile', path: '/dashboard/profile', icon: <PersonIcon fontSize="small" /> },
+    { name: 'Settings', path: '/dashboard/settings', icon: <SettingsIcon fontSize="small" /> },
+  ];
+
+  const handleDashboardMenuOpen = (event) => {
+    setDashboardMenuAnchor(event.currentTarget);
+  };
+
+  const handleDashboardMenuClose = () => {
+    setDashboardMenuAnchor(null);
+  };
+
+  const handleProfileMenuOpen = (event) => {
+    setProfileMenuAnchor(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setProfileMenuAnchor(null);
+  };
+
+  const handleLogout = () => {
+    handleProfileMenuClose();
+    logout();
+  };
+
+  // Determine which nav items to show based on authentication
+  const navItems = isAuthenticated ? publicNavItems : publicNavItems;
+
+  // Combined drawer list with conditional elements
   const drawerList = (
     <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)} onKeyDown={toggleDrawer(false)}>
       <List>
         {navItems.map((item) => (
-          <ListItem key={item.name} disablePadding>
+          <ListItem key={item.path} disablePadding>
             <Link href={item.path} style={{ textDecoration: 'none', width: '100%' }}>
-              <ListItemButton component="div">
+              <ListItemButton key={item.path} component="div">
                 <ListItemText primary={item.name} />
               </ListItemButton>
             </Link>
           </ListItem>
         ))}
-        <ListItem disablePadding>
-          <Link href="/login" style={{ textDecoration: 'none', width: '100%' }}>
-            <ListItemButton component="div">
-              <ListItemText primary="Log In" />
-            </ListItemButton>
-          </Link>
-        </ListItem>
+        
+        {isClient && (
+          <>
+            {isAuthenticated ? (
+              <>
+                <Divider sx={{ my: 1 }} />
+                {dashboardItems.map((item) => (
+                  <ListItem key={item.path} disablePadding>
+                    <Link href={item.path} style={{ textDecoration: 'none', width: '100%' }}>
+                      <ListItemButton 
+                        key={item.path} 
+                        component="div"
+                        selected={pathname === item.path}
+                      >
+                        <ListItemText primary={item.name} />
+                      </ListItemButton>
+                    </Link>
+                  </ListItem>
+                ))}
+                
+                {user?.role === 'admin' && (
+                  <>
+                    <Divider sx={{ my: 1 }} />
+                    <ListItem>
+                      <ListItemText primary="Admin" sx={{ fontWeight: 'bold' }} />
+                    </ListItem>
+                    {adminItems.map((item) => (
+                      <ListItem key={item.path} disablePadding>
+                        <Link href={item.path} style={{ textDecoration: 'none', width: '100%' }}>
+                          <ListItemButton 
+                            key={item.path} 
+                            component="div"
+                            selected={pathname === item.path}
+                          >
+                            <ListItemText primary={item.name} />
+                          </ListItemButton>
+                        </Link>
+                      </ListItem>
+                    ))}
+                  </>
+                )}
+                
+                <Divider sx={{ my: 1 }} />
+                {profileItems.map((item) => (
+                  <ListItem key={item.path} disablePadding>
+                    <Link href={item.path} style={{ textDecoration: 'none', width: '100%' }}>
+                      <ListItemButton 
+                        key={item.path} 
+                        component="div"
+                        selected={pathname === item.path}
+                      >
+                        <ListItemIcon>{item.icon}</ListItemIcon>
+                        <ListItemText primary={item.name} />
+                      </ListItemButton>
+                    </Link>
+                  </ListItem>
+                ))}
+                
+                <ListItem disablePadding>
+                  <ListItemButton component="div" onClick={handleLogout}>
+                    <ListItemText primary="Log Out" />
+                  </ListItemButton>
+                </ListItem>
+              </>
+            ) : (
+              <ListItem disablePadding>
+                <Link href="/login" style={{ textDecoration: 'none', width: '100%' }}>
+                  <ListItemButton component="div">
+                    <ListItemText primary="Log In" />
+                  </ListItemButton>
+                </Link>
+              </ListItem>
+            )}
+          </>
+        )}
+        
+        {/* Show static items during SSR to prevent hydration errors */}
+        {!isClient && (
+          <ListItem disablePadding>
+            <Link href="/login" style={{ textDecoration: 'none', width: '100%' }}>
+              <ListItemButton component="div">
+                <ListItemText primary="Log In" />
+              </ListItemButton>
+            </Link>
+          </ListItem>
+        )}
       </List>
     </Box>
   );
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user || !user.name) return "U";
+    return user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
 
   return (
     <React.Fragment>
@@ -97,14 +247,14 @@ export default function Navbar() {
                     color: 'primary.main'
                   }}
                 >
-                  MSRC
+                  mSRC
                 </Typography>
               </Link>
               
               {/* Desktop Navigation */}
               <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
                 {navItems.map((item) => (
-                  <Link key={item.name} href={item.path} style={{ textDecoration: 'none' }}>
+                  <Link key={item.path} href={item.path} style={{ textDecoration: 'none' }}>
                     <Typography 
                       component="div"
                       sx={{ 
@@ -120,11 +270,143 @@ export default function Navbar() {
                     </Typography>
                   </Link>
                 ))}
-                <Link href="/login" style={{ textDecoration: 'none', marginLeft: 2 }}>
-                  <Button variant="outlined" color="primary" component="div">
+                
+                {isClient && (
+                  <>
+                    {isAuthenticated ? (
+                      <>
+                        <Button 
+                          onClick={handleDashboardMenuOpen}
+                          endIcon={<ArrowDropDownIcon />}
+                          sx={{ mx: 2 }}
+                        >
+                          Dashboard
+                        </Button>
+                        <Menu
+                          anchorEl={dashboardMenuAnchor}
+                          open={Boolean(dashboardMenuAnchor)}
+                          onClose={handleDashboardMenuClose}
+                        >
+                          {[
+                            ...dashboardItems.map((item) => (
+                              <MenuItem 
+                                key={item.path} 
+                                onClick={handleDashboardMenuClose}
+                                selected={pathname === item.path}
+                              >
+                                <Link href={item.path} style={{ textDecoration: 'none', color: 'inherit' }}>
+                                  {item.name}
+                                </Link>
+                              </MenuItem>
+                            )),
+                            ...(user?.role === 'admin' && adminItems.length > 0
+                              ? [
+                                  <Divider key="divider" />,
+                                  ...adminItems.map((item) => (
+                                    <MenuItem 
+                                      key={item.path} 
+                                      onClick={handleDashboardMenuClose}
+                                      selected={pathname === item.path}
+                                    >
+                                      <Link href={item.path} style={{ textDecoration: 'none', color: 'inherit' }}>
+                                        {item.name}
+                                      </Link>
+                                    </MenuItem>
+                                  ))
+                                ]
+                              : [])
+                          ]}
+                        </Menu>
+                        
+                        {/* Profile Avatar and Menu */}
+                        <IconButton 
+                          onClick={handleProfileMenuOpen}
+                          size="small"
+                          sx={{ ml: 2 }}
+                          aria-controls={Boolean(profileMenuAnchor) ? 'profile-menu' : undefined}
+                          aria-haspopup="true"
+                          aria-expanded={Boolean(profileMenuAnchor) ? 'true' : undefined}
+                        >
+                          <Avatar 
+                            sx={{ 
+                              width: 40, 
+                              height: 40, 
+                              bgcolor: 'primary.main',
+                              fontSize: '1rem'
+                            }}
+                          >
+                            {getUserInitials()}
+                          </Avatar>
+                        </IconButton>
+                        <Menu
+                          id="profile-menu"
+                          anchorEl={profileMenuAnchor}
+                          open={Boolean(profileMenuAnchor)}
+                          onClose={handleProfileMenuClose}
+                          PaperProps={{
+                            elevation: 0,
+                            sx: {
+                              minWidth: 180,
+                              overflow: 'visible',
+                              filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.1))',
+                              mt: 1.5
+                            },
+                          }}
+                          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                        >
+                          {user && (
+                            <Box sx={{ px: 2, py: 1.5 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                                {user.name || 'User'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {user.email || ''}
+                              </Typography>
+                            </Box>
+                          )}
+                          <Divider />
+                          {profileItems.map((item) => (
+                            <MenuItem 
+                              key={item.path} 
+                              onClick={handleProfileMenuClose}
+                            >
+                              <ListItemIcon>{item.icon}</ListItemIcon>
+                              <Link href={item.path} style={{ textDecoration: 'none', color: 'inherit' }}>
+                                {item.name}
+                              </Link>
+                            </MenuItem>
+                          ))}
+                          <Divider />
+                          <MenuItem onClick={handleLogout}>
+                            Log out
+                          </MenuItem>
+                        </Menu>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        component={Link}
+                        href="/login"
+                        sx={{ ml: 2 }}
+                      >
+                        Log In
+                      </Button>
+                    )}
+                  </>
+                )}
+                
+                {/* Show static button during SSR to avoid hydration error */}
+                {!isClient && (
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    sx={{ ml: 2 }}
+                  >
                     Log In
                   </Button>
-                </Link>
+                )}
               </Box>
               
               {/* Mobile Navigation */}

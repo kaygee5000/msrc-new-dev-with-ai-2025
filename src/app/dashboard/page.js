@@ -5,7 +5,7 @@ import {
   Card, CardContent, Typography, Grid, Box, 
   CircularProgress, Tabs, Tab, Paper, Divider,
   Drawer, List, ListItem, ListItemIcon, ListItemText,
-  ListItemButton, Toolbar, AppBar, IconButton
+  ListItemButton, Toolbar, AppBar, IconButton, Button
 } from '@mui/material';
 import { 
   PersonOutline, School, AccountBalance, 
@@ -15,8 +15,8 @@ import {
 } from '@mui/icons-material';
 import Charts from '../../components/Charts';
 import DataTable from '../../components/DataTable';
-import { mockDashboardData, mockUserStats } from '../../utils/mockData';
 import Link from 'next/link';
+import { formatDate, formatDateTime } from '@/utils/dates';
 
 // Drawer width
 const drawerWidth = 240;
@@ -45,12 +45,11 @@ function TabPanel(props) {
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
-  const [userStats, setUserStats] = useState(null);
   const [currentUser, setCurrentUser] = useState({
-    id: 1, // This would come from auth context in a real app
+    id: 1,
     name: 'Admin User',
-    role: 'national', // 'national', 'regional', 'district', or 'school'
-    entityId: null // Region, district, or school ID depending on role
+    role: 'national',
+    entityId: null
   });
   const [currentTab, setCurrentTab] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -63,31 +62,16 @@ const DashboardPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch general dashboard data
         const dashboardResponse = await fetch('/api/dashboard/stats');
         const dashboardResult = await dashboardResponse.json();
-        
-        // Fetch user-specific stats based on role
-        const userStatsResponse = await fetch(
-          `/api/dashboard/user-stats?userId=${currentUser.id}&role=${currentUser.role}${
-            currentUser.entityId ? `&entityId=${currentUser.entityId}` : ''
-          }`
-        );
-        const userStatsResult = await userStatsResponse.json();
-        
         setDashboardData(dashboardResult);
-        setUserStats(userStatsResult.stats);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        // Use mock data if API calls fail
-        setDashboardData(mockDashboardData);
-        setUserStats(mockUserStats);
+        setDashboardData(null);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [currentUser]);
 
@@ -103,6 +87,7 @@ const DashboardPage = () => {
     { text: 'Circuits', icon: <Business />, path: '/dashboard/admin/circuits' },
     { text: 'Schools', icon: <School />, path: '/dashboard/admin/schools' },
     { text: 'Users', icon: <Groups />, path: '/dashboard/admin/users' },
+    { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/admin/reentry' },
     { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
     { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
     { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
@@ -143,97 +128,65 @@ const DashboardPage = () => {
     );
   }
 
-  // Generate charts based on the stats data
+  // Add null check for user
+  if (!currentUser || !currentUser.id) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          You must be logged in to access this page.
+        </Typography>
+        <Button variant="contained" color="primary" href="/login">
+          Go to Login
+        </Button>
+      </Box>
+    );
+  }
+
+  // Use new API structure
+  const enrollmentStats = dashboardData?.stats?.enrollment || {};
+  const attendanceStats = dashboardData?.stats?.attendance || {};
+  const facilitatorStats = dashboardData?.stats?.facilitator || {};
+  const activityLogs = dashboardData?.activityLogs || [];
+
+  // Chart generators using new structure
   const generateEnrollmentChart = () => {
-    const data = userStats?.weekly || { total_boys: 0, total_girls: 0 };
     return {
       options: {
-        chart: {
-          type: 'pie'
-        },
+        chart: { type: 'pie' },
         labels: ['Boys', 'Girls'],
         colors: ['#2196F3', '#FF4081']
       },
-      series: [parseInt(data.total_boys || 0), parseInt(data.total_girls || 0)]
+      series: [parseInt(enrollmentStats.total_boys || 0), parseInt(enrollmentStats.total_girls || 0)]
     };
   };
-
   const generateAttendanceChart = () => {
-    const data = userStats?.weekly || { avg_boys_attendance: 0, avg_girls_attendance: 0 };
     return {
       options: {
-        chart: {
-          type: 'bar'
-        },
-        plotOptions: {
-          bar: {
-            horizontal: false,
-            columnWidth: '55%',
-          },
-        },
-        dataLabels: {
-          enabled: false
-        },
-        xaxis: {
-          categories: ['Boys', 'Girls', 'Overall'],
-        },
+        chart: { type: 'bar' },
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%' } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: ['Boys', 'Girls', 'Overall'] },
         colors: ['#2196F3']
       },
       series: [{
         name: 'Attendance Rate (%)',
         data: [
-          parseFloat(data.avg_boys_attendance || 0).toFixed(1),
-          parseFloat(data.avg_girls_attendance || 0).toFixed(1),
-          parseFloat((Number(data.avg_boys_attendance || 0) + Number(data.avg_girls_attendance || 0)) / 2).toFixed(1)
+          parseFloat(attendanceStats.avg_boys_attendance || 0).toFixed(1),
+          parseFloat(attendanceStats.avg_girls_attendance || 0).toFixed(1),
+          parseFloat(((Number(attendanceStats.avg_boys_attendance || 0) + Number(attendanceStats.avg_girls_attendance || 0)) / 2)).toFixed(1)
         ]
       }]
     };
   };
-
   const generateFacilitatorChart = () => {
-    const data = userStats?.weekly || { avg_facilitator_attendance: 0 };
     return {
       options: {
-        chart: {
-          type: 'radialBar',
-        },
-        plotOptions: {
-          radialBar: {
-            hollow: {
-              size: '70%',
-            }
-          }
-        },
+        chart: { type: 'radialBar' },
+        plotOptions: { radialBar: { hollow: { size: '70%' } } },
         labels: ['Facilitator Attendance'],
         colors: ['#4CAF50']
       },
-      series: [parseFloat(data.avg_facilitator_attendance || 0).toFixed(1)]
-    };
-  };
-
-  const generateSchoolManagementChart = () => {
-    const data = userStats?.termly || { 
-      avg_management_score: 0, 
-      avg_grounds_score: 0, 
-      avg_community_score: 0 
-    };
-    return {
-      options: {
-        chart: {
-          type: 'radar'
-        },
-        xaxis: {
-          categories: ['Management', 'Grounds', 'Community']
-        }
-      },
-      series: [{
-        name: 'Score',
-        data: [
-          parseFloat(data.avg_management_score || 0).toFixed(1),
-          parseFloat(data.avg_grounds_score || 0).toFixed(1),
-          parseFloat(data.avg_community_score || 0).toFixed(1)
-        ]
-      }]
+      series: [parseFloat(facilitatorStats.avg_facilitator_attendance || 0).toFixed(1)]
     };
   };
 
@@ -365,7 +318,7 @@ const DashboardPage = () => {
                 <Event sx={{ fontSize: 40, mr: 2, color: '#E91E63' }} />
                 <Box>
                   <Typography color="textSecondary" gutterBottom>Weekly Submissions</Typography>
-                  <Typography variant="h5">{userStats?.weekly?.total_submissions || 0}</Typography>
+                  <Typography variant="h5">{dashboardData?.stats?.weekly?.total_submissions || 0}</Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -377,7 +330,7 @@ const DashboardPage = () => {
                 <Assessment sx={{ fontSize: 40, mr: 2, color: '#9C27B0' }} />
                 <Box>
                   <Typography color="textSecondary" gutterBottom>Termly Submissions</Typography>
-                  <Typography variant="h5">{userStats?.termly?.total_submissions || 0}</Typography>
+                  <Typography variant="h5">{dashboardData?.stats?.termly?.total_submissions || 0}</Typography>
                 </Box>
               </CardContent>
             </Card>
@@ -390,7 +343,7 @@ const DashboardPage = () => {
                 <Box>
                   <Typography color="textSecondary" gutterBottom>Total Enrollment</Typography>
                   <Typography variant="h5">
-                    {parseInt(userStats?.weekly?.total_boys || 0) + parseInt(userStats?.weekly?.total_girls || 0)}
+                    {parseInt(enrollmentStats.total_boys || 0) + parseInt(enrollmentStats.total_girls || 0)}
                   </Typography>
                 </Box>
               </CardContent>
@@ -405,8 +358,8 @@ const DashboardPage = () => {
                   <Typography color="textSecondary" gutterBottom>Avg. Attendance</Typography>
                   <Typography variant="h5">
                     {parseFloat(
-                      (Number(userStats?.weekly?.avg_boys_attendance || 0) + 
-                      Number(userStats?.weekly?.avg_girls_attendance || 0)) / 2
+                      (Number(attendanceStats.avg_boys_attendance || 0) + 
+                      Number(attendanceStats.avg_girls_attendance || 0)) / 2
                     ).toFixed(1)}%
                   </Typography>
                 </Box>
@@ -449,16 +402,16 @@ const DashboardPage = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={4}>
                         <Typography variant="body2" color="textSecondary">Boys</Typography>
-                        <Typography variant="h6">{userStats?.weekly?.total_boys || 0}</Typography>
+                        <Typography variant="h6">{enrollmentStats.total_boys || 0}</Typography>
                       </Grid>
                       <Grid item xs={4}>
                         <Typography variant="body2" color="textSecondary">Girls</Typography>
-                        <Typography variant="h6">{userStats?.weekly?.total_girls || 0}</Typography>
+                        <Typography variant="h6">{enrollmentStats.total_girls || 0}</Typography>
                       </Grid>
                       <Grid item xs={4}>
                         <Typography variant="body2" color="textSecondary">Total</Typography>
                         <Typography variant="h6">
-                          {parseInt(userStats?.weekly?.total_boys || 0) + parseInt(userStats?.weekly?.total_girls || 0)}
+                          {parseInt(enrollmentStats.total_boys || 0) + parseInt(enrollmentStats.total_girls || 0)}
                         </Typography>
                       </Grid>
                     </Grid>
@@ -501,13 +454,13 @@ const DashboardPage = () => {
                       <Grid item xs={6}>
                         <Typography variant="body2" color="textSecondary">Attendance Rate</Typography>
                         <Typography variant="h6">
-                          {parseFloat(userStats?.weekly?.avg_facilitator_attendance || 0).toFixed(1)}%
+                          {parseFloat(facilitatorStats.avg_facilitator_attendance || 0).toFixed(1)}%
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body2" color="textSecondary">Punctuality Rate</Typography>
                         <Typography variant="h6">
-                          {parseFloat(userStats?.weekly?.avg_facilitator_punctuality || 0).toFixed(1)}%
+                          {parseFloat(facilitatorStats.avg_facilitator_punctuality || 0).toFixed(1)}%
                         </Typography>
                       </Grid>
                     </Grid>
@@ -522,8 +475,18 @@ const DashboardPage = () => {
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>School Performance Metrics</Typography>
                 <Charts 
-                  options={generateSchoolManagementChart().options}
-                  series={generateSchoolManagementChart().series}
+                  options={{
+                    chart: { type: 'radar' },
+                    xaxis: { categories: ['Management', 'Grounds', 'Community'] }
+                  }}
+                  series={[{
+                    name: 'Score',
+                    data: [
+                      parseFloat(dashboardData?.stats?.termly?.avg_management_score || 0).toFixed(1),
+                      parseFloat(dashboardData?.stats?.termly?.avg_grounds_score || 0).toFixed(1),
+                      parseFloat(dashboardData?.stats?.termly?.avg_community_score || 0).toFixed(1)
+                    ]
+                  }]}
                   type="radar"
                   height={350}
                 />
@@ -533,7 +496,7 @@ const DashboardPage = () => {
           
           <TabPanel value={currentTab} index={4}>
             <Typography variant="h6" gutterBottom>Latest Activities</Typography>
-            {userStats?.activities && userStats.activities.length > 0 ? (
+            {activityLogs.length > 0 ? (
               <DataTable 
                 columns={[
                   { field: 'id', headerName: 'ID', width: 70 },
@@ -544,10 +507,10 @@ const DashboardPage = () => {
                     field: 'created_at', 
                     headerName: 'Date', 
                     width: 180,
-                    valueFormatter: (params) => new Date(params.value).toLocaleString()
+                    valueFormatter: (params) => formatDate(params.value)
                   }
                 ]}
-                rows={userStats.activities}
+                rows={activityLogs}
               />
             ) : (
               <Typography variant="body1">No recent activities found</Typography>
@@ -582,7 +545,7 @@ const DashboardPage = () => {
                   field: 'created_at', 
                   headerName: 'Date', 
                   width: 180,
-                  valueFormatter: (params) => new Date(params.value).toLocaleString()
+                  valueFormatter: (params) => formatDate(params.value)
                 }
               ]}
               rows={dashboardData.latestSubmissions}
