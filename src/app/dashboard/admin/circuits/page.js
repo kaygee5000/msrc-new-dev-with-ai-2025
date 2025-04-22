@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -60,15 +60,8 @@ export default function Circuits() {
 
   const router = useRouter();
 
-  // Fetch circuits on mount and pagination change
-  useEffect(() => {
-    fetchCircuits();
-    fetchRegions();
-    fetchDistricts();
-  }, [pagination.page, pagination.limit]);
-
-  // Fetch circuits from API
-  const fetchCircuits = async () => {
+  // Fetch circuits from API - wrapped in useCallback to avoid dependency issues
+  const fetchCircuits = useCallback(async () => {
     setLoading(true);
     try {
       let url = `/api/circuits?page=${pagination.page + 1}&limit=${pagination.limit}`;
@@ -101,7 +94,7 @@ export default function Circuits() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.limit, searchTerm, filters]);
 
   // Fetch regions for filters and circuit form
   const fetchRegions = async () => {
@@ -290,10 +283,17 @@ export default function Circuits() {
     // Fetch will happen in useEffect
   };
 
+  // Fetch circuits on mount and pagination change
+  useEffect(() => {
+    fetchCircuits();
+    fetchRegions();
+    fetchDistricts();
+  }, [pagination.page, pagination.limit, fetchCircuits]);
+
   // Apply filters and search term
   useEffect(() => {
     fetchCircuits();
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, fetchCircuits]);
 
   // Display alert notification
   const showAlert = (message, severity = 'success') => {

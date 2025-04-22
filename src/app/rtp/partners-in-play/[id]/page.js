@@ -34,10 +34,12 @@ import {
   List,
   ListItem,
   ListItemText,
-  Tooltip
+  Tooltip,
+  FormHelperText
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
@@ -45,7 +47,13 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 export default function PartnersInPlayWithItinerary({ params }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  const isRtpAuthorized = user?.programRoles?.some(pr => pr.program_code === "rtp") || false;
+  
   const router = useRouter();
   const { id: itineraryId } = params;
   

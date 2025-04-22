@@ -1,78 +1,91 @@
 // filepath: c:\Users\HP EliteBook\Documents\Projects\mSRC\msrc-enhanced\msrc-app\src\app\api\rtp\consolidated-checklist\route.js
 import { NextResponse } from 'next/server';
-import db from '@/utils/db';
+import mysql from 'mysql2/promise';
+import { getConnectionConfig } from '@/utils/db';
 
 /**
- * GET /api/rtp/consolidated-checklist
- * Fetches Consolidated Checklist responses with optional filtering
+ * Fetch consolidated checklist responses for a specific itinerary
+ * 
+ * @param {Object} req - The request object
+ * @returns {NextResponse} - The response with consolidated checklist data
  */
 export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const itineraryId = searchParams.get('itineraryId');
-    const schoolId = searchParams.get('schoolId');
-    const id = searchParams.get('id'); // For getting a specific response
+    // Extract itinerary ID from the request URL
+    const url = new URL(req.url);
+    const itineraryId = url.searchParams.get('itineraryId');
     
-    // Build query with optional filters
-    let query = `
-      SELECT r.*, s.name as school_name, d.name as district_name, 
-             u.name as submitted_by_name, i.title as itinerary_title
-      FROM right_to_play_consolidated_checklist_responses r
-      JOIN right_to_play_itineraries i ON r.itinerary_id = i.id
-      JOIN schools s ON r.school_id = s.id
-      JOIN districts d ON s.district_id = d.id
-      LEFT JOIN users u ON r.submitted_by = u.id
-      WHERE r.deleted_at IS NULL
-    `;
-    
-    const queryParams = [];
-    
-    if (id) {
-      query += ` AND r.id = ?`;
-      queryParams.push(parseInt(id));
+    if (!itineraryId) {
+      return NextResponse.json(
+        { error: 'Missing required parameter: itineraryId' },
+        { status: 400 }
+      );
     }
-    
-    if (itineraryId) {
-      query += ` AND r.itinerary_id = ?`;
-      queryParams.push(parseInt(itineraryId));
-    }
-    
-    if (schoolId) {
-      query += ` AND r.school_id = ?`;
-      queryParams.push(parseInt(schoolId));
-    }
-    
-    query += ` ORDER BY r.submitted_at DESC`;
-    
-    const [responses] = await db.query(query, queryParams);
-    
-    // For each response, get the detailed answers
-    for (let i = 0; i < responses.length; i++) {
-      const [answers] = await db.query(`
+
+    // Create database connection
+    const connection = await mysql.createConnection(getConnectionConfig());
+
+    try {
+      // Query to get consolidated checklist responses with school information
+      const [responses] = await connection.execute(`
         SELECT 
-          a.*,
-          q.question,
-          q.target,
-          q.indicator_type,
-          q.is_required,
-          q.question_form
-        FROM right_to_play_consolidated_checklist_answers a
-        JOIN right_to_play_questions q ON a.question_id = q.id
-        WHERE a.response_id = ?
-        ORDER BY q.display_order ASC, q.id ASC
-      `, [responses[i].id]);
-      
-      responses[i].answers = answers;
+          ccr.id, 
+          ccr.itinerary_id, 
+          ccr.school_id, 
+          s.name AS school_name,
+          ccr.teacher_id,
+          CONCAT(t.first_name, ' ', t.last_name) AS teacher_name,
+          ccr.submitted_by, 
+          CONCAT(u.first_name, ' ', u.last_name) AS submitter_name,
+          ccr.submitted_at, 
+          ccr.created_at
+        FROM 
+          right_to_play_consolidated_checklist_responses ccr
+        JOIN 
+          schools s ON ccr.school_id = s.id
+        LEFT JOIN 
+          teachers t ON ccr.teacher_id = t.id
+        JOIN 
+          users u ON ccr.submitted_by = u.id
+        WHERE 
+          ccr.itinerary_id = ? 
+          AND ccr.deleted_at IS NULL
+        ORDER BY 
+          ccr.submitted_at DESC
+      `, [itineraryId]);
+
+      // For each response, get the associated answers including file uploads
+      const responsesWithAnswers = await Promise.all(responses.map(async (response) => {
+        const [answers] = await connection.execute(`
+          SELECT 
+            id, 
+            response_id, 
+            question_id, 
+            answer_value, 
+            upload_file_path,
+            upload_file_name,
+            created_at
+          FROM 
+            right_to_play_consolidated_checklist_answers
+          WHERE 
+            response_id = ?
+        `, [response.id]);
+
+        return {
+          ...response,
+          answers
+        };
+      }));
+
+      return NextResponse.json(responsesWithAnswers);
+    } finally {
+      // Always close the connection
+      await connection.end();
     }
-    
-    return NextResponse.json({
-      status: 'success',
-      data: responses
-    });
   } catch (error) {
-    console.error('Error fetching Consolidated Checklist data:', error);
+    console.error('Error fetching consolidated checklist responses:', error);
     return NextResponse.json(
-      { status: 'error', message: 'Failed to fetch data', details: error.message },
+      { error: 'Failed to fetch consolidated checklist responses' },
       { status: 500 }
     );
   }

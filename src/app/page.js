@@ -35,9 +35,18 @@ export default function Home() {
         <Container maxWidth="lg">
           <Grid container spacing={4} alignItems="center">
             <Grid item xs={12} md={6}>
-              <Typography variant="h1" gutterBottom>
-                Mobile School Report Card
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+                <Image
+                  src="/assets/msrc-logo.70a4620a.png"
+                  width={80}
+                  height={80}
+                  alt="MSRC Logo"
+                  style={{ marginRight: '16px' }}
+                />
+                <Typography variant="h1" gutterBottom>
+                  Mobile School Report Card
+                </Typography>
+              </Box>
               <Typography variant="subtitle1" sx={{ mb: 4, opacity: 0.9 }}>
                 A comprehensive data collection and analytics platform supporting education 
                 decision-making for the Ghana Education Service.
@@ -72,10 +81,10 @@ export default function Home() {
             <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center' }}>
               <Box sx={{ position: 'relative', height: 400, width: '100%' }}>
                 <Image
-                  src="/file.svg"
+                  src="/assets/msrc-image.698282c4.jpg"
                   fill
-                  alt="Dashboard illustration"
-                  style={{ objectFit: 'contain' }}
+                  alt="MSRC Hero Image"
+                  style={{ objectFit: 'cover', borderRadius: '8px' }}
                 />
               </Box>
             </Grid>

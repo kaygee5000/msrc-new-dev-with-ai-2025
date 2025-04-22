@@ -15,7 +15,8 @@ import {
   LinearProgress,
   Paper
 } from '@mui/material';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import { useRouter } from 'next/navigation';
 
 export default function SchoolOutputForm({ params }) {
@@ -45,7 +46,13 @@ export default function SchoolOutputForm({ params }) {
     femaleTeacherTransfers: '',
   });
   
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  const isRtpAuthorized = user?.programRoles?.some(pr => pr.program_code === "rtp") || false;
+  
   const router = useRouter();
   
   // Fetch itinerary details and initialize form

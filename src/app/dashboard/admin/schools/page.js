@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -72,14 +72,8 @@ export default function Schools() {
     { value: 'special', label: 'Special Education School' }
   ];
 
-  // Fetch schools on mount and pagination change
-  useEffect(() => {
-    fetchSchools();
-    fetchRegions();
-  }, [pagination.page, pagination.limit]);
-
-  // Fetch schools from API
-  const fetchSchools = async () => {
+  // Fetch schools from API - wrapped in useCallback to avoid dependency issues
+  const fetchSchools = useCallback(async () => {
     setLoading(true);
     try {
       let url = `/api/schools?page=${pagination.page + 1}&limit=${pagination.limit}`;
@@ -114,7 +108,13 @@ export default function Schools() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, pagination.limit, searchTerm, filters]);
+
+  // Fetch schools on mount and pagination change
+  useEffect(() => {
+    fetchSchools();
+    fetchRegions();
+  }, [pagination.page, pagination.limit, fetchSchools]);
 
   // Fetch regions for filters
   const fetchRegions = async () => {
@@ -336,7 +336,7 @@ export default function Schools() {
   // Apply filters
   useEffect(() => {
     fetchSchools();
-  }, [filters, searchTerm]);
+  }, [filters, searchTerm, fetchSchools]);
 
   // Display alert notification
   const showAlert = (message, severity = 'success') => {

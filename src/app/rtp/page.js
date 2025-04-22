@@ -12,15 +12,22 @@ import {
   Tab,
   CircularProgress
 } from '@mui/material';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import { useRouter } from 'next/navigation';
-import { isRtpAuthorized } from '@/utils/auth';
 
 // Main component for RTP data collection page
 export default function RightToPlayPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [itineraries, setItineraries] = useState([]);
-  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  const isRtpAuthorized = user?.programRoles?.some(pr => pr.program_code === 'rtp') || false;
+  
   const router = useRouter();
   
   // Add null check for user
@@ -74,10 +81,8 @@ export default function RightToPlayPage() {
   // Function to navigate to appropriate form
   const navigateToForm = (formType, itineraryId) => {
     if (formType === 'consolidated-checklist') {
-      // For consolidated checklist, go to the new form with itinerary pre-selected
       router.push(`/rtp/consolidated-checklist/new?itineraryId=${itineraryId}`);
     } else {
-      // For other forms, use the standard route
       router.push(`/rtp/${formType}/${itineraryId}`);
     }
   };
@@ -93,13 +98,11 @@ export default function RightToPlayPage() {
 
   // Hide content entirely if not authenticated
   if (!isAuthenticated) {
-    return null; // This prevents content flash before redirect completes
+    return null;
   }
   
-  // Only check RTP authorization on the client side to avoid hydration mismatch
-  const isAuthorizedForRTP = typeof window !== 'undefined' ? isRtpAuthorized() : true;
+  const isAuthorizedForRTP = typeof window !== 'undefined' ? isRtpAuthorized : true;
   
-  // Hide content if not authorized (client-side only check)
   if (!isAuthorizedForRTP) {
     return null;
   }
@@ -183,7 +186,6 @@ export default function RightToPlayPage() {
           <Typography variant="h6" gutterBottom>
             Your Submission History
           </Typography>
-          {/* Submission history table will go here */}
           <Typography>No submissions found.</Typography>
         </Box>
       )}

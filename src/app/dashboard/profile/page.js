@@ -15,15 +15,23 @@ import {
   Card,
   CardContent,
   Alert,
-  Snackbar
+  Snackbar,
+  CircularProgress
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -35,6 +43,7 @@ export default function ProfilePage() {
     title: '',
     phone: '',
   });
+  const [profileData, setProfileData] = useState(null);
   
   // Redirect if not authenticated
   useEffect(() => {
@@ -43,16 +52,38 @@ export default function ProfilePage() {
     }
   }, [isAuthenticated, isLoading, router]);
   
-  // Initialize form data when user data is available
+  // Fetch full profile data when component mounts
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        title: user.title || 'Education Officer',
-        phone: user.phone || '',
-      });
-    }
+    const fetchProfileData = async () => {
+      if (user?.id) {
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/users/profile?userId=${user.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setProfileData(data.user);
+              
+              // Initialize form with profile data
+              setFormData({
+                name: data.user.name || '',
+                email: data.user.email || '',
+                title: data.user.title || '',
+                phone: data.user.phone || '',
+              });
+            }
+          } else {
+            console.error('Failed to fetch profile data');
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchProfileData();
   }, [user]);
   
   const handleInputChange = (e) => {
@@ -67,26 +98,64 @@ export default function ProfilePage() {
     setEditing(!editing);
     
     // If canceling edit, reset form data
-    if (editing) {
+    if (editing && profileData) {
       setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        title: user.title || 'Education Officer',
-        phone: user.phone || '',
+        name: profileData.name || '',
+        email: profileData.email || '',
+        title: profileData.title || '',
+        phone: profileData.phone || '',
       });
     }
   };
   
-  const handleSaveProfile = () => {
-    // In a real application, this would save to a database
-    // For now, just show success message
-    setSnackbar({
-      open: true,
-      message: 'Profile updated successfully!',
-      severity: 'success'
-    });
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
     
-    setEditing(false);
+    setLoading(true);
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: user.id,
+          ...formData
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          // Update local profile data with the changes
+          setProfileData(prev => ({
+            ...prev,
+            ...data.user
+          }));
+          
+          setSnackbar({
+            open: true,
+            message: 'Profile updated successfully!',
+            severity: 'success'
+          });
+          
+          setEditing(false);
+        } else {
+          throw new Error(data.message || 'Failed to update profile');
+        }
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to update profile',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleCloseSnackbar = () => {
@@ -102,7 +171,7 @@ export default function ProfilePage() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
   
-  if (isLoading) {
+  if (isLoading || loading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
         <LinearProgress />
@@ -119,6 +188,9 @@ export default function ProfilePage() {
     );
   }
 
+  // Use profileData if available, otherwise fall back to the user object from auth context
+  const displayData = profileData || user;
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 4, borderRadius: 2 }}>
@@ -131,6 +203,7 @@ export default function ProfilePage() {
             variant={editing ? "outlined" : "contained"} 
             color={editing ? "secondary" : "primary"} 
             onClick={handleEditToggle}
+            disabled={loading}
           >
             {editing ? "Cancel" : "Edit Profile"}
           </Button>
@@ -149,15 +222,15 @@ export default function ProfilePage() {
                   mb: 2
                 }}
               >
-                {getInitials(user.name)}
+                {getInitials(displayData.name)}
               </Avatar>
               
               <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                {user.name || 'User'}
+                {displayData.name || 'User'}
               </Typography>
               
               <Typography variant="body1" color="text.secondary" gutterBottom>
-                {user.title || 'Education Officer'}
+                {displayData.title || 'Education Officer'}
               </Typography>
               
               <Card sx={{ width: '100%', mt: 3 }}>
@@ -171,7 +244,7 @@ export default function ProfilePage() {
                       Role
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      {user.role === 'admin' ? 'Administrator' : 'User'}
+                      {displayData.role === 'admin' ? 'Administrator' : 'User'}
                     </Typography>
                     
                     <Divider sx={{ my: 1.5 }} />
@@ -180,7 +253,7 @@ export default function ProfilePage() {
                       User Type
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      {user.type ? user.type.replace(/_/g, ' ').split(' ').map(word => 
+                      {displayData.type ? displayData.type.replace(/_/g, ' ').split(' ').map(word => 
                         word.charAt(0).toUpperCase() + word.slice(1)
                       ).join(' ') : 'Standard User'}
                     </Typography>
@@ -191,7 +264,7 @@ export default function ProfilePage() {
                       Account ID
                     </Typography>
                     <Typography variant="body1">
-                      {user.id || 'N/A'}
+                      {displayData.id || 'N/A'}
                     </Typography>
                   </Box>
                 </CardContent>
@@ -215,7 +288,7 @@ export default function ProfilePage() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      disabled={!editing}
+                      disabled={!editing || loading}
                       required
                     />
                   </Grid>
@@ -227,7 +300,7 @@ export default function ProfilePage() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      disabled={!editing}
+                      disabled={!editing || loading}
                       required
                     />
                   </Grid>
@@ -239,7 +312,7 @@ export default function ProfilePage() {
                       name="title"
                       value={formData.title}
                       onChange={handleInputChange}
-                      disabled={!editing}
+                      disabled={!editing || loading}
                     />
                   </Grid>
                   
@@ -248,9 +321,9 @@ export default function ProfilePage() {
                       fullWidth
                       label="Phone Number"
                       name="phone"
-                      value={formData.phone}
+                      value={formData.phone || ''}
                       onChange={handleInputChange}
-                      disabled={!editing}
+                      disabled={!editing || loading}
                     />
                   </Grid>
                   
@@ -261,8 +334,10 @@ export default function ProfilePage() {
                           variant="contained" 
                           color="primary" 
                           onClick={handleSaveProfile}
+                          disabled={loading}
+                          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
                         >
-                          Save Changes
+                          {loading ? 'Saving...' : 'Save Changes'}
                         </Button>
                       </Box>
                     </Grid>
@@ -271,46 +346,81 @@ export default function ProfilePage() {
               </Box>
             </Paper>
             
+            {/* Regional Assignment section */}
             <Paper sx={{ p: 3, borderRadius: 2, mt: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Regional Assignment
               </Typography>
               
               <Grid container spacing={2} sx={{ mt: 1 }}>
-                {user.regionId && (
+                {profileData?.regions && profileData.regions.length > 0 ? (
+                  profileData.regions.map(region => (
+                    <Grid item xs={12} sm={4} key={`region-${region.id}`}>
+                      <Typography variant="body2" color="text.secondary">
+                        Region
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {region.name}
+                      </Typography>
+                    </Grid>
+                  ))
+                ) : displayData.regionId ? (
                   <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="text.secondary">
                       Region
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      Region {user.regionId}
+                      Region {displayData.regionId}
                     </Typography>
                   </Grid>
-                )}
+                ) : null}
                 
-                {user.districtId && (
+                {profileData?.districts && profileData.districts.length > 0 ? (
+                  profileData.districts.map(district => (
+                    <Grid item xs={12} sm={4} key={`district-${district.id}`}>
+                      <Typography variant="body2" color="text.secondary">
+                        District
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {district.name}
+                      </Typography>
+                    </Grid>
+                  ))
+                ) : displayData.districtId ? (
                   <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="text.secondary">
                       District
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      District {user.districtId}
+                      District {displayData.districtId}
                     </Typography>
                   </Grid>
-                )}
+                ) : null}
                 
-                {user.circuitId && (
+                {profileData?.circuits && profileData.circuits.length > 0 ? (
+                  profileData.circuits.map(circuit => (
+                    <Grid item xs={12} sm={4} key={`circuit-${circuit.id}`}>
+                      <Typography variant="body2" color="text.secondary">
+                        Circuit
+                      </Typography>
+                      <Typography variant="body1" gutterBottom>
+                        {circuit.name}
+                      </Typography>
+                    </Grid>
+                  ))
+                ) : displayData.circuitId ? (
                   <Grid item xs={12} sm={4}>
                     <Typography variant="body2" color="text.secondary">
                       Circuit
                     </Typography>
                     <Typography variant="body1" gutterBottom>
-                      Circuit {user.circuitId}
+                      Circuit {displayData.circuitId}
                     </Typography>
                   </Grid>
-                )}
+                ) : null}
                 
-                {!user.regionId && !user.districtId && !user.circuitId && (
+                {!displayData.regionId && !displayData.districtId && !displayData.circuitId && 
+                 (!profileData || !profileData.regions?.length && !profileData.districts?.length && !profileData.circuits?.length) && (
                   <Grid item xs={12}>
                     <Typography variant="body1">
                       No regional assignment found.
@@ -319,6 +429,35 @@ export default function ProfilePage() {
                 )}
               </Grid>
             </Paper>
+            
+            {/* Program Assignment section - show if available in profileData */}
+            {profileData?.programRoles && profileData.programRoles.length > 0 && (
+              <Paper sx={{ p: 3, borderRadius: 2, mt: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Program Assignments
+                </Typography>
+                
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  {profileData.programRoles.map((pr, index) => (
+                    <Grid item xs={12} key={`program-${pr.id || index}`}>
+                      <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <Typography variant="subtitle1" fontWeight="medium">
+                          {pr.program_name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Role: {pr.role_name || pr.role_code}
+                        </Typography>
+                        {pr.scope_type !== 'global' && (
+                          <Typography variant="body2" color="text.secondary">
+                            Scope: {pr.scope_type} {pr.scope_id ? `(ID: ${pr.scope_id})` : ''}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+            )}
           </Grid>
         </Grid>
       </Paper>

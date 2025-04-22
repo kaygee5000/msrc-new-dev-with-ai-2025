@@ -50,7 +50,7 @@ export default function About() {
               <Typography sx={{ fontSize: '1.1rem', color: 'text.secondary' }}>
                 We believe that timely, accurate data is essential for making informed decisions 
                 that improve educational outcomes for all students. By empowering education 
-                stakeholders with actionable insights, we contribute to the development of Ghana's 
+                stakeholders with actionable insights, we contribute to the development of Ghana&apos;s 
                 education system.
               </Typography>
             </Grid>
@@ -64,7 +64,7 @@ export default function About() {
                 backbone of this vision, connecting thousands of schools across the country.
               </Typography>
               <Typography sx={{ fontSize: '1.1rem', color: 'text.secondary' }}>
-                Through our partnership with the Ghana Education Service, we're working toward a 
+                Through our partnership with the Ghana Education Service, we&apos;re working toward a 
                 future where educational resources are optimally allocated, interventions are 
                 data-driven, and every Ghanaian child has access to quality education.
               </Typography>
@@ -97,7 +97,7 @@ export default function About() {
               <Typography sx={{ mb: 3, fontSize: '1.1rem', color: 'text.secondary' }}>
                 MSRC was born out of a collaboration between the Ghana Education Service and 
                 education technology experts who identified a critical gap in data collection 
-                and management within Ghana's education system.
+                and management within Ghana&apos;s education system.
               </Typography>
               <Typography sx={{ mb: 3, fontSize: '1.1rem', color: 'text.secondary' }}>
                 In 2019, a pilot program was launched in three regions to test the concept of a 
@@ -123,7 +123,7 @@ export default function About() {
               Our Impact
             </Typography>
             <Typography variant="h6" sx={{ color: 'text.secondary' }}>
-              MSRC is making a difference in Ghana's education system
+              MSRC is making a difference in Ghana&apos;s education system
             </Typography>
           </Box>
           

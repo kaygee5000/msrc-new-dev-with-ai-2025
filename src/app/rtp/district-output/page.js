@@ -23,11 +23,15 @@ import {
   Tooltip
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
 export default function DistrictOutputForm() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+const { currentProgram } = useProgramContext();
+const user = session?.user;
+const isAuthenticated = status === "authenticated";
+const isLoading = status === "loading";
   const router = useRouter();
   
   // Form state

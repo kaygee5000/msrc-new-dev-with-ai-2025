@@ -2,7 +2,7 @@ import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import MUIProvider from "@/components/MUIProvider";
 import EmotionCache from "@/components/EmotionCache";
-import { AuthProvider } from "@/components/AuthProvider";
+import ClientProviders from "@/components/ClientProviders";
 import AppShell from '../components/AppShell';
 
 // Use Inter as a replacement for Geist (as Geist is not available in Google Fonts)
@@ -19,8 +19,11 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata = {
-  title: "MSRC - Mobile School Report Card",
+  title: "mSRC - Mobile School Report Card",
   description: "A platform for Ghana Education Service to collect and analyze school-level indicators",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -29,11 +32,11 @@ export default function RootLayout({ children }) {
       <body className={`${inter.variable} ${robotoMono.variable} antialiased`}>
         <EmotionCache>
           <MUIProvider>
-            <AuthProvider>
+            <ClientProviders>
               <AppShell>
                 {children}
               </AppShell>
-            </AuthProvider>
+            </ClientProviders>
           </MUIProvider>
         </EmotionCache>
       </body>

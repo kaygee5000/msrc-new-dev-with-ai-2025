@@ -1,291 +1,287 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Box,
-  Container,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
+import { useState } from 'react';
+import { 
+  Container, 
+  Box, 
+  Paper, 
+  Typography, 
+  TextField, 
+  Button, 
+  Alert, 
+  Link as MuiLink,
+  CircularProgress,
+  Tab,
+  Tabs,
   InputAdornment,
-  IconButton,
-  Divider,
-  Alert,
-  Stack,
-  Link as MuiLink
+  IconButton
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Link from 'next/link';
-import { setAuthUser, isAuthenticated, getAuthUser, ROLES, USER_TYPES, ADMIN_TYPES } from '@/utils/auth';
+import { useRouter } from 'next/navigation';
+import { signIn } from "next-auth/react";
+import { Visibility, VisibilityOff, Email, Phone } from '@mui/icons-material';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+
+  // State for tab selection (0 = password login, 1 = magic link login)
+  const [tabValue, setTabValue] = useState(0);
+  
+  // State for password login
+  const [credentials, setCredentials] = useState({
     email: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  // State for magic link login
+  const [email, setEmail] = useState('');
+  
+  // Common states
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Check if user is already authenticated
-  useEffect(() => {
-    const user = isAuthenticated() ? getAuthUser() : null;
-    if (user) {
-      if (user.type === USER_TYPES.DATA_COLLECTOR || user.role === ROLES.DATA_COLLECTOR) {
-        router.push('/reentry');
-      } else if (ADMIN_TYPES.includes(user.type) || user.role === ROLES.ADMIN) {
-        router.push('/dashboard');
-      } else {
-        router.push('/unauthorized');
-      }
-    }
-  }, [router]);
-
-  const handleChange = (e) => {
+  const [verificationSent, setVerificationSent] = useState(false);
+  
+  // Handle tab change
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+    // Reset states when switching tabs
+    setError('');
+    setVerificationSent(false);
+  };
+  
+  // Handle input change for password login
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setCredentials(prev => ({
       ...prev,
-      [name]: value,
+      [name]: value
     }));
   };
-
-  const togglePasswordVisibility = () => {
-    setShowPassword((prev) => !prev);
-  };
-
-  const handleSubmit = async (e) => {
+  
+  // Handle password login submission
+  const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
+    setLoading(true);
     
     try {
-      if (!formData.email || !formData.password) {
-        setError('Please fill in all fields');
-        setIsLoading(false);
-        return;
-      }
-
-      // Make API call to verify credentials
-      const response = await fetch('/api/users/authenticate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: credentials.email,
+        password: credentials.password,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Authentication failed');
+      
+      if (result.error) {
+        throw new Error(result.error || 'Invalid email or password');
       }
-
-      const userData = await response.json();
       
-      // Ensure both role and type are set consistently
-      const normalizedUser = {
-        ...userData.user,
-        // Ensure both role and type are set
-        role: userData.user.role || (ADMIN_TYPES.includes(userData.user.type) ? ROLES.ADMIN : ROLES.DATA_COLLECTOR),
-        type: userData.user.type || (userData.user.role === ROLES.ADMIN ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR)
-      };
-      
-      setAuthUser(normalizedUser);
-      
-      if (normalizedUser.type === USER_TYPES.DATA_COLLECTOR || normalizedUser.role === ROLES.DATA_COLLECTOR) {
-        router.push('/reentry');
-      } else if (ADMIN_TYPES.includes(normalizedUser.type) || normalizedUser.role === ROLES.ADMIN) {
-        router.push('/dashboard');
-      } else {
-        router.push('/unauthorized');
-      }
+      // Successfully authenticated
+      router.push('/dashboard');
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials and try again.');
       console.error('Login error:', err);
+      setError(err.message || 'Failed to login. Please check your credentials.');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  // For demo/development purposes
-  const handleDemoLogin = async (role) => {
-    setIsLoading(true);
+  
+  // Handle magic link submission
+  const handleMagicLinkLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create demo user based on selected role
-      const demoUser = {
-        id: role === 'admin' ? 1 : 2,
-        email: role === 'admin' ? 'admin@msrc.edu' : 'datacollector@msrc.edu',
-        name: role === 'admin' ? 'Admin User' : 'Data Collector',
-        // Set both role and type for consistent checking
-        role: role === 'admin' ? ROLES.ADMIN : ROLES.DATA_COLLECTOR,
-        type: role === 'admin' ? USER_TYPES.NATIONAL_ADMIN : USER_TYPES.DATA_COLLECTOR,
-        regionId: role === 'admin' ? null : 3,
-        districtId: role === 'admin' ? null : 2,
-        circuitId: role === 'admin' ? null : 5,
-      };
-      
-      setAuthUser(demoUser);
-      
-      if (demoUser.type === USER_TYPES.DATA_COLLECTOR || demoUser.role === ROLES.DATA_COLLECTOR) {
-        router.push('/reentry');
-      } else if (ADMIN_TYPES.includes(demoUser.type) || demoUser.role === ROLES.ADMIN) {
-        router.push('/dashboard');
-      } else {
-        router.push('/unauthorized');
+      if (!email) {
+        throw new Error('Please enter your email address');
       }
+      
+      const result = await signIn('email', {
+        redirect: false,
+        email: email,
+        callbackUrl: `${window.location.origin}/dashboard`,
+      });
+      
+      if (result.error) {
+        throw new Error(result.error || 'Failed to send verification email');
+      }
+      
+      // Show verification sent message
+      setVerificationSent(true);
     } catch (err) {
-      setError('Demo login failed.');
-      console.error(err);
+      console.error('Magic link request error:', err);
+      setError(err.message || 'Failed to send verification email');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  return (
-    <Box sx={{ 
-      minHeight: 'calc(100vh - 64px)', 
-      display: 'flex', 
-      flexDirection: 'column',
-      justifyContent: 'center',
-      py: 8,
-      backgroundColor: 'grey.50'
-    }}>
-      <Container maxWidth="sm">
-        <Card elevation={3}>
-          <CardContent sx={{ px: 4, py: 5 }}>
-            <Box sx={{ textAlign: 'center', mb: 4 }}>
-              <Box 
-                sx={{ 
-                  width: 56, 
-                  height: 56, 
-                  borderRadius: '50%', 
-                  bgcolor: 'primary.main', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  mx: 'auto',
-                  mb: 2
-                }}
+  
+  // Render password login form
+  const renderPasswordLogin = () => (
+    <Box component="form" onSubmit={handlePasswordLogin} sx={{ mt: 2 }}>
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        id="email"
+        label="Email Address"
+        name="email"
+        autoComplete="email"
+        autoFocus
+        value={credentials.email}
+        onChange={handleInputChange}
+        disabled={loading}
+      />
+      
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        name="password"
+        label="Password"
+        type={showPassword ? 'text' : 'password'}
+        id="password"
+        autoComplete="current-password"
+        value={credentials.password}
+        onChange={handleInputChange}
+        disabled={loading}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton
+                onClick={() => setShowPassword(!showPassword)}
+                edge="end"
               >
-                <LockOutlinedIcon fontSize="large" sx={{ color: 'white' }} />
-              </Box>
-              <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-                Sign In
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                Enter your credentials to access your account
-              </Typography>
-            </Box>
-
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <Stack spacing={3}>
-                <TextField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  fullWidth
-                  required
-                  autoComplete="email"
-                />
-
-                <TextField
-                  label="Password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={handleChange}
-                  fullWidth
-                  required
-                  autoComplete="current-password"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton onClick={togglePasswordVisibility} edge="end">
-                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <Box sx={{ textAlign: 'right' }}>
-                  <MuiLink component={Link} href="/reset-password" variant="body2" sx={{ textDecoration: 'none' }}>
-                    Forgot password?
-                  </MuiLink>
-                </Box>
-
-                <Button
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign In'}
-                </Button>
-
-                {process.env.NODE_ENV === 'development' && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, textAlign: 'center' }}>
-                      Demo Quick Access
-                    </Typography>
-                    <Stack direction="row" spacing={2}>
-                      <Button 
-                        variant="outlined" 
-                        size="small" 
-                        fullWidth 
-                        onClick={() => handleDemoLogin('admin')}
-                        disabled={isLoading}
-                      >
-                        Admin Demo
-                      </Button>
-                      <Button 
-                        variant="outlined" 
-                        size="small" 
-                        fullWidth
-                        onClick={() => handleDemoLogin('datacollector')}
-                        disabled={isLoading}
-                      >
-                        Data Collector Demo
-                      </Button>
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </form>
-
-            <Box sx={{ mt: 4, textAlign: 'center' }}>
-              <Divider sx={{ mb: 3 }} />
-              <Typography variant="body2" color="text.secondary">
-                Don't have an account?{' '}
-                <MuiLink component={Link} href="#" sx={{ fontWeight: 500, textDecoration: 'none' }}>
-                  Contact your administrator
-                </MuiLink>
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
-      </Container>
+                {showPassword ? <VisibilityOff /> : <Visibility />}
+              </IconButton>
+            </InputAdornment>
+          )
+        }}
+      />
+      
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        sx={{ mt: 3, mb: 2 }}
+        disabled={loading}
+        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+      >
+        {loading ? 'Signing in...' : 'Sign In'}
+      </Button>
     </Box>
+  );
+  
+  // Render magic link login form
+  const renderMagicLinkLogin = () => (
+    <Box component="form" onSubmit={handleMagicLinkLogin} sx={{ mt: 2 }}>
+      {!verificationSent ? (
+        <>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Enter your email to receive a secure login link.
+          </Typography>
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email Address"
+            name="email"
+            autoComplete="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Email fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {loading ? 'Sending...' : 'Send Magic Link'}
+          </Button>
+        </>
+      ) : (
+        <Alert severity="success" sx={{ mt: 2 }}>
+          <Typography variant="body2">
+            A login link has been sent to your email address. Please check your inbox and click the link to sign in.
+          </Typography>
+        </Alert>
+      )}
+    </Box>
+  );
+  
+  return (
+    <Container component="main" maxWidth="xs">
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            width: '100%',
+            borderRadius: 2,
+          }}
+        >
+          <Box sx={{ mb: 3, textAlign: 'center' }}>
+            <Typography component="h1" variant="h5" gutterBottom>
+              Welcome to MSRC
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Sign in to continue to the dashboard
+            </Typography>
+          </Box>
+          
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            variant="fullWidth" 
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab label="Password" id="login-tab-0" />
+            <Tab label="Magic Link" id="login-tab-1" />
+          </Tabs>
+          
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          <Box role="tabpanel" hidden={tabValue !== 0}>
+            {tabValue === 0 && renderPasswordLogin()}
+          </Box>
+          
+          <Box role="tabpanel" hidden={tabValue !== 1}>
+            {tabValue === 1 && renderMagicLinkLogin()}
+          </Box>
+          
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <MuiLink component={Link} href="/reset-password" variant="body2">
+              Forgot password?
+            </MuiLink>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 }

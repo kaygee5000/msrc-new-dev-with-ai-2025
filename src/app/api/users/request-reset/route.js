@@ -21,7 +21,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
     // Find user by email
-    const [users] = await pool.query('SELECT id, email, first_name FROM users WHERE email = ?', [email]);
+    const [users] = await pool.query('SELECT id, email, name FROM users WHERE email = ?', [email]);
     if (!users.length) {
       // For security, do not reveal if email is not found
       return NextResponse.json({ message: 'If your email is registered, you will receive a reset link.' });
@@ -38,7 +38,14 @@ export async function POST(request) {
       from: process.env.SMTP_FROM || 'no-reply@msrc.edu',
       to: user.email,
       subject: 'MSRC Password Reset',
-      text: `Hello ${user.first_name ? ' ' + user.last_name : ''},\n\nTo reset your password, click the link below:\n${resetUrl}\n\nIf you did not request this, ignore this email.\n\nThis link will expire in 1 hour.`,
+      text: `Hello ${user.name ? ' ' + user.name : ''},\n\nTo reset your password, click the link below:\n${resetUrl}\n\nIf you did not request this, ignore this email.\n\nThis link will expire in 1 hour.`,
+      html: `
+        <p>Hello ${user.name ? user.name : ''},</p>
+        <p>To reset your password, click the link below:</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>If you did not request this, ignore this email.</p>
+        <p>This link will expire in 1 hour.</p>
+      `
     });
     return NextResponse.json({ message: 'If your email is registered, you will receive a reset link.' });
   } catch (error) {

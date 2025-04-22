@@ -10,7 +10,7 @@ import {
   ExpandLess, ExpandMore, SportsSoccer, CalendarMonth, Tune, ViewList, Person, Logout, ArrowDropDown
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { useAuth } from '@/utils/auth';
+import { useSession, signOut } from "next-auth/react";
 
 const drawerWidth = 240;
 
@@ -46,7 +46,10 @@ export default function DashboardLayout({ children }) {
   const [profileMenuAnchor, setProfileMenuAnchor] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  
+  // Replace useAuth with NextAuth's useSession
+  const { data: session } = useSession();
+  const user = session?.user;
 
   // Initialize expanded state based on current path
   useEffect(() => {
@@ -88,7 +91,7 @@ export default function DashboardLayout({ children }) {
 
   const handleLogout = () => {
     handleProfileMenuClose();
-    logout();
+    signOut();
     router.push('/login');
   };
 

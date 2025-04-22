@@ -29,9 +29,9 @@ import {
   DocumentTextIcon, 
   CalendarIcon,
   UserIcon,
-  SchoolIcon,
   ClipboardDocumentCheckIcon
 } from "@heroicons/react/24/outline";
+import { AcademicCapIcon as SchoolIcon } from "@heroicons/react/24/outline";
 import Link from 'next/link';
 
 export default function DistrictDetailPage({ params }) {

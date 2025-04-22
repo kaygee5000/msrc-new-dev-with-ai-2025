@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Container, 
@@ -32,23 +32,29 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
 import ReentryFormPage from './ReentryFormPage';
 import DataTable from './DataTable';
+import { useSession, signOut } from "next-auth/react";
+
+// Move the non-authenticated UI to a separate component
+function NotAuthenticated() {
+  return (
+    <Container maxWidth="sm" sx={{ py: 8 }}>
+      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
+        <Typography variant="h6" color="error" gutterBottom>
+          You must be logged in to access this page.
+        </Typography>
+        <Button variant="contained" color="primary" href="/login">
+          Go to Login
+        </Button>
+      </Box>
+    </Container>
+  );
+}
 
 export default function ReentryDashboard({ user }) {
-  if (!user || !user.id) {
-    return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
-          <Typography variant="h6" color="error" gutterBottom>
-            You must be logged in to access this page.
-          </Typography>
-          <Button variant="contained" color="primary" href="/login">
-            Go to Login
-          </Button>
-        </Box>
-      </Container>
-    );
-  }
-
+  const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [activeTab, setActiveTab] = useState(0);
   const [schools, setSchools] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -59,80 +65,21 @@ export default function ReentryDashboard({ user }) {
   const [schoolSearch, setSchoolSearch] = useState("");
   const [selectedFrequency, setSelectedFrequency] = useState('termly');
   const [selectedClass, setSelectedClass] = useState('All');
-  const router = useRouter();
-  
-  // Add theme and media query for responsive design
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Check if user is in development mode (has id 999)
-  const isDevMode = user.id === 999;
+  const isDevMode = user?.id === 999;
 
   // Get unique class levels from schools (or use a static list if needed)
   const classLevels = ['All', 'Primary', 'JHS', 'SHS', 'TVET'];
   const frequencyOptions = ['All', 'Termly', 'Weekly'];
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        if (isDevMode) {
-          const filteredSchools = user.districtId 
-            ? MOCK_SCHOOLS.filter(school => school.districtId === user.districtId)
-            : MOCK_SCHOOLS;
-            
-          setSchools(filteredSchools);
-          setSubmissions(MOCK_SUBMISSIONS);
-          setIsLoading(false);
-          return;
-        }
+  // Early return if not authenticated - this is after all hooks are called
+  if (!user || !user.id) {
+    return <NotAuthenticated />;
+  }
 
-        let schoolsList = [];
-        
-        if (user.regionId) {
-          schoolsList = await getList('schools', { region_id: user.regionId });
-        } else if (user.districtId) {
-          schoolsList = await getList('schools', { district_id: user.districtId || 2 });
-        } else if (user.circuitId) {
-          schoolsList = await getList('schools', { circuit_id: user.circuitId });
-        } else {
-          schoolsList = await getList('schools', { district_id: 2 });
-        }
-        
-        if (schoolsList && schoolsList.schools) {
-          setSchools(schoolsList.schools);
-        } else {
-          setSchools([]);
-        }
-        
-        const submissionsResponse = await fetchAPI('pregnancy_responses?userId=' + user.id);
-        
-        if (Array.isArray(submissionsResponse)) {
-          const formattedSubmissions = submissionsResponse.map(submission => {
-            return {
-              ...submission,
-              createdAt: submission.submittedAt || new Date().toISOString()
-            };
-          });
-          
-          setSubmissions(formattedSubmissions);
-        } else {
-          setSubmissions([]);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        setSchools([]);
-        setSubmissions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [user, isDevMode]);
-
-  // Helper to reload schools and submissions
-  const reloadData = async () => {
+  // Helper to reload schools and submissions - memoized with useCallback
+  const reloadData = useCallback(async () => {
     setIsLoading(true);
     try {
       let schoolsList = [];
@@ -163,12 +110,42 @@ export default function ReentryDashboard({ user }) {
         setSubmissions([]);
       }
     } catch (error) {
+      console.error('Error reloading data:', error);
       setSchools([]);
       setSubmissions([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user.id, user.regionId, user.districtId, user.circuitId]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        if (isDevMode) {
+          const filteredSchools = user.districtId 
+            ? MOCK_SCHOOLS.filter(school => school.districtId === user.districtId)
+            : MOCK_SCHOOLS;
+            
+          setSchools(filteredSchools);
+          setSubmissions(MOCK_SUBMISSIONS);
+          setIsLoading(false);
+          return;
+        }
+
+        // Reuse the reloadData function to avoid code duplication
+        await reloadData();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setSchools([]);
+        setSubmissions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [user, isDevMode, reloadData]); // Include reloadData in dependency array
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -179,7 +156,7 @@ export default function ReentryDashboard({ user }) {
     setCreateFormOpen(true);
   };
 
-  const handleViewSubmission = async (submissionId) => {
+  const handleViewSubmission = useCallback(async (submissionId) => {
     try {
       if (isDevMode) {
         const submission = MOCK_SUBMISSIONS.find(s => s.id === submissionId);
@@ -195,30 +172,30 @@ export default function ReentryDashboard({ user }) {
       console.error('Error fetching submission details:', error);
       setViewSubmission(null);
     }
-  };
+  }, [isDevMode]);
 
-  const handleCloseForm = () => {
+  const handleCloseForm = useCallback(() => {
     setCreateFormOpen(false);
     setSelectedSchool(null);
     setViewSubmission(null);
     if (!isDevMode) {
       reloadData();
     }
-  };
+  }, [isDevMode, reloadData]);
 
   const handleLogout = () => {
-    window.location.href = '/reentry';
+    signOut();
   };
 
   // Update hasSubmitted logic to check frequency and class
-  const hasSubmitted = (schoolId) => {
+  const hasSubmitted = useCallback((schoolId) => {
     return submissions.some(
       (submission) =>
         submission.schoolId === schoolId &&
         (selectedFrequency === 'All' || submission.metadata?.frequency === selectedFrequency) &&
         (selectedClass === 'All' || submission.metadata?.classLevel === selectedClass)
     );
-  };
+  }, [submissions, selectedFrequency, selectedClass]);
 
   const filteredSchools = schools
     .filter((school) => {
@@ -234,7 +211,8 @@ export default function ReentryDashboard({ user }) {
       return a.name.localeCompare(b.name);
     });
 
-  const schoolColumns = [
+  // Memoize schoolColumns to prevent unnecessary re-renders
+  const schoolColumns = React.useMemo(() => [
     { field: 'name', headerName: 'School Name', width: 220 },
     { field: 'circuit', headerName: 'Circuit', width: 160, valueFormatter: ({ row }) => row.circuit?.name || 'N/A' },
     { field: 'district', headerName: 'District', width: 160, valueFormatter: ({ row }) => row.district?.name || 'N/A' },
@@ -251,7 +229,7 @@ export default function ReentryDashboard({ user }) {
         {hasSubmitted(row.id) ? 'Submitted' : 'Submit'}
       </Button>
     ) }
-  ];
+  ], [hasSubmitted, handleSchoolSelect]);
 
   if (createFormOpen && selectedSchool) {
     return (

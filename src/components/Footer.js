@@ -36,7 +36,7 @@ export default function Footer() {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Brand Column */}
-          <Grid item xs={12} md={3}>
+          <Grid size={{xs: 12, md: 3}}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               MSRC
             </Typography>
@@ -60,7 +60,7 @@ export default function Footer() {
           </Grid>
 
           {/* Quick Links */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size="{{ xs: 12, sm: 6, md: 3 }}">
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Quick Links
             </Typography>
@@ -97,7 +97,7 @@ export default function Footer() {
           </Grid>
 
           {/* Resources */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size="{{ xs: 12, sm: 6, md: 3 }}">
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Resources
             </Typography>
@@ -134,7 +134,7 @@ export default function Footer() {
           </Grid>
 
           {/* Contact */}
-          <Grid item xs={12} md={3}>
+          <Grid size="{{ xs: 12 md: 3 }}">
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Contact
             </Typography>

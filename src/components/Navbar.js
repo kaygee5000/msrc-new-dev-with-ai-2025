@@ -25,9 +25,10 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession, signOut } from "next-auth/react";
 import { usePathname } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ProgramSwitcher from '@/components/ProgramSelector/index';
 
 // Fix the ElevationScroll component
 const ElevationScroll = ({ children }) => {
@@ -55,7 +56,9 @@ export default function Navbar() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState(null);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
   const pathname = usePathname();
 
   // Handle client-side authenticated rendering to avoid hydration issues
@@ -115,7 +118,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     handleProfileMenuClose();
-    logout();
+    signOut();
   };
 
   // Determine which nav items to show based on authentication
@@ -253,6 +256,11 @@ export default function Navbar() {
               
               {/* Desktop Navigation */}
               <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+                {/* Program Switcher - Only shown when authenticated */}
+                {isClient && isAuthenticated && (
+                  <ProgramSwitcher />
+                )}
+                
                 {navItems.map((item) => (
                   <Link key={item.path} href={item.path} style={{ textDecoration: 'none' }}>
                     <Typography 

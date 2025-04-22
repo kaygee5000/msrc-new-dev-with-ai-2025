@@ -3,8 +3,9 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
-class AddRtpDashboardTables extends Migration
+class AddExtensibleUserManagementTables extends Migration
 {
     /**
      * Run the migrations.
@@ -13,11 +14,72 @@ class AddRtpDashboardTables extends Migration
      */
     public function up()
     {
+        // First, determine the column type of the id in users table
+        $usersColumnType = Schema::getColumnType('users', 'id');
+        
+        // Create Programs table
+        DB::statement("
+            CREATE TABLE `programs` (
+              `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+              `name` varchar(100) NOT NULL,
+              `code` varchar(50) NOT NULL UNIQUE,
+              `description` text,
+              `active` tinyint(1) DEFAULT '1',
+              `created_at` timestamp NULL DEFAULT NULL,
+              `updated_at` timestamp NULL DEFAULT NULL,
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        // Seed initial programs
+        DB::statement("
+            INSERT INTO `programs` (`name`, `code`, `description`, `active`, `created_at`, `updated_at`) VALUES
+            ('Core MSRC System', 'core', 'The main MSRC system for general administration', 1, NOW(), NOW()),
+            ('Reentry Program', 'reentry', 'Pregnancy and school reentry data collection program', 1, NOW(), NOW()),
+            ('Right to Play', 'rtp', 'Right to Play (RTP) program for sports and play-based education', 1, NOW(), NOW());
+        ");
+
+        // Create User Program Roles junction table with correct column type
+        DB::statement("
+            CREATE TABLE `user_program_roles` (
+              `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+              `user_id` bigint unsigned NOT NULL,
+              `program_id` bigint unsigned NOT NULL,
+              `role` varchar(50) NOT NULL,
+              `scope_type` varchar(50) DEFAULT NULL,
+              `scope_id` bigint unsigned DEFAULT NULL,
+              `created_at` timestamp NULL DEFAULT NULL,
+              `updated_at` timestamp NULL DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `user_program_roles_user_id_program_id_role_unique` (`user_id`,`program_id`,`role`),
+              KEY `user_program_roles_program_id_foreign` (`program_id`),
+              FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+              FOREIGN KEY (`program_id`) REFERENCES `programs` (`id`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
+        // Create One-Time Password (OTP) table
+        Schema::create('one_time_passwords', function (Blueprint $table) {
+            $table->id();
+            $table->string('identifier', 100)->index()->comment('Email or phone number');
+            $table->string('code', 10)->notNull();
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->string('type', 20)->default('auth')->comment('Purpose: auth, reset, verify');
+            $table->integer('attempts')->default(0);
+            $table->integer('max_attempts')->default(5);
+            $table->timestamp('expires_at');
+            $table->boolean('is_used')->default(false);
+            $table->timestamps();
+
+            // Composite index for faster lookups
+            $table->index(['identifier', 'code', 'type']);
+        });
+
         // Add new columns to existing right_to_play_questions table
         Schema::table('right_to_play_questions', function (Blueprint $table) {
             // Only add columns if they don't exist
             if (!Schema::hasColumn('right_to_play_questions', 'indicator_type')) {
-                $table->enum('indicator_type', ['output', 'outcome'])->nullable();
+                $table->enum('indicator_type', ['output', 'outcome', 'output_indicators', 'outcome_indicators'])->nullable();
             }
             if (!Schema::hasColumn('right_to_play_questions', 'question_form')) {
                 $table->enum('question_form', ['school-output', 'district-output', 'consolidated-checklist', 'partners-in-play'])->nullable();
@@ -59,7 +121,7 @@ class AddRtpDashboardTables extends Migration
             $table->timestamps();
             
             // Add index for performance
-            $table->index(['question_id', 'answer_value(20)'], 'idx_cc_answers_question');
+            $table->index(['question_id', 'response_id'], 'idx_cc_answers_question');
         });
 
         // Create Partners in Play Responses table
@@ -91,7 +153,7 @@ class AddRtpDashboardTables extends Migration
             $table->timestamps();
             
             // Add index for performance
-            $table->index(['question_id', 'answer_value(20)'], 'idx_pip_answers_question');
+            $table->index(['question_id', 'response_id'], 'idx_pip_answers_question');
         });
 
         // Create Question Scoring table for dashboard analytics
@@ -115,6 +177,10 @@ class AddRtpDashboardTables extends Migration
     public function down()
     {
         // Drop tables in reverse order to avoid foreign key constraint errors
+        Schema::dropIfExists('one_time_passwords');
+        Schema::dropIfExists('user_program_roles');
+        Schema::dropIfExists('programs');
+        
         Schema::dropIfExists('right_to_play_question_scoring');
         Schema::dropIfExists('right_to_play_pip_answers');
         Schema::dropIfExists('right_to_play_pip_responses');

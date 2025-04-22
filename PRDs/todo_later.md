@@ -19,4 +19,8 @@ can we agree to render the date in a simple readable formmat, Do DD MM YYY. all 
 the dashboard doesnt have a logout and a profile button on the head/top nav bar.
 Please implement that.
 
-In
+Percentage of Teachers with LtP Skills
+- Sources: Partners in Play Q29, Q30, Q31, Q32, Q33, Q39, Q45, Q46, Q48, Q49
+- Scoring: As specified in documentation for each question
+
+what does the documentation say?

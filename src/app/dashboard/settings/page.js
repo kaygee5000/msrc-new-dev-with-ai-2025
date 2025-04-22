@@ -28,11 +28,17 @@ import {
   CardContent
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [snackbar, setSnackbar] = useState({

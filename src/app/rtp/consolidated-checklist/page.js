@@ -23,7 +23,8 @@ import {
   Tooltip
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -31,7 +32,12 @@ import AddIcon from '@mui/icons-material/Add';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 export default function ConsolidatedChecklistList() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  
   const router = useRouter();
   
   // List state

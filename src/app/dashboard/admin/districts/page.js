@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -57,23 +57,8 @@ export default function Districts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [regionFilter, setRegionFilter] = useState('');
 
-  // Fetch regions only once on mount
-  useEffect(() => {
-    fetchRegions();
-  }, []);
-
-  // Fetch districts on mount and pagination change
-  useEffect(() => {
-    fetchDistricts();
-  }, [pagination.page, pagination.limit]);
-
-  // Add useEffect to refetch districts when regionFilter or searchTerm changes
-  useEffect(() => {
-    fetchDistricts();
-  }, [regionFilter, searchTerm]);
-
-  // Fetch districts from API
-  const fetchDistricts = async () => {
+  // Fetch districts from API - wrapped in useCallback to avoid dependency issues
+  const fetchDistricts = useCallback(async () => {
     setLoadingDistricts(true);
     try {
       let url = `/api/districts?page=${pagination.page + 1}&limit=${pagination.limit}`;
@@ -103,7 +88,24 @@ export default function Districts() {
     } finally {
       setLoadingDistricts(false);
     }
-  };
+  }, [pagination.page, pagination.limit, searchTerm, regionFilter]);
+
+  // Fetch regions only once on mount
+  useEffect(() => {
+    fetchRegions();
+  }, []);
+
+  // Fetch districts on mount and pagination change
+  useEffect(() => {
+    fetchDistricts();
+  }, [pagination.page, pagination.limit, fetchDistricts]);
+
+  // Add useEffect to refetch districts when regionFilter or searchTerm changes
+  useEffect(() => {
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, page: 0 }));
+    fetchDistricts();
+  }, [regionFilter, searchTerm, fetchDistricts]);
 
   // Fetch regions for district form
   const fetchRegions = async () => {

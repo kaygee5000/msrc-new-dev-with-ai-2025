@@ -24,12 +24,19 @@ import {
   Breadcrumbs
 } from '@mui/material';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Link from 'next/link';
 
 export default function DistrictOutputEditPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
+  const isRtpAuthorized = user?.programRoles?.some(pr => pr.program_code === "rtp") || false;
+  
   const router = useRouter();
   const params = useParams();
   const itineraryId = params.id;

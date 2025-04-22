@@ -36,7 +36,7 @@ import {
   Tooltip
 } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/components/AuthProvider';
+import { useSession } from "next-auth/react";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -44,7 +44,11 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 export default function NewConsolidatedChecklist() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
+const { currentProgram } = useProgramContext();
+const user = session?.user;
+const isAuthenticated = status === "authenticated";
+const isLoading = status === "loading";
   const router = useRouter();
   const searchParams = useSearchParams();
   const itineraryIdParam = searchParams.get('itineraryId');

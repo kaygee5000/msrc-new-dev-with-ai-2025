@@ -1,82 +1,102 @@
 import { NextResponse } from 'next/server';
-import db from '@/utils/db';
-import { verifyPassword } from '@/utils/hash.js';
+import pool from '@/utils/db';
+import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
     
     if (!email || !password) {
-      return NextResponse.json({ 
-        message: 'Email and password are required' 
-      }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'Email and password are required' },
+        { status: 400 }
+      );
     }
-
-    // Fetch user from database
-    const [users] = await db.query(
-      'SELECT * FROM field_msrcghana_db.users WHERE email = ? LIMIT 1',
+    
+    // Find user by email
+    const [users] = await pool.query(
+      'SELECT id, name, email, password, type, role, status FROM users WHERE email = ?', 
       [email]
     );
     
+    if (!users.length) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid email or password' },
+        { status: 401 }
+      );
+    }
+    
     const user = users[0];
-
-    console.log(`User fetched: ${JSON.stringify(user)}`);
     
-    
-    // Check if user exists
-    if (!user) {
-      return NextResponse.json({ 
-        message: 'Invalid email or password' 
-      }, { status: 401 });
-    }
-
-    // Verify the password using the same hashing as the old implementation
-    if (!verifyPassword(password, user.password)) {
-      return NextResponse.json({ message: 'Invalid email or password' }, { status: 401 });
+    // Check if user is active
+    if (user.status !== 'active') {
+      return NextResponse.json(
+        { success: false, message: 'Your account is not active. Please contact an administrator.' },
+        { status: 401 }
+      );
     }
     
-    // Jurisdiction logic based on user.type and user.scope
-    let jurisdiction = null;
-    switch (user.type) {
-      case 'regional_admin':
-        jurisdiction = { type: 'region', scopeId: user.scope_id || null };
-        break;
-      case 'district_admin':
-        jurisdiction = { type: 'district', scopeId: user.scope_id || null };
-        break;
-      case 'circuit_supervisor':
-        jurisdiction = { type: 'circuit', scopeId: user.scope_id || null };
-        break;
-      case 'head_teacher':
-        jurisdiction = { type: 'school', scopeId: user.scope_id || null };
-        break;
-      case 'data_collector':
-        jurisdiction = { type: 'data_collector', scopeId: user.scope_id || null };
-        break;
-      // national_admin and any others: skip
+    // Verify password (using bcrypt compare)
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid email or password' },
+        { status: 401 }
+      );
     }
-
-    // Create a clean user object (without password) to return
-    const userResponse = {
+    
+    // Update last login timestamp
+    await pool.query(
+      'UPDATE users SET last_login_at = NOW() WHERE id = ?',
+      [user.id]
+    );
+    
+    // Generate a JWT for authentication
+    const token = jwt.sign(
+      { 
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: user.type,
+        role: user.role
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1d' } // Token expires in 1 day
+    );
+    
+    // Save the token in a secure HTTP-only cookie
+    const cookieStore = cookies();
+    cookieStore.set('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 86400, // 1 day in seconds
+      path: '/'
+    });
+    
+    // Remove sensitive data before returning the user
+    const safeUserData = {
       id: user.id,
       name: user.name,
       email: user.email,
-      type: user.type, // maintain type for RBAC
-      role: user.role, // keep for legacy compatibility if needed
-      jurisdiction,
-      createdAt: user.created_at
+      type: user.type,
+      role: user.role,
+      status: user.status
     };
     
-    return NextResponse.json({ 
+    return NextResponse.json({
+      success: true,
       message: 'Authentication successful',
-      user: userResponse
+      user: safeUserData
     });
-    
   } catch (error) {
     console.error('Authentication error:', error);
-    return NextResponse.json({ 
-      message: 'Authentication failed', 
-      error: error.message 
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, message: 'An error occurred during authentication' },
+      { status: 500 }
+    );
   }
 }
