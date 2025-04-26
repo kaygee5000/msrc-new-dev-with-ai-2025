@@ -29,10 +29,10 @@ CREATE TABLE IF NOT EXISTS `right_to_play_school_response_answers` (
 
 -- Table for District-level Output Indicators responses
 CREATE TABLE IF NOT EXISTS `right_to_play_district_responses` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `itinerary_id` INT NOT NULL,
-  `district_id` INT NOT NULL,
-  `submitted_by` INT NOT NULL,
+  `id`  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `itinerary_id`  BIGINT UNSIGNED NOT NULL,
+  `district_id`  BIGINT UNSIGNED NOT NULL,
+  `submitted_by`  BIGINT UNSIGNED NOT NULL,
   `submitted_at` DATETIME NOT NULL,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
@@ -44,9 +44,9 @@ CREATE TABLE IF NOT EXISTS `right_to_play_district_responses` (
 
 -- Table for storing District-level Output Indicators answers
 CREATE TABLE IF NOT EXISTS `right_to_play_district_response_answers` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `response_id` INT NOT NULL,
-  `question_id` INT NOT NULL,
+  `id`  BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `response_id`  BIGINT UNSIGNED NOT NULL,
+  `question_id`  BIGINT UNSIGNED NOT NULL,
   `answer_value` TEXT NOT NULL,
   `created_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,

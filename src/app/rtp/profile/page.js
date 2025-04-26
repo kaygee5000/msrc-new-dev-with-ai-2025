@@ -70,10 +70,9 @@ export default function RTPProfilePage() {
               
               // Initialize form with profile data
               setFormData({
-                name: data.user.name || '',
+                name: data.user.first_name + ' ' + data.user.last_name || '',
                 email: data.user.email || '',
-                title: data.user.title || '',
-                phone: data.user.phone || '',
+                phone: data.user.phone_number || '',
               });
             }
           } else {

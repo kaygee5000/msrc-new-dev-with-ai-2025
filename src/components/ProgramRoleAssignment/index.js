@@ -41,6 +41,7 @@ export default function ProgramRoleAssignment({
   const [dialogMode, setDialogMode] = useState('add');
   const [regions, setRegions] = useState([]);
   const [districts, setDistricts] = useState([]);
+  const [circuits, setCircuits] = useState([]); // Add circuits state
   const [schools, setSchools] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -78,22 +79,48 @@ export default function ProgramRoleAssignment({
       }
     };
 
-    if (initialProgramRoles.length === 0) {
-      loadUserProgramRoles();
-    } else {
-      setInitialLoading(false);
-    }
-  }, [userId, initialProgramRoles, onProgramRolesChange]);
+    // if (initialProgramRoles.length === 0) {
+    //   loadUserProgramRoles();
+    // } else {
+    //   setInitialLoading(false);
+    // }
+  }, [userId, initialProgramRoles]);
 
   // Fetch available programs
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const response = await fetch('/api/programs?active=true');
-        const data = await response.json();
+        const response = await fetch('/api/programs');//?active=true
+        
+        // First check if the response is ok before attempting to parse JSON
+        if (!response.ok) {
+          console.error('Error fetching programs: Server returned', response.status, response.statusText);
+          return;
+        }
+        
+        // Get the text response first to debug potential JSON issues
+        const text = await response.text();
+        
+        // Handle empty responses
+        if (!text || text.trim() === '') {
+          console.error('Error fetching programs: Empty response');
+          return;
+        }
+        
+        // Try to parse the JSON with error handling
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (jsonError) {
+          console.error('Error parsing programs JSON:', jsonError);
+          console.error('Response text was:', text);
+          return;
+        }
         
         if (data.success && data.programs) {
           setPrograms(data.programs);
+        } else {
+          console.error('Programs API returned unexpected format:', data);
         }
       } catch (error) {
         console.error('Error fetching programs:', error);
@@ -107,11 +134,11 @@ export default function ProgramRoleAssignment({
   useEffect(() => {
     const fetchRegions = async () => {
       try {
-        const response = await fetch('/api/regions?limit=100');
+        const response = await fetch('/api/regions?limit=16');
         const data = await response.json();
         
-        if (data.regions) {
-          setRegions(data.regions);
+        if (data.success && data.data) {
+          setRegions(data.data);
         }
       } catch (error) {
         console.error('Error fetching regions:', error);
@@ -146,12 +173,12 @@ export default function ProgramRoleAssignment({
     setDialogOpen(true);
     
     // Load hierarchical data if needed
-    if (role.scope_type === 'region') {
+    if (role.scope_type === 'regional_admin' && role.scope_id) {
       // Already have regions
-    } else if (role.scope_type === 'district' && role.scope_id) {
+    } else if (role.scope_type === 'district_admin' && role.scope_id) {
       // Need to find which region this district belongs to
       fetchDistrictRegion(role.scope_id);
-    } else if (role.scope_type === 'school' && role.scope_id) {
+    } else if (role.scope_type === 'circuit_supervisor' && role.scope_id) {
       // Need to find district and region for this school
       fetchSchoolHierarchy(role.scope_id);
     }
@@ -298,8 +325,16 @@ export default function ProgramRoleAssignment({
       if (data.schools) {
         setSchools(data.schools);
       }
+      
+      // Also fetch circuits for this district
+      const circuitsResponse = await fetch(`/api/circuits?district_id=${districtId}&limit=100`);
+      const circuitsData = await circuitsResponse.json();
+      
+      if (circuitsData.circuits) {
+        setCircuits(circuitsData.circuits);
+      }
     } catch (error) {
-      console.error('Error fetching schools:', error);
+      console.error('Error fetching schools and circuits:', error);
     }
   };
 
@@ -331,12 +366,17 @@ export default function ProgramRoleAssignment({
       } else if (currentRole.scopeType === 'district' && currentRole.districtId) {
         scopeId = currentRole.districtId;
         scopeType = 'district';
+      } else if (currentRole.scopeType === 'circuit' && currentRole.circuitId) {
+        scopeId = currentRole.circuitId;
+        scopeType = 'circuit';
       } else if (currentRole.scopeType === 'school' && currentRole.schoolId) {
         scopeId = currentRole.schoolId;
         scopeType = 'school';
       } else if (currentRole.scopeType === 'national') {
         scopeType = 'national';
       }
+      
+      console.log('Submitting role with scope:', { scopeType, scopeId });
       
       const roleData = {
         userId,
@@ -395,6 +435,7 @@ export default function ProgramRoleAssignment({
         // Close dialog
         setDialogOpen(false);
       } else {
+        console.error('API Error:', data);
         alert(data.error || 'Failed to save program role');
       }
     } catch (error) {
@@ -433,22 +474,24 @@ export default function ProgramRoleAssignment({
     
     if (role === 'admin') {
       return [
-        { value: 'national', label: 'National (All)' },
-        { value: 'region', label: 'Region' }
+        { value: 'region', label: 'Region' },
+        { value: 'district', label: 'District' },
+        { value: 'circuit', label: 'Circuit' }
       ];
     }
     
     if (role === 'data_collector') {
       return [
         { value: 'district', label: 'District' },
+        { value: 'circuit', label: 'Circuit' },
         { value: 'school', label: 'School' }
       ];
     }
     
     return [
-      { value: 'national', label: 'National (All)' },
       { value: 'region', label: 'Region' },
       { value: 'district', label: 'District' },
+      { value: 'circuit', label: 'Circuit' },
       { value: 'school', label: 'School' }
     ];
   };
@@ -532,10 +575,12 @@ export default function ProgramRoleAssignment({
         title={dialogMode === 'add' ? 'Add Program Role' : 'Edit Program Role'}
         onSubmit={handleSubmit}
         isSubmitting={loading}
+        maxWidth="md"
+        fullWidth={true}
       >
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <FormControl fullWidth margin="normal" required disabled={dialogMode === 'edit'}>
+        <Grid container spacing={3}>
+          <Grid size={{xs:12, md:4}}>
+            <FormControl fullWidth required disabled={dialogMode === 'edit'}>
               <InputLabel>Program</InputLabel>
               <Select
                 name="programId"
@@ -552,8 +597,8 @@ export default function ProgramRoleAssignment({
             </FormControl>
           </Grid>
           
-          <Grid item xs={12}>
-            <FormControl fullWidth margin="normal" required>
+          <Grid  size={{xs:12, md:4}}>
+            <FormControl fullWidth required>
               <InputLabel>Role</InputLabel>
               <Select
                 name="role"
@@ -570,8 +615,8 @@ export default function ProgramRoleAssignment({
             </FormControl>
           </Grid>
           
-          <Grid item xs={12}>
-            <FormControl fullWidth margin="normal">
+          <Grid size={{xs:12, md:4}}>
+            <FormControl fullWidth>
               <InputLabel>Scope Type</InputLabel>
               <Select
                 name="scopeType"
@@ -580,7 +625,7 @@ export default function ProgramRoleAssignment({
                 label="Scope Type"
               >
                 <MenuItem value="national">
-                  National (All)
+                  National
                 </MenuItem>
                 {getScopeTypes().map((type) => (
                   <MenuItem key={type.value} value={type.value}>
@@ -592,8 +637,8 @@ export default function ProgramRoleAssignment({
           </Grid>
           
           {currentRole?.scopeType === 'region' && (
-            <Grid item xs={12}>
-              <FormControl fullWidth margin="normal" required>
+            <Grid size={{xs:12, md:4}}>
+              <FormControl fullWidth required>
                 <InputLabel>Region</InputLabel>
                 <Select
                   name="regionId"
@@ -613,8 +658,8 @@ export default function ProgramRoleAssignment({
           
           {currentRole?.scopeType === 'district' && (
             <>
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal" required>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required>
                   <InputLabel>Region</InputLabel>
                   <Select
                     name="regionId"
@@ -631,8 +676,8 @@ export default function ProgramRoleAssignment({
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal" required disabled={!currentRole?.regionId}>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required disabled={!currentRole?.regionId}>
                   <InputLabel>District</InputLabel>
                   <Select
                     name="districtId"
@@ -653,8 +698,8 @@ export default function ProgramRoleAssignment({
           
           {currentRole?.scopeType === 'school' && (
             <>
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal" required>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required>
                   <InputLabel>Region</InputLabel>
                   <Select
                     name="regionId"
@@ -671,8 +716,8 @@ export default function ProgramRoleAssignment({
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal" required disabled={!currentRole?.regionId}>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required disabled={!currentRole?.regionId}>
                   <InputLabel>District</InputLabel>
                   <Select
                     name="districtId"
@@ -689,8 +734,8 @@ export default function ProgramRoleAssignment({
                 </FormControl>
               </Grid>
               
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="normal" required disabled={!currentRole?.districtId}>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required disabled={!currentRole?.districtId}>
                   <InputLabel>School</InputLabel>
                   <Select
                     name="schoolId"
@@ -701,6 +746,64 @@ export default function ProgramRoleAssignment({
                     {schools.map((school) => (
                       <MenuItem key={school.id} value={school.id}>
                         {school.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </>
+          )}
+
+          {currentRole?.scopeType === 'circuit' && (
+            <>
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required>
+                  <InputLabel>Region</InputLabel>
+                  <Select
+                    name="regionId"
+                    value={currentRole?.regionId || ''}
+                    onChange={handleInputChange}
+                    label="Region"
+                  >
+                    {regions.map((region) => (
+                      <MenuItem key={region.id} value={region.id}>
+                        {region.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required disabled={!currentRole?.regionId}>
+                  <InputLabel>District</InputLabel>
+                  <Select
+                    name="districtId"
+                    value={currentRole?.districtId || ''}
+                    onChange={handleInputChange}
+                    label="District"
+                  >
+                    {districts.map((district) => (
+                      <MenuItem key={district.id} value={district.id}>
+                        {district.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid size={{xs:12, md:4}}>
+                <FormControl fullWidth required disabled={!currentRole?.districtId}>
+                  <InputLabel>Circuit</InputLabel>
+                  <Select
+                    name="circuitId"
+                    value={currentRole?.circuitId || ''}
+                    onChange={handleInputChange}
+                    label="Circuit"
+                  >
+                    {circuits.map((circuit) => (
+                      <MenuItem key={circuit.id} value={circuit.id}>
+                        {circuit.name}
                       </MenuItem>
                     ))}
                   </Select>

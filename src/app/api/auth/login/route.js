@@ -92,7 +92,7 @@ export async function POST(request) {
     
     // Update last login timestamp
     await db.execute(
-      'UPDATE users SET last_login = NOW() WHERE id = ?',
+      'UPDATE users SET birth_date = NOW() WHERE id = ?',
       [user.id]
     );
     

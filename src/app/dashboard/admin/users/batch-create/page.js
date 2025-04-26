@@ -330,7 +330,7 @@ export default function BatchUserCreation() {
                   <TableBody>
                     {results.users.map((user, index) => (
                       <TableRow key={index} hover>
-                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.first_name + " " + user.last_name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Chip 

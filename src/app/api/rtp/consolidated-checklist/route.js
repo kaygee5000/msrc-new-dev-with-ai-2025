@@ -128,13 +128,16 @@ export async function POST(req) {
       );
     }
     
-    // Begin transaction
-    await db.query('START TRANSACTION');
+    // Create database connection
+    const connection = await mysql.createConnection(getConnectionConfig());
     
     try {
+      // Begin transaction
+      await connection.beginTransaction();
+      
       // Check if there's an existing submission to update
       let responseId;
-      const [existingSubmission] = await db.query(
+      const [existingSubmission] = await connection.execute(
         `SELECT id FROM right_to_play_consolidated_checklist_responses 
          WHERE itinerary_id = ? AND school_id = ? AND deleted_at IS NULL
          LIMIT 1`,
@@ -144,7 +147,7 @@ export async function POST(req) {
       if (existingSubmission.length > 0) {
         // Update existing submission
         responseId = existingSubmission[0].id;
-        await db.query(
+        await connection.execute(
           `UPDATE right_to_play_consolidated_checklist_responses 
            SET submitted_by = ?, updated_at = NOW() 
            WHERE id = ?`,
@@ -152,13 +155,13 @@ export async function POST(req) {
         );
         
         // Delete old answers
-        await db.query(
+        await connection.execute(
           `DELETE FROM right_to_play_consolidated_checklist_answers WHERE response_id = ?`,
           [responseId]
         );
       } else {
         // Create new submission
-        const [result] = await db.query(
+        const [result] = await connection.execute(
           `INSERT INTO right_to_play_consolidated_checklist_responses 
            (itinerary_id, school_id, submitted_by, submitted_at, created_at, updated_at)
            VALUES (?, ?, ?, NOW(), NOW(), NOW())`,
@@ -194,7 +197,7 @@ export async function POST(req) {
         }
         
         // Insert the answer with optional file upload info
-        await db.query(
+        await connection.execute(
           `INSERT INTO right_to_play_consolidated_checklist_answers 
            (response_id, question_id, answer_value, upload_file_path, upload_file_name, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
@@ -209,7 +212,7 @@ export async function POST(req) {
       }
       
       // Commit transaction
-      await db.query('COMMIT');
+      await connection.commit();
       
       return NextResponse.json({
         status: 'success',
@@ -223,8 +226,11 @@ export async function POST(req) {
       });
     } catch (error) {
       // Rollback in case of error
-      await db.query('ROLLBACK');
+      await connection.rollback();
       throw error;
+    } finally {
+      // Always close the connection
+      await connection.end();
     }
   } catch (error) {
     console.error('Error saving Consolidated Checklist data:', error);
@@ -242,12 +248,20 @@ export async function POST(req) {
  */
 async function getQuestionDetails(questionId) {
   try {
-    const [questions] = await db.query(
-      `SELECT * FROM right_to_play_questions WHERE id = ? AND deleted_at IS NULL`,
-      [questionId]
-    );
+    // Create database connection
+    const connection = await mysql.createConnection(getConnectionConfig());
     
-    return questions.length > 0 ? questions[0] : null;
+    try {
+      const [questions] = await connection.execute(
+        `SELECT * FROM right_to_play_questions WHERE id = ? AND deleted_at IS NULL`,
+        [questionId]
+      );
+      
+      return questions.length > 0 ? questions[0] : null;
+    } finally {
+      // Always close the connection
+      await connection.end();
+    }
   } catch (error) {
     console.error('Error fetching question details:', error);
     return null;

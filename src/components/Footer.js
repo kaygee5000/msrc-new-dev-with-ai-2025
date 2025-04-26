@@ -29,14 +29,18 @@ export default function Footer() {
       sx={{ 
         bgcolor: 'grey.900', 
         color: 'white',
-        pt: 8,
-        pb: 4
+        pt: 6,
+        pb: 4,
+        position: 'relative',
+        zIndex: 10, // Ensure footer is above sidebar
+        width: '100%', // Full width
+        mt: 'auto' // Push to bottom of flex container
       }}
     >
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Brand Column */}
-          <Grid size={{xs: 12, md: 3}}>
+          <Grid item xs={12} md={3}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               MSRC
             </Typography>
@@ -60,7 +64,7 @@ export default function Footer() {
           </Grid>
 
           {/* Quick Links */}
-          <Grid size="{{ xs: 12, sm: 6, md: 3 }}">
+          <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Quick Links
             </Typography>
@@ -97,7 +101,7 @@ export default function Footer() {
           </Grid>
 
           {/* Resources */}
-          <Grid size="{{ xs: 12, sm: 6, md: 3 }}">
+          <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Resources
             </Typography>
@@ -134,7 +138,7 @@ export default function Footer() {
           </Grid>
 
           {/* Contact */}
-          <Grid size="{{ xs: 12 md: 3 }}">
+          <Grid item xs={12} md={3}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Contact
             </Typography>

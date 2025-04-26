@@ -50,7 +50,6 @@ export default function UsersList() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -60,7 +59,7 @@ export default function UsersList() {
   // Fetch users on component mount and when filters change
   useEffect(() => {
     fetchUsers();
-  }, [page, rowsPerPage, typeFilter, statusFilter]);
+  }, [page, rowsPerPage, typeFilter]);
   
   const fetchUsers = async () => {
     setLoading(true);
@@ -72,7 +71,6 @@ export default function UsersList() {
         page,
         limit: rowsPerPage,
         ...(typeFilter && { type: typeFilter }),
-        ...(statusFilter && { status: statusFilter }),
         ...(searchTerm && { search: searchTerm }),
         includeProgramRoles: true // Request program roles with users
       });
@@ -119,14 +117,8 @@ export default function UsersList() {
     setPage(1); // Reset to first page
   };
   
-  const handleStatusFilterChange = (event) => {
-    setStatusFilter(event.target.value);
-    setPage(1); // Reset to first page
-  };
-  
   const resetFilters = () => {
     setTypeFilter('');
-    setStatusFilter('');
     setSearchTerm('');
     setPage(1);
   };
@@ -197,24 +189,6 @@ export default function UsersList() {
     };
     
     return typeMap[type] || 'default';
-  };
-  
-  // Render the status chip
-  const renderStatusChip = (status) => {
-    const statusColors = {
-      'active': 'success',
-      'inactive': 'error',
-      'pending': 'warning'
-    };
-    
-    return (
-      <Chip 
-        label={status.charAt(0).toUpperCase() + status.slice(1)} 
-        color={statusColors[status] || 'default'} 
-        size="small" 
-        variant="outlined"
-      />
-    );
   };
   
   return (
@@ -341,24 +315,6 @@ export default function UsersList() {
                   </Select>
                 </FormControl>
               </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel id="status-filter-label">Status</InputLabel>
-                  <Select
-                    labelId="status-filter-label"
-                    id="status-filter"
-                    value={statusFilter}
-                    label="Status"
-                    onChange={handleStatusFilterChange}
-                  >
-                    <MenuItem value="">All Statuses</MenuItem>
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="inactive">Inactive</MenuItem>
-                    <MenuItem value="pending">Pending</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
             </Grid>
           </Box>
         )}
@@ -377,7 +333,6 @@ export default function UsersList() {
                 <TableCell>Email</TableCell>
                 <TableCell>Phone</TableCell>
                 <TableCell>Type</TableCell>
-                <TableCell>Status</TableCell>
                 <TableCell>Last Login</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -399,7 +354,7 @@ export default function UsersList() {
                       No users found.
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {searchTerm || typeFilter || statusFilter ? 
+                      {searchTerm || typeFilter ? 
                         'Try changing your search criteria or filters.' : 
                         'Click "Add User" to create a new user.'}
                     </Typography>
@@ -419,9 +374,7 @@ export default function UsersList() {
                         variant="outlined"
                       />
                     </TableCell>
-                    <TableCell>
-                      {renderStatusChip(user.status || 'active')}
-                    </TableCell>
+                   
                     <TableCell>
                       {user.birth_date ? 
                         new Date(user.birth_date).toLocaleDateString() : 
@@ -452,7 +405,7 @@ export default function UsersList() {
                         <IconButton 
                           size="small" 
                           color="error"
-                          onClick={() => handleDeleteClick(user.id, user.name)}
+                          onClick={() => handleDeleteClick(user.id, user.first_name + " " + user.last_name)}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

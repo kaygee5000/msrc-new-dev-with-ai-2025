@@ -10,7 +10,15 @@ import {
   Box,
   Tabs,
   Tab,
-  CircularProgress
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip
 } from '@mui/material';
 import { useSession } from "next-auth/react";
 import { useProgramContext } from "@/context/ProgramContext";
@@ -20,6 +28,8 @@ import { useRouter } from 'next/navigation';
 export default function RightToPlayPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [itineraries, setItineraries] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   
   const { data: session, status } = useSession();
   const { currentProgram } = useProgramContext();
@@ -30,25 +40,12 @@ export default function RightToPlayPage() {
   
   const router = useRouter();
   
-  // Add null check for user
-  if (!isLoading && (!user || !user.id)) {
-    return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
-          <Typography variant="h6" color="error" gutterBottom>
-            You must be logged in to access this page.
-          </Typography>
-          <Button variant="contained" color="primary" href="/login">
-            Go to Login
-          </Button>
-        </Box>
-      </Container>
-    );
-  }
-
   // Handle tab changes
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+    if (newValue === 1 && submissions.length === 0) {
+      fetchSubmissionHistory();
+    }
   };
   
   // Fetch active itineraries when component mounts
@@ -63,19 +60,177 @@ export default function RightToPlayPage() {
     console.log("RTP isloading", isLoading, "isAuthenticated", isAuthenticated);
 
     if (!isLoading && !isAuthenticated) {
-        
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
   
-  // Mock function to fetch itineraries - will be replaced with actual API call
+  // Mock function to fetch itineraries - replaced with live API call
   const fetchItineraries = async () => {
-    // TODO: Replace with actual API call
-    const mockItineraries = [
-      { id: 1, title: 'Term 1 Collection', startDate: '2025-01-15', endDate: '2025-02-15', status: 'active' },
-      { id: 2, title: 'Term 2 Collection', startDate: '2025-04-01', endDate: '2025-05-01', status: 'upcoming' },
-    ];
-    setItineraries(mockItineraries);
+    try {
+      const response = await fetch('/api/rtp/itineraries');
+      const data = await response.json();
+      const raw = data.itineraries || [];
+      const mapped = raw.map(it => {
+        const startDate = it.from_date;
+        const endDate = it.until_date;
+        const now = new Date();
+        const sd = new Date(startDate);
+        const ed = new Date(endDate);
+        let status = 'upcoming';
+        if (now >= sd && now <= ed) status = 'active';
+        else if (now > ed) status = 'closed';
+        return { id: it.id, title: it.title, startDate, endDate, status };
+      });
+      setItineraries(mapped);
+    } catch (error) {
+      console.error('Failed to fetch itineraries:', error);
+      setItineraries([]);
+    }
+  };
+
+  // Fetch submission history for all RTP components
+  const fetchSubmissionHistory = async () => {
+    if (!user?.id) return;
+    setIsLoadingSubmissions(true);
+
+    try {
+      // Get all itineraries first - this will use the Redis cache
+      const itineraryResponse = await fetch('/api/rtp/itineraries');
+      const itineraryData = await itineraryResponse.json();
+      const allItineraries = itineraryData.itineraries || [];
+      
+      // Create a map of itinerary IDs to titles for quick lookup
+      const itineraryMap = allItineraries.reduce((map, it) => {
+        map[it.id] = it.title;
+        return map;
+      }, {});
+      
+      // Array to store all submissions from different components
+      let allSubmissions = [];
+      
+      // Fetch submissions for each component in parallel to improve performance
+      await Promise.all([
+        // 1. Fetch School Output submissions
+        (async () => {
+          try {
+            for (const itinerary of allItineraries) {
+              const response = await fetch(`/api/rtp/school-responses?itineraryId=${itinerary.id}`);
+              if (response.ok) {
+                const data = await response.json();
+                
+                // Filter submissions by the current user
+                const userSubmissions = data.filter(sub => sub.submitted_by === user.id)
+                  .map(sub => ({
+                    ...sub,
+                    itineraryTitle: itineraryMap[sub.itinerary_id] || `Itinerary #${sub.itinerary_id}`,
+                    submissionDate: new Date(sub.last_submission),
+                    type: 'School Output',
+                    formType: 'school-output'
+                  }));
+                
+                allSubmissions = [...allSubmissions, ...userSubmissions];
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching school output submissions:', error);
+          }
+        })(),
+        
+        // 2. Fetch District Output submissions
+        (async () => {
+          try {
+            for (const itinerary of allItineraries) {
+              const response = await fetch(`/api/rtp/output/district?itineraryId=${itinerary.id}`);
+              if (response.ok) {
+                const data = await response.json();
+                
+                // Filter submissions by the current user
+                const userSubmissions = data.data
+                  .filter(sub => sub.submitted_by === user.id)
+                  .map(sub => ({
+                    ...sub,
+                    itineraryTitle: itineraryMap[sub.itinerary_id] || `Itinerary #${sub.itinerary_id}`,
+                    submissionDate: new Date(sub.last_submission || sub.created_at),
+                    type: 'District Output',
+                    formType: 'district-output',
+                    district_name: sub.district_name || 'N/A'
+                  }));
+                
+                allSubmissions = [...allSubmissions, ...userSubmissions];
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching district output submissions:', error);
+          }
+        })(),
+        
+        // 3. Fetch Consolidated Checklist submissions
+        (async () => {
+          try {
+            for (const itinerary of allItineraries) {
+              const response = await fetch(`/api/rtp/consolidated-checklist?itineraryId=${itinerary.id}`);
+              if (response.ok) {
+                const data = await response.json();
+                
+                // Filter submissions by the current user
+                const userSubmissions = data
+                  .filter(sub => sub.submitted_by === user.id)
+                  .map(sub => ({
+                    ...sub,
+                    itineraryTitle: itineraryMap[sub.itinerary_id] || `Itinerary #${sub.itinerary_id}`,
+                    submissionDate: new Date(sub.last_submission || sub.created_at),
+                    type: 'Consolidated Checklist',
+                    formType: 'consolidated-checklist',
+                    questions_answered: sub.total_questions || sub.answers?.length || 'N/A'
+                  }));
+                
+                allSubmissions = [...allSubmissions, ...userSubmissions];
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching consolidated checklist submissions:', error);
+          }
+        })(),
+        
+        // 4. Fetch Partners in Play submissions
+        (async () => {
+          try {
+            for (const itinerary of allItineraries) {
+              const response = await fetch(`/api/rtp/partners-in-play?itineraryId=${itinerary.id}`);
+              if (response.ok) {
+                const data = await response.json();
+                
+                // Filter submissions by the current user
+                const userSubmissions = data
+                  .filter(sub => sub.submitted_by === user.id)
+                  .map(sub => ({
+                    ...sub,
+                    itineraryTitle: itineraryMap[sub.itinerary_id] || `Itinerary #${sub.itinerary_id}`,
+                    submissionDate: new Date(sub.last_submission || sub.created_at),
+                    type: 'Partners in Play',
+                    formType: 'partners-in-play',
+                    questions_answered: sub.total_questions || sub.answers?.length || 'N/A',
+                    school_name: sub.school_name || 'N/A'
+                  }));
+                
+                allSubmissions = [...allSubmissions, ...userSubmissions];
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching partners in play submissions:', error);
+          }
+        })()
+      ]);
+      
+      // Sort submissions by date (newest first)
+      allSubmissions.sort((a, b) => new Date(b.submissionDate) - new Date(a.submissionDate));
+      
+      setSubmissions(allSubmissions);
+    } catch (error) {
+      console.error('Failed to fetch submission history:', error);
+    } finally {
+      setIsLoadingSubmissions(false);
+    }
   };
   
   // Function to navigate to appropriate form
@@ -87,12 +242,49 @@ export default function RightToPlayPage() {
     }
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  // Function to get the chip color based on submission type
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'School Output':
+        return 'primary';
+      case 'District Output':
+        return 'secondary';
+      case 'Consolidated Checklist':
+        return 'info';
+      case 'Partners in Play':
+        return 'warning';
+      default:
+        return 'default';
+    }
+  };
+
   // Show loading while authentication is being checked
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // Not authenticated user check
+  if (!isLoading && (!user || !user.id)) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8 }}>
+        <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
+          <Typography variant="h6" color="error" gutterBottom>
+            You must be logged in to access this page.
+          </Typography>
+          <Button variant="contained" color="primary" href="/login">
+            Go to Login
+          </Button>
+        </Box>
+      </Container>
     );
   }
 
@@ -186,7 +378,62 @@ export default function RightToPlayPage() {
           <Typography variant="h6" gutterBottom>
             Your Submission History
           </Typography>
-          <Typography>No submissions found.</Typography>
+          
+          {isLoadingSubmissions ? (
+            <Box display="flex" justifyContent="center" p={3}>
+              <CircularProgress />
+            </Box>
+          ) : submissions.length === 0 ? (
+            <Typography>No submissions found. If you recently submitted data, please refresh the page.</Typography>
+          ) : (
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell><strong>Itinerary</strong></TableCell>
+                    <TableCell><strong>Type</strong></TableCell>
+                    <TableCell><strong>School/District</strong></TableCell>
+                    <TableCell><strong>Submission Date</strong></TableCell>
+                    <TableCell><strong>Questions Answered</strong></TableCell>
+                    <TableCell><strong>Actions</strong></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {submissions.map((submission, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{submission.itineraryTitle}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={submission.type} 
+                          color={getTypeColor(submission.type)} 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {submission.type === 'School Output' || submission.type === 'Partners in Play' 
+                          ? submission.school_name
+                          : submission.type === 'District Output'
+                          ? submission.district_name
+                          : 'N/A'}
+                      </TableCell>
+                      <TableCell>{formatDate(submission.submissionDate)}</TableCell>
+                      <TableCell>{submission.questions_answered}</TableCell>
+                      <TableCell>
+                        <Button 
+                          size="small" 
+                          variant="outlined" 
+                          onClick={() => navigateToForm(submission.formType, submission.itinerary_id)}
+                        >
+                          View/Edit
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Box>
       )}
     </Container>

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import pool from '../../../utils/db';
+import { getConnection } from '@/utils/db';
+import CacheService from '@/utils/cache';
+import { verifyServerAuth } from '@/utils/serverAuth';
 
 /**
  * GET handler for retrieving programs
@@ -8,39 +10,71 @@ export async function GET(request) {
   try {
     // Get search parameters
     const { searchParams } = new URL(request.url);
-    const active = searchParams.get('active');
     const code = searchParams.get('code');
+    const active = searchParams.get('active');
     
-    // Build query
-    let query = 'SELECT * FROM programs';
-    const params = [];
-    const whereClauses = [];
+    // Create cache key based on query parameters
+    const cacheKey = `programs:${code || ''}:${active || ''}`;
     
-    if (active !== null) {
-      whereClauses.push('active = ?');
-      params.push(active === 'true' || active === '1' ? 1 : 0);
-    }
-    
-    if (code) {
-      whereClauses.push('code = ?');
-      params.push(code);
-    }
-    
-    if (whereClauses.length > 0) {
-      query += ' WHERE ' + whereClauses.join(' AND ');
-    }
-    
-    query += ' ORDER BY name ASC';
-    
-    // Execute query
-    const [rows] = await pool.query(query, params);
-    
-    return NextResponse.json({
-      success: true,
-      programs: rows
+    // Use cache service for programs data with transform option
+    const cachedOrFresh = await CacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const db = await getConnection();
+        
+        // Build query
+        let query = 'SELECT * FROM programs';
+        const params = [];
+        const whereClauses = [];
+        
+        if (code) {
+          whereClauses.push('code = ?');
+          params.push(code);
+        }
+        
+        if (active === 'true') {
+          console.log('Active is true');
+          whereClauses.push('status = "active"');
+        }
+        
+        if (whereClauses.length > 0) {
+          query += ' WHERE ' + whereClauses.join(' AND ');
+        }
+        
+        query += ' ORDER BY name ASC';
+        
+        log('Executing query:', query, "params:",params);
+        try {
+          // Execute query with proper error handling
+          const [rows] = await db.execute(query, params);
+          
+          console.log('Fetched programs:', rows);
+          // Check if rows is undefined or null
+          
+          return {
+            success: true,
+            programs: rows || []  // Always return an array, even if empty
+          };
+        } catch (dbError) {
+          console.error('Database error fetching programs:', dbError);
+          return {
+            success: false,
+            error: 'Database error fetching programs',
+            details: dbError.message
+          };
+        }
+      },
+      // Cache programs data for 12 hours (43200 seconds) as they rarely change
+      43200
+    );
+
+    // Always wrap the response in NextResponse.json()
+    return NextResponse.json(cachedOrFresh, { 
+      status: cachedOrFresh.success ? 200 : 500 
     });
   } catch (error) {
     console.error('Error fetching programs:', error);
+    // Ensure we always return a valid JSON response
     return NextResponse.json({
       success: false,
       error: error.message || 'Error fetching programs'
@@ -53,6 +87,15 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      );
+    }
+    
     const body = await request.json();
     
     // Validate required fields
@@ -63,8 +106,10 @@ export async function POST(request) {
       }, { status: 400 });
     }
     
+    const db = await getConnection();
+    
     // Check if program with code already exists
-    const [existingPrograms] = await pool.query(
+    const [existingPrograms] = await db.execute(
       'SELECT id FROM programs WHERE code = ?',
       [body.code]
     );
@@ -76,17 +121,20 @@ export async function POST(request) {
       }, { status: 400 });
     }
     
-    // Insert new program
-    const [result] = await pool.query(
-      'INSERT INTO programs (name, code, description, active) VALUES (?, ?, ?, ?)',
-      [body.name, body.code, body.description || null, body.active !== false]
+    // Insert new program with status
+    const [result] = await db.execute(
+      'INSERT INTO programs (name, code, description, status) VALUES (?, ?, ?, ?)',
+      [body.name, body.code, body.description || null, body.status || 'active']
     );
     
     // Fetch the newly created program
-    const [programs] = await pool.query(
+    const [programs] = await db.execute(
       'SELECT * FROM programs WHERE id = ?',
       [result.insertId]
     );
+    
+    // Invalidate the programs cache
+    await CacheService.invalidate('programs:*');
     
     return NextResponse.json({
       success: true,
@@ -106,6 +154,15 @@ export async function POST(request) {
  */
 export async function PUT(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      );
+    }
+    
     const body = await request.json();
     
     // Validate required fields
@@ -116,8 +173,10 @@ export async function PUT(request) {
       }, { status: 400 });
     }
     
+    const db = await getConnection();
+    
     // Check if program exists
-    const [existingPrograms] = await pool.query(
+    const [existingPrograms] = await db.execute(
       'SELECT id FROM programs WHERE id = ?',
       [body.id]
     );
@@ -129,17 +188,20 @@ export async function PUT(request) {
       }, { status: 404 });
     }
     
-    // Update program
-    await pool.query(
-      'UPDATE programs SET name = ?, code = ?, description = ?, active = ?, updated_at = NOW() WHERE id = ?',
-      [body.name, body.code, body.description || null, body.active !== false, body.id]
+    // Update program with status
+    await db.execute(
+      'UPDATE programs SET name = ?, code = ?, description = ?, status = ?, updated_at = NOW() WHERE id = ?',
+      [body.name, body.code, body.description || null, body.status || 'active', body.id]
     );
     
     // Fetch the updated program
-    const [programs] = await pool.query(
+    const [programs] = await db.execute(
       'SELECT * FROM programs WHERE id = ?',
       [body.id]
     );
+    
+    // Invalidate the programs cache
+    await CacheService.invalidate('programs:*');
     
     return NextResponse.json({
       success: true,
@@ -159,6 +221,15 @@ export async function PUT(request) {
  */
 export async function DELETE(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: authResult.message },
+        { status: authResult.status }
+      );
+    }
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
@@ -169,8 +240,10 @@ export async function DELETE(request) {
       }, { status: 400 });
     }
     
+    const db = await getConnection();
+    
     // Check if program exists
-    const [existingPrograms] = await pool.query(
+    const [existingPrograms] = await db.execute(
       'SELECT id FROM programs WHERE id = ?',
       [id]
     );
@@ -183,7 +256,10 @@ export async function DELETE(request) {
     }
     
     // Delete program
-    await pool.query('DELETE FROM programs WHERE id = ?', [id]);
+    await db.execute('DELETE FROM programs WHERE id = ?', [id]);
+    
+    // Invalidate the programs cache
+    await CacheService.invalidate('programs:*');
     
     return NextResponse.json({
       success: true,

@@ -133,9 +133,9 @@ export default function SchoolDetailPage({ params }) {
                 color={school.is_galop ? "green" : "gray"}
                 className="mr-2"
               />
-              {school.emis_code && (
+              {school.ges_code && (
                 <Typography variant="small" color="blue-gray">
-                  EMIS: {school.emis_code}
+                  GES: {school.ges_code}
                 </Typography>
               )}
             </div>

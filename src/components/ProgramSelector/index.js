@@ -16,7 +16,8 @@ import {
   Box,
   Paper,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Skeleton
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import SchoolIcon from '@mui/icons-material/School';
@@ -51,30 +52,35 @@ export default function ProgramSelector({ open, onClose, onSelect }) {
 
       try {
         setLoading(true);
+        // Using the status field now to filter for active programs
         const response = await fetch(`/api/user-program-roles?userId=${user.id}`);
         const data = await response.json();
 
         if (data.success && data.userProgramRoles) {
-          // Process and group by program
+          // Process and group by program - only include active programs
           const programMap = {};
           
-          data.userProgramRoles.forEach(role => {
-            if (!programMap[role.program_code]) {
-              programMap[role.program_code] = {
-                id: role.program_id,
-                code: role.program_code,
-                name: role.program_name,
-                roles: []
-              };
-            }
-            
-            programMap[role.program_code].roles.push({
-              id: role.id,
-              role: role.role,
-              scopeType: role.scope_type,
-              scopeId: role.scope_id
+          data.userProgramRoles
+            // Only include roles from active programs
+            .filter(role => role.program_status === 'active')
+            .forEach(role => {
+              if (!programMap[role.program_code]) {
+                programMap[role.program_code] = {
+                  id: role.program_id,
+                  code: role.program_code,
+                  name: role.program_name,
+                  status: role.program_status,
+                  roles: []
+                };
+              }
+              
+              programMap[role.program_code].roles.push({
+                id: role.id,
+                role: role.role,
+                scopeType: role.scope_type,
+                scopeId: role.scope_id
+              });
             });
-          });
           
           setPrograms(Object.values(programMap));
         }
@@ -142,93 +148,126 @@ export default function ProgramSelector({ open, onClose, onSelect }) {
   return (
     <Dialog 
       open={open} 
-      onClose={onClose}
+      onClose={loading ? null : onClose}
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         Select Program to Access
+        {loading && (
+          <CircularProgress size={24} sx={{ ml: 2 }} />
+        )}
       </DialogTitle>
       
       <DialogContent>
-        {loading ? (
-          <Box display="flex" justifyContent="center" my={4}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              You have access to multiple programs. Please select which program you would like to access:
-            </Typography>
-            
-            <List sx={{ mt: 2 }}>
-              {programs.map((program) => (
-                <Paper 
-                  key={program.id} 
-                  variant="outlined" 
-                  sx={{ 
-                    mb: 2, 
-                    borderRadius: 2,
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'translateY(-3px)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      borderColor: 'primary.main'
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          You have access to multiple programs. Please select which program you would like to access:
+        </Typography>
+        
+        <List sx={{ mt: 2 }}>
+          {loading ? (
+            // Show loading skeletons instead of hiding content
+            [...Array(3)].map((_, index) => (
+              <Paper 
+                key={`skeleton-${index}`} 
+                variant="outlined" 
+                sx={{ mb: 2, borderRadius: 2 }}
+              >
+                <ListItem sx={{ py: 2 }}>
+                  <ListItemIcon>
+                    <Skeleton variant="circular" width={24} height={24} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={<Skeleton variant="text" width="60%" height={32} />}
+                    secondary={
+                      <Box sx={{ mt: 1 }}>
+                        <Skeleton variant="rounded" width={120} height={24} sx={{ mb: 1 }} />
+                        <Skeleton variant="text" width="80%" />
+                      </Box>
                     }
-                  }}
+                  />
+                </ListItem>
+              </Paper>
+            ))
+          ) : (
+            programs.map((program) => (
+              <Paper 
+                key={program.id} 
+                variant="outlined" 
+                sx={{ 
+                  mb: 2, 
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                    borderColor: 'primary.main'
+                  }
+                }}
+              >
+                <ListItem 
+                  button 
+                  onClick={() => handleProgramSelect(program)}
+                  sx={{ py: 2 }}
+                  disabled={loading}
                 >
-                  <ListItem 
-                    button 
-                    onClick={() => handleProgramSelect(program)}
-                    sx={{ py: 2 }}
-                  >
-                    <ListItemIcon>
-                      {getProgramIcon(program.code)}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="h6" component="div">
-                          {program.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 1 }}>
-                          {program.roles.map((role, idx) => (
-                            <Chip
-                              key={idx}
-                              label={role.role === 'admin' ? 'Administrator' : 'Data Collector'}
-                              size="small"
-                              color={role.role === 'admin' ? 'primary' : 'secondary'}
-                              variant="outlined"
-                              sx={{ mr: 1, mb: 1 }}
-                            />
-                          ))}
-                          {program.roles.some(r => r.scopeType) && (
-                            <Typography variant="caption" component="div" color="text.secondary" sx={{ mt: 0.5 }}>
-                              {program.roles.map((role, idx) => (
-                                role.scopeType && 
-                                <span key={idx}>
-                                  {role.scopeType === 'national' 
-                                    ? 'National Access' 
-                                    : `${role.scopeType.charAt(0).toUpperCase() + role.scopeType.slice(1)}: ${role.scopeName || role.scopeId}`}
-                                  {idx < program.roles.length - 1 ? ', ' : ''}
-                                </span>
-                              ))}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                </Paper>
-              ))}
-            </List>
-          </>
-        )}
+                  <ListItemIcon>
+                    {getProgramIcon(program.code)}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="h6" component="div">
+                        {program.name}
+                      </Typography>
+                    }
+                    secondary={
+                      <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {program.roles.map((role, idx) => (
+                          <Chip
+                            key={idx}
+                            label={role.role === 'admin' ? 'Administrator' : 'Data Collector'}
+                            size="small"
+                            color={role.role === 'admin' ? 'primary' : 'secondary'}
+                            variant="outlined"
+                            sx={{ 
+                              minWidth: '120px',
+                              mr: 1, 
+                              mb: 1,
+                              justifyContent: 'flex-start',
+                              '& .MuiChip-label': {
+                                whiteSpace: 'normal',
+                                overflow: 'visible',
+                                textOverflow: 'clip',
+                                padding: '4px 8px'
+                              }
+                            }}
+                          />
+                        ))}
+                        {program.roles.some(r => r.scopeType) && (
+                          <Typography variant="caption" component="div" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {program.roles.map((role, idx) => (
+                              role.scopeType && 
+                              <span key={idx}>
+                                {role.scopeType === 'national' 
+                                  ? 'National Access' 
+                                  : `${role.scopeType.charAt(0).toUpperCase() + role.scopeType.slice(1)}: ${role.scopeName || role.scopeId}`}
+                                {idx < program.roles.length - 1 ? ', ' : ''}
+                              </span>
+                            ))}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              </Paper>
+            ))
+          )}
+        </List>
       </DialogContent>
       
       <DialogActions>
-        <Button onClick={onClose}>
+        <Button onClick={onClose} disabled={loading}>
           Cancel
         </Button>
       </DialogActions>

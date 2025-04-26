@@ -13,7 +13,7 @@ export async function GET(request) {
     // Parse filter params
     const query = searchParams.get('query') || '';
     const type = searchParams.get('type') || '';
-    const status = searchParams.get('status') || '';
+    // Removed status parameter as it doesn't exist in the database
     const includeProgramRoles = searchParams.get('includeProgramRoles') === 'true';
     
     // Build SQL WHERE clause for filters
@@ -30,10 +30,7 @@ export async function GET(request) {
       params.push(type);
     }
     
-    if (status) {
-      whereClause += ' AND status = ?';
-      params.push(status);
-    }
+    // Removed status filter condition
     
     // Get total count for pagination
     const [countResult] = await pool.query(
@@ -102,41 +99,93 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const userData = await request.json();
-    const { name, email, password, phone, title, type, role, status = 'active' } = userData;
+    const { 
+      first_name, 
+      last_name, 
+      email, 
+      password, 
+      phone_number,
+      gender, 
+      other_names,
+      type, 
+      identification_number,
+      birth_date,
+      avatar,
+      scope_id,
+      scope
+    } = userData;
     
     // Validate required fields
-    if (!name || !email || !password || !type) {
+    if (!first_name || !last_name || !email || !password || !type || !phone_number) {
       return NextResponse.json(
-        { success: false, message: 'Name, email, password and type are required' },
+        { success: false, message: 'First name, last name, email, password, phone number and type are required' },
         { status: 400 }
       );
     }
     
     // Check if email already exists
-    const [existingUsers] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingUsers.length > 0) {
+    const [existingEmailUsers] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (existingEmailUsers.length > 0) {
       return NextResponse.json(
         { success: false, message: 'A user with this email already exists' },
         { status: 409 }
       );
     }
     
-    // Handle the user role if not provided
-    const userRole = role || (type.includes('admin') ? 'admin' : 'user');
+    // Check if phone number already exists
+    const [existingPhoneUsers] = await pool.query('SELECT * FROM users WHERE phone_number = ?', [phone_number]);
+    if (existingPhoneUsers.length > 0) {
+      return NextResponse.json(
+        { success: false, message: 'A user with this phone number already exists' },
+        { status: 409 }
+      );
+    }
     
     // Insert new user
     const [result] = await pool.query(
-      `INSERT INTO users 
-        (name, email, password, phone, title, type, role, status, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [name, email, password, phone || null, title || null, type, userRole, status]
+      `INSERT INTO users (
+        first_name, 
+        last_name,
+        email, 
+        password, 
+        phone_number, 
+        type,
+        gender,
+        other_names,
+        identification_number,
+        birth_date,
+        avatar,
+        scope_id,
+        scope,
+        created_at, 
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        first_name, 
+        last_name,
+        email, 
+        password, 
+        phone_number, 
+        type,
+        gender || null,
+        other_names || null,
+        identification_number || null,
+        birth_date || null,
+        avatar || null,
+        scope_id || null,
+        scope || null
+      ]
     );
     
     const userId = result.insertId;
     
     // Retrieve the newly created user
     const [newUsers] = await pool.query(
-      'SELECT id, name, email, phone, title, type, role, status, created_at FROM users WHERE id = ?',
+      `SELECT 
+        id, first_name, last_name, email, phone_number, type, 
+        gender, other_names, identification_number, birth_date, scope_id, scope,
+        created_at 
+       FROM users WHERE id = ?`,
       [userId]
     );
     

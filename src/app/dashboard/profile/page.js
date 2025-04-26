@@ -38,10 +38,10 @@ export default function ProfilePage() {
     severity: 'success'
   });
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
-    title: '',
-    phone: '',
+    phone_number: '',
   });
   const [profileData, setProfileData] = useState(null);
   
@@ -66,10 +66,10 @@ export default function ProfilePage() {
               
               // Initialize form with profile data
               setFormData({
-                name: data.user.name || '',
+                first_name: data.user.first_name || '',
+                last_name: data.user.last_name || '',
                 email: data.user.email || '',
-                title: data.user.title || '',
-                phone: data.user.phone || '',
+                phone_number: data.user.phone_number || '',
               });
             }
           } else {
@@ -100,10 +100,10 @@ export default function ProfilePage() {
     // If canceling edit, reset form data
     if (editing && profileData) {
       setFormData({
-        name: profileData.name || '',
+        first_name: profileData.first_name || '',
+        last_name: profileData.last_name || '',
         email: profileData.email || '',
-        title: profileData.title || '',
-        phone: profileData.phone || '',
+        phone_number: profileData.phone_number || '',
       });
     }
   };
@@ -166,9 +166,9 @@ export default function ProfilePage() {
   };
   
   // Generate initials for avatar
-  const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const getInitials = (firstName, lastName) => {
+    if (!firstName && !lastName) return 'U';
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
   };
   
   if (isLoading || loading) {
@@ -222,11 +222,11 @@ export default function ProfilePage() {
                   mb: 2
                 }}
               >
-                {getInitials(displayData.name)}
+                {getInitials(displayData.first_name, displayData.last_name)}
               </Avatar>
               
               <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                {displayData.name || 'User'}
+                {`${displayData.first_name || ''} ${displayData.last_name || ''}`}
               </Typography>
               
               <Typography variant="body1" color="text.secondary" gutterBottom>
@@ -284,9 +284,21 @@ export default function ProfilePage() {
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Full Name"
-                      name="name"
-                      value={formData.name}
+                      label="First Name"
+                      name="first_name"
+                      value={formData.first_name}
+                      onChange={handleInputChange}
+                      disabled={!editing || loading}
+                      required
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Last Name"
+                      name="last_name"
+                      value={formData.last_name}
                       onChange={handleInputChange}
                       disabled={!editing || loading}
                       required
@@ -305,23 +317,12 @@ export default function ProfilePage() {
                     />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Title / Position"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleInputChange}
-                      disabled={!editing || loading}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       label="Phone Number"
-                      name="phone"
-                      value={formData.phone || ''}
+                      name="phone_number"
+                      value={formData.phone_number || ''}
                       onChange={handleInputChange}
                       disabled={!editing || loading}
                     />

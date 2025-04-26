@@ -14,17 +14,34 @@ import {
   Tab,
   Tabs,
   InputAdornment,
-  IconButton
+  IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from "next-auth/react";
 import { Visibility, VisibilityOff, Email, Phone } from '@mui/icons-material';
+import ProgramSelectionDialog from '@/components/ProgramSelectionDialog';
 
 export default function LoginPage() {
   const router = useRouter();
 
-  // State for tab selection (0 = password login, 1 = magic link login)
+  // Map NextAuth error codes to user-friendly messages
+  const friendlyErrors = {
+    CredentialsSignin: 'Invalid email or password',
+    SessionRequired: 'Please sign in to continue',
+    EmailSignin: 'Failed to send verification email',
+    OAuthSignin: 'Error signing in with OAuth provider',
+    OAuthCallback: 'Error during OAuth callback',
+    default: 'An unexpected error occurred. Please try again.',
+  };
+
+  // State for tab selection (0 = password login, 1 = magic link login, 2 = sms login)
   const [tabValue, setTabValue] = useState(0);
   
   // State for password login
@@ -37,10 +54,22 @@ export default function LoginPage() {
   // State for magic link login
   const [email, setEmail] = useState('');
   
+  // State for SMS OTP login
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  
   // Common states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
+  
+  // Program selection dialog state
+  const [showProgramDialog, setShowProgramDialog] = useState(false);
+  const [authenticatedUser, setAuthenticatedUser] = useState(null);
   
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -48,6 +77,9 @@ export default function LoginPage() {
     // Reset states when switching tabs
     setError('');
     setVerificationSent(false);
+    setOtpSent(false);
+    setOtp('');
+    setOtpError('');
   };
   
   // Handle input change for password login
@@ -57,6 +89,18 @@ export default function LoginPage() {
       ...prev,
       [name]: value
     }));
+  };
+  
+  // Handle successful authentication
+  const handleSuccessfulAuth = (user) => {
+    // If user has multiple program roles, show the program selection dialog
+    if (user.programRoles && user.programRoles.length > 1) {
+      setAuthenticatedUser(user);
+      setShowProgramDialog(true);
+    } else {
+      // If user has only one program role or none, redirect to dashboard
+      router.push('/dashboard');
+    }
   };
   
   // Handle password login submission
@@ -76,11 +120,18 @@ export default function LoginPage() {
         throw new Error(result.error || 'Invalid email or password');
       }
       
-      // Successfully authenticated
-      router.push('/dashboard');
+      // Get user data from the session
+      const response = await fetch('/api/auth/me');
+      if (!response.ok) {
+        throw new Error('Failed to get user data');
+      }
+      
+      const userData = await response.json();
+      handleSuccessfulAuth(userData.user);
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login. Please check your credentials.');
+      const message = friendlyErrors[err.message] || err.message || friendlyErrors.default;
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -111,9 +162,87 @@ export default function LoginPage() {
       setVerificationSent(true);
     } catch (err) {
       console.error('Magic link request error:', err);
-      setError(err.message || 'Failed to send verification email');
+      const message = friendlyErrors[err.message] || err.message || friendlyErrors.default;
+      setError(message);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Handle sending OTP for SMS login
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    setOtpLoading(true);
+    
+    try {
+      if (!phoneNumber) {
+        throw new Error('Please enter your phone number');
+      }
+      
+      // Call the send-otp API to send the verification code
+      const response = await fetch('/api/users/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: phoneNumber,
+          type: 'phone',
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to send verification code');
+      }
+      
+      setOtpSent(true);
+    } catch (err) {
+      console.error('OTP request error:', err);
+      setOtpError(err.message || 'Failed to send verification code');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+  
+  // Handle OTP verification for SMS login
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    setVerifyLoading(true);
+    
+    try {
+      if (!otp) {
+        throw new Error('Please enter the verification code');
+      }
+      
+      // Attempt to sign in with OTP credentials
+      const result = await signIn('otp-login', {
+        redirect: false,
+        phoneOrEmail: phoneNumber,
+        otp: otp,
+        type: 'phone',
+      });
+      
+      if (result.error) {
+        throw new Error(result.error || 'Invalid verification code');
+      }
+      
+      // Get user data from the session
+      const response = await fetch('/api/auth/me');
+      if (!response.ok) {
+        throw new Error('Failed to get user data');
+      }
+      
+      const userData = await response.json();
+      handleSuccessfulAuth(userData.user);
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      setOtpError(err.message || 'Failed to verify code. Please try again.');
+    } finally {
+      setVerifyLoading(false);
     }
   };
   
@@ -224,6 +353,106 @@ export default function LoginPage() {
     </Box>
   );
   
+  // Render SMS OTP login form
+  const renderSmsOtpLogin = () => (
+    <Box component="form" onSubmit={otpSent ? handleVerifyOtp : handleSendOtp} sx={{ mt: 2 }}>
+      {!otpSent ? (
+        <>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Enter your phone number to receive a verification code.
+          </Typography>
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="phone"
+            label="Phone Number"
+            name="phone"
+            autoComplete="tel"
+            placeholder="+233201234567"
+            autoFocus
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            disabled={otpLoading}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Phone fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={otpLoading}
+            startIcon={otpLoading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {otpLoading ? 'Sending...' : 'Send Verification Code'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <Alert severity="success" sx={{ mt: 2, mb: 2 }}>
+            <Typography variant="body2">
+              A verification code has been sent to {phoneNumber}.
+            </Typography>
+          </Alert>
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="otp"
+            label="Verification Code"
+            name="otp"
+            autoComplete="one-time-code"
+            autoFocus
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            disabled={verifyLoading}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={verifyLoading}
+            startIcon={verifyLoading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {verifyLoading ? 'Verifying...' : 'Verify Code'}
+          </Button>
+          
+          <Box sx={{ textAlign: 'center', mt: 1 }}>
+            <Button
+              variant="text"
+              color="primary"
+              size="small"
+              onClick={() => {
+                setOtpSent(false);
+                setOtp('');
+              }}
+              disabled={otpLoading || verifyLoading}
+            >
+              Use a different phone number
+            </Button>
+          </Box>
+        </>
+      )}
+      
+      {otpError && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {otpError}
+        </Alert>
+      )}
+    </Box>
+  );
+  
   return (
     <Container component="main" maxWidth="xs">
       <Box
@@ -244,7 +473,7 @@ export default function LoginPage() {
         >
           <Box sx={{ mb: 3, textAlign: 'center' }}>
             <Typography component="h1" variant="h5" gutterBottom>
-              Welcome to MSRC
+              Welcome to mSRC
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Sign in to continue to the dashboard
@@ -259,6 +488,7 @@ export default function LoginPage() {
           >
             <Tab label="Password" id="login-tab-0" />
             <Tab label="Magic Link" id="login-tab-1" />
+            <Tab label="SMS Code" id="login-tab-2" />
           </Tabs>
           
           {error && (
@@ -275,6 +505,10 @@ export default function LoginPage() {
             {tabValue === 1 && renderMagicLinkLogin()}
           </Box>
           
+          <Box role="tabpanel" hidden={tabValue !== 2}>
+            {tabValue === 2 && renderSmsOtpLogin()}
+          </Box>
+          
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <MuiLink component={Link} href="/reset-password" variant="body2">
               Forgot password?
@@ -282,6 +516,13 @@ export default function LoginPage() {
           </Box>
         </Paper>
       </Box>
+      
+      {/* Program Selection Dialog */}
+      <ProgramSelectionDialog
+        open={showProgramDialog}
+        user={authenticatedUser}
+        onClose={() => setShowProgramDialog(false)}
+      />
     </Container>
   );
 }

@@ -275,7 +275,7 @@ export default function ReentryDashboard({ user }) {
         {!isMobile && (
           <Box>
             <Chip 
-              label={`${user.firstName || user.first_name || user.name || user.email}`} 
+              label={`${user.first_name || user.name || user.email}`} 
               color="primary" 
               variant="outlined" 
             />

@@ -13,40 +13,59 @@ export async function GET(req) {
     
     // Build query with optional filters
     let query = `
-      SELECT r.*, d.name as district_name, r.name as region_name, 
-             u.name as submitted_by_name, i.title as itinerary_title
-      FROM right_to_play_district_responses r
-      JOIN right_to_play_itineraries i ON r.itinerary_id = i.id
-      JOIN districts d ON r.district_id = d.id
-      JOIN regions r ON d.region_id = r.id
-      LEFT JOIN users u ON r.submitted_by = u.id
-      WHERE r.deleted_at IS NULL
+      SELECT 
+        dr.id, 
+        dr.itinerary_id, 
+        dr.district_id, 
+        dr.submitted_by, 
+        dr.submitted_at, 
+        dr.created_at, 
+        dr.updated_at,
+        d.name as district_name, 
+        reg.name as region_name, 
+        CONCAT(u.first_name, ' ', u.last_name) as submitted_by_name, 
+        i.title as itinerary_title
+      FROM right_to_play_district_responses dr
+      JOIN right_to_play_itineraries i ON dr.itinerary_id = i.id
+      JOIN districts d ON dr.district_id = d.id
+      JOIN regions reg ON d.region_id = reg.id
+      JOIN users u ON dr.submitted_by = u.id
+      WHERE dr.deleted_at IS NULL
     `;
     
     const queryParams = [];
     
     if (itineraryId) {
-      query += ` AND r.itinerary_id = ?`;
+      query += ` AND dr.itinerary_id = ?`;
       queryParams.push(parseInt(itineraryId));
     }
     
     if (districtId) {
-      query += ` AND r.district_id = ?`;
+      query += ` AND dr.district_id = ?`;
       queryParams.push(parseInt(districtId));
     }
     
-    query += ` ORDER BY r.submitted_at DESC`;
+    query += ` ORDER BY dr.submitted_at DESC`;
     
     const [responses] = await db.query(query, queryParams);
     
     // For each response, get the detailed answers
     for (let i = 0; i < responses.length; i++) {
       const [answers] = await db.query(`
-        SELECT a.*, q.question, q.target, q.indicator_type
+        SELECT 
+          a.id,
+          a.response_id,
+          a.question_id, 
+          a.answer_value,
+          a.created_at,
+          a.updated_at,
+          q.question, 
+          q.indicator_type,
+          q.is_required
         FROM right_to_play_district_response_answers a
         JOIN right_to_play_questions q ON a.question_id = q.id
         WHERE a.response_id = ?
-        ORDER BY q.display_order ASC, q.id ASC
+        ORDER BY q.id ASC
       `, [responses[i].id]);
       
       responses[i].answers = answers;

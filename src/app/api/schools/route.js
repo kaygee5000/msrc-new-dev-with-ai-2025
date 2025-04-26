@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import db from '@/utils/db';
+import { getConnection } from '@/utils/db';
+import CacheService from '@/utils/cache';
+import { verifyServerAuth } from '@/utils/serverAuth';
 
 /**
  * GET handler for retrieving schools
@@ -10,70 +12,149 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const regionId = searchParams.get('region_id');
     const districtId = searchParams.get('district_id');
-    const circuitId = searchParams.get('circuit_id');
+    const circuitId = searchParams.get('circuit_id') || searchParams.get('circuitId');
+    const id = searchParams.get('id');
     
-    let query = `
-      SELECT 
-        s.id, 
-        s.name, 
-        s.ges_code,
-        s.district_id,
-        s.circuit_id,
-        d.region_id,
-        d.name AS district_name,
-        c.name AS circuit_name,
-        r.name AS region_name
-      FROM 
-        schools s
-        JOIN districts d ON s.district_id = d.id
-        JOIN circuits c ON s.circuit_id = c.id
-        JOIN regions r ON d.region_id = r.id
-      WHERE 1=1
-    `;
+    console.log('Schools API called with params:', { regionId, districtId, circuitId, id });
     
-    const queryParams = [];
+    // Create cache key based on query parameters
+    const cacheKey = `schools:${id || ''}:${regionId || ''}:${districtId || ''}:${circuitId || ''}`;
     
-    // Add filters based on provided parameters
-    if (regionId) {
-      query += " AND d.region_id = ?";
-      queryParams.push(regionId);
-    }
-    if (districtId) {
-      query += " AND s.district_id = ?";
-      queryParams.push(districtId);
-    }
-    if (circuitId) {
-      query += " AND s.circuit_id = ?";
-      queryParams.push(circuitId);
-    }
-    query += " ORDER BY s.name ASC";
-    // Execute the query
-    const [rows] = await db.query(query, queryParams);
-    // Transform the data to match the expected format
-    const schools = rows.map(school => ({
-      id: school.id,
-      name: school.name,
-      gesCode: school.ges_code,
-      regionId: school.region_id,
-      districtId: school.district_id,
-      circuitId: school.circuit_id,
-      district: { 
-        id: school.district_id,
-        name: school.district_name 
+    // Use cache service for schools data
+    const cachedOrFresh = await CacheService.getOrSet(
+      cacheKey,
+      async () => {
+        const db = await getConnection();
+        
+        // Handle fetching by ID if provided
+        if (id) {
+          const [rows] = await db.query(`
+            SELECT 
+              s.id, 
+              s.name, 
+              s.ges_code,
+              s.district_id,
+              s.circuit_id,
+              d.region_id,
+              d.name AS district_name,
+              c.name AS circuit_name,
+              r.name AS region_name
+            FROM 
+              schools s
+              JOIN districts d ON s.district_id = d.id
+              JOIN circuits c ON s.circuit_id = c.id
+              JOIN regions r ON d.region_id = r.id
+            WHERE s.id = ?
+          `, [id]);
+          
+          // Transform the data to match the expected format
+          const schools = rows.map(school => ({
+            id: school.id,
+            name: school.name,
+            gesCode: school.ges_code,
+            regionId: school.region_id,
+            districtId: school.district_id,
+            circuitId: school.circuit_id,
+            district: { 
+              id: school.district_id,
+              name: school.district_name 
+            },
+            circuit: { 
+              id: school.circuit_id,
+              name: school.circuit_name 
+            },
+            region: { 
+              id: school.region_id,
+              name: school.region_name 
+            }
+          }));
+          
+          return { schools };
+        }
+        
+        // Build the base query
+        let query = `
+          SELECT 
+            s.id, 
+            s.name, 
+            s.ges_code,
+            s.district_id,
+            s.circuit_id,
+            d.region_id,
+            d.name AS district_name,
+            c.name AS circuit_name,
+            r.name AS region_name
+          FROM 
+            schools s
+            JOIN districts d ON s.district_id = d.id
+            JOIN circuits c ON s.circuit_id = c.id
+            JOIN regions r ON d.region_id = r.id
+          WHERE 1=1
+        `;
+        
+        const queryParams = [];
+        
+        // Add filters based on provided parameters
+        if (regionId) {
+          query += " AND d.region_id = ?";
+          queryParams.push(regionId);
+        }
+        if (districtId) {
+          query += " AND s.district_id = ?";
+          queryParams.push(districtId);
+        }
+        if (circuitId) {
+          query += " AND s.circuit_id = ?";
+          queryParams.push(circuitId);
+        }
+        query += " ORDER BY s.name ASC";
+        
+        console.log('SQL query:', query);
+        console.log('Query params:', queryParams);
+        
+        // Execute the query
+        const [rows] = await db.query(query, queryParams);
+        
+        // Transform the data to match the expected format
+        const schools = rows.map(school => ({
+          id: school.id,
+          name: school.name,
+          gesCode: school.ges_code,
+          regionId: school.region_id,
+          districtId: school.district_id,
+          circuitId: school.circuit_id,
+          district: { 
+            id: school.district_id,
+            name: school.district_name 
+          },
+          circuit: { 
+            id: school.circuit_id,
+            name: school.circuit_name 
+          },
+          region: { 
+            id: school.region_id,
+            name: school.region_name 
+          }
+        }));
+        
+        return { schools };
       },
-      circuit: { 
-        id: school.circuit_id,
-        name: school.circuit_name 
-      },
-      region: { 
-        id: school.region_id,
-        name: school.region_name 
-      }
-    }));
-    return NextResponse.json({ schools }, { status: 200 });
+      // Cache schools data for 6 hours (21600 seconds)
+      21600
+    );
+    
+    // Always wrap the response in NextResponse.json() with success and data fields
+    return NextResponse.json({
+      success: true,
+      data: cachedOrFresh
+    }, { status: 200 });
   } catch (error) {
     console.error('Error fetching schools:', error);
-    return NextResponse.json({ message: 'Failed to fetch schools', error: error.message }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch schools', 
+      details: error.message
+    }, { status: 500 });
   }
 }
 
@@ -82,109 +163,229 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json({
+        success: false,
+        error: authResult.message
+      }, { status: authResult.status });
+    }
+    
     const body = await request.json();
-    const { name, ges_code, circuit_id, address = null, contact = null, type = null } = body;
+    const { name, ges_code, circuit_id, district_id, address = null, contact = null, type = null } = body;
+    
     if (!name || !ges_code || !circuit_id) {
-      return NextResponse.json(
-        { error: 'Name, ges_code, and circuit_id are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Name, ges_code, and circuit_id are required'
+      }, { status: 400 });
     }
-    // Verify circuit exists
-    const [circuitRows] = await db.query('SELECT id FROM circuits WHERE id = ?', [circuit_id]);
-    if (circuitRows.length === 0) {
-      return NextResponse.json(
-        { error: 'Circuit not found' },
-        { status: 400 }
-      );
+    
+    const db = await getConnection();
+    
+    // Verify circuit exists and get associated district and region IDs
+    const [circuitData] = await db.query(`
+      SELECT c.id, c.district_id, d.region_id 
+      FROM circuits c 
+      JOIN districts d ON c.district_id = d.id 
+      WHERE c.id = ?
+    `, [circuit_id]);
+    
+    if (circuitData.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Circuit not found'
+      }, { status: 400 });
     }
+    
+    const circuitInfo = circuitData[0];
+    const actualDistrictId = district_id || circuitInfo.district_id;
+    const regionId = circuitInfo.region_id;
+    
     // Insert a new school into the database
     const [result] = await db.query(
-      'INSERT INTO schools (name, ges_code, circuit_id, address, contact, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
-      [name, ges_code, circuit_id, address, contact, type]
+      'INSERT INTO schools (name, ges_code, circuit_id, district_id, address, contact, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+      [name, ges_code, circuit_id, actualDistrictId, address, contact, type]
     );
-    return NextResponse.json(
-      { message: 'School created successfully', id: result.insertId },
-      { status: 201 }
-    );
+    
+    // Invalidate relevant caches
+    await CacheService.invalidateMultiple([
+      'schools:*',
+      `circuits:${circuit_id}:*`,
+      `districts:${actualDistrictId}:*`,
+      `regions:${regionId}:*`
+    ]);
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'School created successfully',
+        id: result.insertId
+      }
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating school:', error);
-    return NextResponse.json(
-      { error: 'Failed to create school', details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create school',
+      details: error.message
+    }, { status: 500 });
   }
 }
 
 /**
  * PUT handler for updating a school
- * This would typically be in the [id]/route.js file but adding it here for completeness
  */
 export async function PUT(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json({
+        success: false,
+        error: authResult.message
+      }, { status: authResult.status });
+    }
+    
     const body = await request.json();
-    const { id, name, ges_code, circuit_id, address = null, contact = null, type = null } = body;
+    const { id, name, ges_code, circuit_id, district_id, address = null, contact = null, type = null } = body;
 
     if (!id || !name || !ges_code || !circuit_id) {
-      return NextResponse.json(
-        { error: 'ID, name, ges_code, and circuit_id are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'ID, name, ges_code, and circuit_id are required'
+      }, { status: 400 });
     }
 
-    // Verify school exists
-    const [schoolRows] = await db.query('SELECT id FROM schools WHERE id = ?', [id]);
+    const db = await getConnection();
     
-    if (schoolRows.length === 0) {
-      return NextResponse.json(
-        { error: 'School not found' },
-        { status: 404 }
-      );
+    // Get current school data to check for circuit/district change
+    const [currentSchool] = await db.query(`
+      SELECT s.district_id, s.circuit_id, d.region_id
+      FROM schools s 
+      JOIN districts d ON s.district_id = d.id 
+      WHERE s.id = ?
+    `, [id]);
+    
+    if (currentSchool.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'School not found'
+      }, { status: 404 });
     }
+    
+    const oldCircuitId = currentSchool[0].circuit_id;
+    const oldDistrictId = currentSchool[0].district_id;
+    const oldRegionId = currentSchool[0].region_id;
 
-    // Verify circuit exists
-    const [circuitRows] = await db.query('SELECT id FROM circuits WHERE id = ?', [circuit_id]);
+    // Verify circuit exists and get new district/region information
+    const [circuitData] = await db.query(`
+      SELECT c.district_id, d.region_id 
+      FROM circuits c 
+      JOIN districts d ON c.district_id = d.id 
+      WHERE c.id = ?
+    `, [circuit_id]);
     
-    if (circuitRows.length === 0) {
-      return NextResponse.json(
-        { error: 'Circuit not found' },
-        { status: 400 }
-      );
+    if (circuitData.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'Circuit not found'
+      }, { status: 400 });
     }
+    
+    const actualDistrictId = district_id || circuitData[0].district_id;
+    const newRegionId = circuitData[0].region_id;
 
     // Update school
     await db.query(
-      'UPDATE schools SET name = ?, ges_code = ?, circuit_id = ?, address = ?, contact = ?, type = ?, updated_at = NOW() WHERE id = ?',
-      [name, ges_code, circuit_id, address, contact, type, id]
+      'UPDATE schools SET name = ?, ges_code = ?, circuit_id = ?, district_id = ?, address = ?, contact = ?, type = ?, updated_at = NOW() WHERE id = ?',
+      [name, ges_code, circuit_id, actualDistrictId, address, contact, type, id]
     );
+    
+    // Invalidate caches
+    const cachesToInvalidate = ['schools:*'];
+    
+    // If circuit changed, invalidate old and new circuit caches
+    if (oldCircuitId !== circuit_id) {
+      cachesToInvalidate.push(`circuits:${oldCircuitId}:*`);
+      cachesToInvalidate.push(`circuits:${circuit_id}:*`);
+    }
+    
+    // If district changed, invalidate old and new district caches
+    if (oldDistrictId !== actualDistrictId) {
+      cachesToInvalidate.push(`districts:${oldDistrictId}:*`);
+      cachesToInvalidate.push(`districts:${actualDistrictId}:*`);
+    }
+    
+    // If region changed, invalidate old and new region caches
+    if (oldRegionId !== newRegionId) {
+      cachesToInvalidate.push(`regions:${oldRegionId}:*`);
+      cachesToInvalidate.push(`regions:${newRegionId}:*`);
+    }
+    
+    await CacheService.invalidateMultiple(cachesToInvalidate);
 
-    return NextResponse.json(
-      { message: 'School updated successfully' }
-    );
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'School updated successfully'
+      }
+    });
   } catch (error) {
     console.error('Error updating school:', error);
-    return NextResponse.json(
-      { error: 'Failed to update school', details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to update school',
+      details: error.message
+    }, { status: 500 });
   }
 }
 
 /**
  * DELETE handler for removing a school
- * This would typically be in the [id]/route.js file but adding it here for completeness
  */
 export async function DELETE(request) {
   try {
+    // Verify authorization
+    const authResult = await verifyServerAuth(request, ['admin']);
+    if (!authResult.success) {
+      return NextResponse.json({
+        success: false,
+        error: authResult.message
+      }, { status: authResult.status });
+    }
+    
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     
     if (!id) {
-      return NextResponse.json(
-        { error: 'School ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'School ID is required'
+      }, { status: 400 });
     }
+    
+    const db = await getConnection();
+    
+    // Get school info before deletion to invalidate correct caches
+    const [school] = await db.query(`
+      SELECT s.circuit_id, s.district_id, d.region_id 
+      FROM schools s 
+      JOIN districts d ON s.district_id = d.id 
+      WHERE s.id = ?
+    `, [id]);
+    
+    if (school.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'School not found'
+      }, { status: 404 });
+    }
+    
+    const circuitId = school[0].circuit_id;
+    const districtId = school[0].district_id;
+    const regionId = school[0].region_id;
     
     // Check for dependent data (like facilitators or reports)
     const [facilitatorRows] = await db.query(
@@ -193,23 +394,35 @@ export async function DELETE(request) {
     );
     
     if (facilitatorRows[0].count > 0) {
-      return NextResponse.json(
-        { error: 'Cannot delete school with associated facilitators' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Cannot delete school with associated facilitators'
+      }, { status: 400 });
     }
 
     // Delete school
     await db.query('DELETE FROM schools WHERE id = ?', [id]);
+    
+    // Invalidate caches
+    await CacheService.invalidateMultiple([
+      'schools:*',
+      `circuits:${circuitId}:*`,
+      `districts:${districtId}:*`,
+      `regions:${regionId}:*`
+    ]);
 
-    return NextResponse.json(
-      { message: 'School deleted successfully' }
-    );
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'School deleted successfully'
+      }
+    });
   } catch (error) {
     console.error('Error deleting school:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete school', details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to delete school',
+      details: error.message
+    }, { status: 500 });
   }
 }

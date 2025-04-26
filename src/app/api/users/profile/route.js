@@ -4,7 +4,7 @@ import pool from '@/utils/db';
 export async function PUT(request) {
   try {
     const userData = await request.json();
-    const { id, name, email, phone, title } = userData;
+    const { id, first_name, last_name, email, phone_number } = userData;
     
     if (!id) {
       return NextResponse.json(
@@ -29,24 +29,24 @@ export async function PUT(request) {
     // Update user information
     await pool.query(
       `UPDATE users SET 
-        name = COALESCE(?, name),
+        first_name = COALESCE(?, first_name),
+        last_name = COALESCE(?, last_name),
         email = COALESCE(?, email),
-        phone = ?,
-        title = ?,
+        phone_number = COALESCE(?, phone_number),
         updated_at = NOW()
        WHERE id = ?`,
       [
-        name,
+        first_name,
+        last_name,
         email,
-        phone,
-        title,
+        phone_number,
         id
       ]
     );
     
     // Return updated user data
     const [updatedUsers] = await pool.query(
-      'SELECT id, name, email, phone, title, type, role FROM users WHERE id = ?',
+      'SELECT id, first_name, last_name, email, phone_number, type FROM users WHERE id = ?',
       [id]
     );
     
@@ -78,7 +78,7 @@ export async function GET(request) {
     
     // Get user data
     const [users] = await pool.query(
-      'SELECT id, name, email, phone, title, type, role FROM users WHERE id = ?',
+      'SELECT id, first_name, last_name, email, phone_number, type, gender, other_names, birth_date, avatar FROM users WHERE id = ?',
       [userId]
     );
     

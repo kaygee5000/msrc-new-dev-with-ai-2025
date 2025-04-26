@@ -33,10 +33,12 @@ import {
   List,
   ListItem,
   ListItemText,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from "next-auth/react";
+import { useProgramContext } from "@/context/ProgramContext";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -45,72 +47,49 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 
 export default function NewConsolidatedChecklist() {
   const { data: session, status } = useSession();
-const { currentProgram } = useProgramContext();
-const user = session?.user;
-const isAuthenticated = status === "authenticated";
-const isLoading = status === "loading";
+  const { currentProgram } = useProgramContext();
+  const user = session?.user;
+  const isAuthenticated = status === "authenticated";
+  const isLoading = status === "loading";
   const router = useRouter();
   const searchParams = useSearchParams();
-  const itineraryIdParam = searchParams.get('itineraryId');
+  const itineraryId = searchParams.get('itineraryId');
   
   // Form state
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     // General information
+    region_id: '',
+    district_id: '',
+    circuit_id: '',
     school_id: '',
-    assessor_name: '',
+    assessor_name: user?.first_name + ' ' + user?.last_name || '',
     assessment_date: new Date().toISOString().split('T')[0],
-    itinerary_id: itineraryIdParam || '',
-    
-    // Q1-Q30 (grouped by sections)
-    // Section 1: School Information
-    q1_school_type: '',
-    q2_total_enrollment: '',
-    q3_boys_enrollment: '',
-    q4_girls_enrollment: '',
-    q5_total_teachers: '',
-    q6_male_teachers: '',
-    q7_female_teachers: '',
-    
-    // Section 2: Leadership & Management
-    q8_training_received: false,
-    q9_head_teacher_trained: false,
-    q10_curriculum_lead_trained: false,
-    q11_smc_sensitized: false,
-    q12_pta_sensitized: false,
-    q13_management_support: '',
-    q14_management_meetings: '',
-    q15_circuit_supervisor_visit: false,
-    q16_coach_visit_frequency: '',
-    
-    // Section 3: Implementation Plans
-    q17_has_implementation_plan: false,
-    q18_implementation_plan_file: null,
-    q19_teachers_with_ltp_lessons: '',
-    q20_monitoring_mechanism: false,
-    
-    // Section 4: Teacher Practice
-    q21_teachers_using_ltp: '',
-    q22_gender_responsive_methods: '',
-    q23_inclusion_methods: '',
-    q24_teachers_confident: '',
-    
-    // Section 5: Learning Environment
-    q25_learning_materials_display: false,
-    q26_student_work_display: false,
-    q27_safe_environment: '',
-    q28_gender_responsive_environment: '',
-    
-    // Section 6: Challenges & Support
-    q29_main_challenges: '',
-    q30_additional_support_needed: ''
   });
+  
+  // State for storing questions from the database
+  const [questions, setQuestions] = useState([]);
   
   // UI state
   const [loading, setLoading] = useState(false);
+  const [regionLoading, setRegionLoading] = useState(false);
+  const [districtLoading, setDistrictLoading] = useState(false); 
+  const [circuitLoading, setCircuitLoading] = useState(false);
+  const [schoolLoading, setSchoolLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Location data
+  const [regions, setRegions] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [filteredDistricts, setFilteredDistricts] = useState([]);
+  const [circuits, setCircuits] = useState([]);
+  const [filteredCircuits, setFilteredCircuits] = useState([]);
   const [schools, setSchools] = useState([]);
-  const [itineraries, setItineraries] = useState([]);
+  const [filteredSchools, setFilteredSchools] = useState([]);
+  
+  // Itinerary data
+  const [itinerary, setItinerary] = useState(null);
+  
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -128,33 +107,79 @@ const isLoading = status === "loading";
     'Review & Submit'
   ];
   
-  // Load schools and itineraries data
+  // Load only regions and itinerary details initially
   useEffect(() => {
-    const fetchOptions = async () => {
+    const fetchInitialData = async () => {
       setLoading(true);
       try {
-        // These would be actual API calls in production
-        // For now using mock data
-        const schoolsResponse = [
-          { id: 1, name: 'Accra Primary School', district_id: 1, district_name: 'Accra Metro' },
-          { id: 2, name: 'Tema Model School', district_id: 2, district_name: 'Tema Metro' },
-          { id: 3, name: 'Ga East Primary', district_id: 3, district_name: 'Ga East' },
-          { id: 4, name: 'Amasaman Basic School', district_id: 4, district_name: 'Ga West' },
-          { id: 5, name: 'Adentan Community School', district_id: 5, district_name: 'Adentan Municipal' },
-        ];
+        // Fetch regions - returns {success: true, data: [...regions]}
+        const regionsResponse = await fetch('/api/regions');
+        const regionsData = await regionsResponse.json();
+        setRegions(regionsData.data || []);
         
-        const itinerariesResponse = [
-          { id: 1, name: 'Q1 2025 Data Collection', start_date: '2025-01-01', end_date: '2025-03-31' },
-          { id: 2, name: 'Q2 2025 Data Collection', start_date: '2025-04-01', end_date: '2025-06-30' },
-        ];
+        // Fetch itinerary details - returns the itinerary object directly
+        if (itineraryId) {
+          const itineraryResponse = await fetch(`/api/rtp/itineraries/${itineraryId}`);
+          const itineraryData = await itineraryResponse.json();
+          setItinerary(itineraryData || null);
+        }
         
-        setSchools(schoolsResponse);
-        setItineraries(itinerariesResponse);
+        // Fetch questions for consolidated checklist (category 3)
+        const questionsResponse = await fetch('/api/rtp/questions?category=3');
+        const questionsData = await questionsResponse.json();
+        
+        // Process questions and update form data structure
+        if (questionsData.questions && questionsData.questions.length > 0) {
+          // Store questions for rendering
+          setQuestions(questionsData.questions);
+          
+          // Initialize form data with question IDs from the database
+          const initialFormData = {
+            // Keep the general fields
+            region_id: formData.region_id || '',
+            district_id: formData.district_id || '',
+            circuit_id: formData.circuit_id || '',
+            school_id: formData.school_id || '',
+            assessor_name: user?.first_name + ' ' + user?.last_name || '',
+            assessment_date: formData.assessment_date || new Date().toISOString().split('T')[0],
+          };
+          
+          // Add questions to form data with appropriate initial values
+          questionsData.questions.forEach(question => {
+            // Determine the appropriate initial value based on question type
+            let initialValue = '';
+            if (question.question_form === 'boolean' || question.question.toLowerCase().includes('has ') || 
+                question.question.toLowerCase().includes('is ') || question.question.toLowerCase().includes('are ')) {
+              initialValue = false;
+            } else if (question.question_form === 'number' || 
+                      question.question.toLowerCase().includes('how many') || 
+                      question.question.toLowerCase().includes('enrollment') || 
+                      question.question.toLowerCase().includes('teachers')) {
+              initialValue = '';
+            } else if (question.question_form === 'file' || question.has_file_upload) {
+              initialValue = null;
+            }
+            
+            // Add to form data with a consistent naming pattern: q{id}_{key}
+            const key = `q${question.id}_${question.question.toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/_+/g, '_')
+              .replace(/^_|_$/g, '')
+              .substring(0, 30)}`;
+              
+            initialFormData[key] = initialValue;
+          });
+          
+          setFormData(prevState => ({
+            ...prevState,
+            ...initialFormData
+          }));
+        }
       } catch (error) {
-        console.error('Error fetching options:', error);
+        console.error('Error fetching initial data:', error);
         setSnackbar({
           open: true,
-          message: 'Failed to load form options',
+          message: 'Failed to load initial data: ' + error.message,
           severity: 'error'
         });
       } finally {
@@ -163,9 +188,111 @@ const isLoading = status === "loading";
     };
     
     if (isAuthenticated) {
-      fetchOptions();
+      fetchInitialData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, itineraryId, user]);
+  
+  // Fetch districts when a region is selected
+  useEffect(() => {
+    if (formData.region_id) {
+      const fetchDistricts = async () => {
+        try {
+          setDistrictLoading(true);
+          const response = await fetch(`/api/districts?region_id=${formData.region_id}`);
+          const data = await response.json();
+          // Format: {success: true, data: {districts: [...]}}
+          setDistricts(data.data?.districts || []);
+          setFilteredDistricts(data.data?.districts || []);
+        } catch (error) {
+          console.error('Error fetching districts:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to load districts',
+            severity: 'error'
+          });
+        } finally {
+          setDistrictLoading(false);
+        }
+      };
+      
+      fetchDistricts();
+      
+      // Reset dependent selections
+      setFormData(prev => ({
+        ...prev,
+        district_id: '',
+        circuit_id: '',
+        school_id: ''
+      }));
+    }
+  }, [formData.region_id]);
+  
+  // Fetch circuits when a district is selected
+  useEffect(() => {
+    if (formData.district_id) {
+      const fetchCircuits = async () => {
+        try {
+          setCircuitLoading(true);
+          const response = await fetch(`/api/circuits?district_id=${formData.district_id}`);
+          const data = await response.json();
+          // Format: {success: true, data: {circuits: [...]}}
+          setCircuits(data.data?.circuits || []);
+          setFilteredCircuits(data.data?.circuits || []);
+        } catch (error) {
+          console.error('Error fetching circuits:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to load circuits',
+            severity: 'error'
+          });
+        } finally {
+          setCircuitLoading(false);
+        }
+      };
+      
+      fetchCircuits();
+      
+      // Reset dependent selections
+      setFormData(prev => ({
+        ...prev,
+        circuit_id: '',
+        school_id: ''
+      }));
+    }
+  }, [formData.district_id]);
+  
+  // Fetch schools when a circuit is selected
+  useEffect(() => {
+    if (formData.circuit_id) {
+      const fetchSchools = async () => {
+        try {
+          setSchoolLoading(true);
+          const response = await fetch(`/api/schools?circuit_id=${formData.circuit_id}`);
+          const data = await response.json();
+          // Format: {success: true, data: {schools: [...]}}
+          setSchools(data.data?.schools || []);
+          setFilteredSchools(data.data?.schools || []);
+        } catch (error) {
+          console.error('Error fetching schools:', error);
+          setSnackbar({
+            open: true,
+            message: 'Failed to load schools',
+            severity: 'error'
+          });
+        } finally {
+          setSchoolLoading(false);
+        }
+      };
+      
+      fetchSchools();
+      
+      // Reset school selection
+      setFormData(prev => ({
+        ...prev,
+        school_id: ''
+      }));
+    }
+  }, [formData.circuit_id]);
   
   // Redirect if not authenticated
   useEffect(() => {
@@ -221,23 +348,51 @@ const isLoading = status === "loading";
     setSaving(true);
     
     try {
-      // Prepare form data for submission
-      const submissionData = new FormData();
+      // Basic validation
+      if (!formData.school_id) {
+        throw new Error('Please select a school before submitting');
+      }
       
-      // Add all form fields
-      Object.keys(formData).forEach(key => {
-        if (key === 'q18_implementation_plan_file' && formData[key]) {
-          submissionData.append(key, formData[key]);
-        } else {
-          submissionData.append(key, formData[key]);
-        }
+      // Create FormData object for submission (supports file uploads)
+      const submissionFormData = new FormData();
+      
+      // Add basic fields
+      submissionFormData.append('itineraryId', itineraryId);
+      submissionFormData.append('schoolId', formData.school_id);
+      submissionFormData.append('submittedBy', user.id);
+      
+      // Process answers
+      const answers = Object.entries(formData)
+        .filter(([key, value]) => key.startsWith('q') && key !== 'q18_implementation_plan_file')
+        .map(([key, value]) => {
+          // Extract question ID from the key (e.g., q17_has_implementation_plan -> 17)
+          const questionId = key.split('_')[0].replace('q', '');
+          return {
+            questionId: parseInt(questionId),
+            value: typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value.toString(),
+            hasFileUpload: key === 'q18_implementation_plan_file'
+          };
+        });
+      
+      // Add answers as JSON
+      submissionFormData.append('answers', JSON.stringify(answers));
+      
+      // Handle file upload if present
+      if (formData.q18_implementation_plan_file) {
+        submissionFormData.append('file_18', formData.q18_implementation_plan_file);
+      }
+      
+      // Submit to actual API endpoint with the correct Content-Type (automatically set by FormData)
+      const response = await fetch('/api/rtp/consolidated-checklist', {
+        method: 'POST',
+        body: submissionFormData
       });
       
-      // This would be an actual API call in production
-      // For now just simulate it
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit form');
+      }
       
-      // Simulate successful submission
       setSnackbar({
         open: true,
         message: 'Consolidated Checklist submitted successfully!',
@@ -252,7 +407,7 @@ const isLoading = status === "loading";
       console.error('Error submitting form:', error);
       setSnackbar({
         open: true,
-        message: 'Failed to submit Consolidated Checklist',
+        message: 'Failed to submit Consolidated Checklist: ' + error.message,
         severity: 'error'
       });
     } finally {
@@ -270,93 +425,314 @@ const isLoading = status === "loading";
   
   // Fill form with dummy data (for testing purposes)
   const fillWithDummyData = () => {
-    // Create a dummy file object for the implementation plan
-    const dummyFile = new File(["dummy content"], "implementation_plan.pdf", {
-      type: "application/pdf",
-    });
+    // Select the first available values in the location hierarchies
+    const regionId = regions.length > 0 ? regions[0].id.toString() : '';
     
-    // Make sure we're converting all values to strings to avoid uncontrolled to controlled warning
-    setFormData({
-      // General information
-      school_id: schools.length > 0 ? schools[0].id.toString() : '',
-      assessor_name: 'John Doe',
-      assessment_date: new Date().toISOString().split('T')[0],
-      itinerary_id: itineraryIdParam || (itineraries.length > 0 ? itineraries[0].id.toString() : ''),
+    // Set form data with dummy values
+    setFormData(prev => {
+      const newData = { ...prev };
       
-      // Q1-Q30 (grouped by sections)
-      // Section 1: School Information
-      q1_school_type: 'Primary and JHS',
-      q2_total_enrollment: '450',
-      q3_boys_enrollment: '220',
-      q4_girls_enrollment: '230',
-      q5_total_teachers: '15',
-      q6_male_teachers: '7',
-      q7_female_teachers: '8',
+      // Set location data
+      newData.region_id = regionId;
       
-      // Section 2: Leadership & Management
-      q8_training_received: true,
-      q9_head_teacher_trained: true,
-      q10_curriculum_lead_trained: true,
-      q11_smc_sensitized: true,
-      q12_pta_sensitized: true,
-      q13_management_support: 'Very supportive',
-      q14_management_meetings: 'Frequently',
-      q15_circuit_supervisor_visit: true,
-      q16_coach_visit_frequency: 'Monthly',
+      // Fill in common fields
+      newData.assessor_name = user?.first_name + ' ' + user?.last_name || '';
+      newData.assessment_date = new Date().toISOString().split('T')[0];
       
-      // Section 3: Implementation Plans
-      q17_has_implementation_plan: true,
-      q18_implementation_plan_file: dummyFile,
-      q19_teachers_with_ltp_lessons: '51-75%',
-      q20_monitoring_mechanism: true,
+      // Fill in all question fields with reasonable defaults
+      Object.keys(newData).forEach(key => {
+        if (key.startsWith('q')) {
+          if (typeof newData[key] === 'boolean') {
+            newData[key] = true;
+          } else if (key.includes('enrollment') || key.includes('teachers')) {
+            newData[key] = Math.floor(Math.random() * 100) + 10; // Random number between 10-109
+          } else if (key.includes('file')) {
+            // Create a dummy file object for testing
+            const dummyFile = new File(["dummy content"], "implementation_plan.pdf", {
+              type: "application/pdf",
+            });
+            newData[key] = dummyFile;
+          } else if (key.includes('frequency')) {
+            newData[key] = 'Monthly';
+          } else if (key.includes('support')) {
+            newData[key] = 'Very supportive';
+          } else if (key.includes('method') || key.includes('environment')) {
+            newData[key] = 'Extensively';
+          } else if (key.includes('using_ltp') || key.includes('with_ltp_lessons')) {
+            newData[key] = '51-75%';
+          } else if (key.includes('challenges') || key.includes('support_needed')) {
+            newData[key] = 'This is sample text for a long-text field response that would typically contain details about challenges or support needs.';
+          } else if (key.includes('type')) {
+            newData[key] = 'Primary and JHS';
+          }
+        }
+      });
       
-      // Section 4: Teacher Practice
-      q21_teachers_using_ltp: '51-75%',
-      q22_gender_responsive_methods: 'Extensively',
-      q23_inclusion_methods: 'Somewhat',
-      q24_teachers_confident: 'Somewhat confident',
-      
-      // Section 5: Learning Environment
-      q25_learning_materials_display: true,
-      q26_student_work_display: true,
-      q27_safe_environment: 'Very safe',
-      q28_gender_responsive_environment: 'Somewhat gender-responsive',
-      
-      // Section 6: Challenges & Support
-      q29_main_challenges: 'Limited resources and materials for implementing all activities. Some teachers need additional training on inclusive teaching methods.',
-      q30_additional_support_needed: 'More teaching and learning materials, refresher training for teachers, additional coaching visits.'
+      return newData;
     });
     
     setSnackbar({
       open: true,
-      message: 'Form filled with dummy data',
+      message: 'Form filled with dummy data. Please complete the location selection to select a school.',
       severity: 'info'
     });
   };
   
-  if (isLoading || loading) {
-    return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <LinearProgress />
-        <Typography sx={{ mt: 2 }}>Loading form...</Typography>
-      </Container>
-    );
-  }
+  // Group questions by section for better organization
+  const getQuestionsBySections = () => {
+    if (questions.length === 0) return {};
+    
+    // Define the main question sections
+    const sections = {
+      'School Information': [],
+      'Leadership & Management': [],
+      'Implementation Plans': [],
+      'Teacher Practice': [],
+      'Learning Environment': [],
+      'Challenges & Support': []
+    };
+    
+    // Define question ID ranges for each section (based on the PRD)
+    const sectionRanges = {
+      'School Information': [1, 2, 3, 4, 5, 6, 7],
+      'Leadership & Management': [8, 9, 10, 11, 12, 13, 14, 15, 16],
+      'Implementation Plans': [17, 18, 19, 20],
+      'Teacher Practice': [21, 22, 23, 24],
+      'Learning Environment': [25, 26, 27, 28],
+      'Challenges & Support': [29, 30]
+    };
+    
+    // Group questions by their section
+    questions.forEach(question => {
+      // Find which section this question belongs to
+      for (const [sectionName, idList] of Object.entries(sectionRanges)) {
+        if (idList.includes(question.id)) {
+          sections[sectionName].push(question);
+          break;
+        }
+      }
+    });
+    
+    return sections;
+  };
   
   // Render the current section of the form
   const renderSection = () => {
-    switch (activeStep) {
-      case 0: // School Information
-        return (
-          <Card sx={{ mb: 4 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                School Information
-              </Typography>
+    const questionsBySection = getQuestionsBySections();
+    
+    // Review and submit section should be the last one
+    if (activeStep === sections.length - 1) {
+      return (
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Review Your Submission
+            </Typography>
+            
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Please review the information below before submitting. Once submitted, this data can only be updated 
+              by contacting an administrator.
+            </Alert>
+            
+            <List>
+              <ListItem>
+                <ListItemText 
+                  primary="Itinerary" 
+                  secondary={itinerary ? `${itinerary.title} (${new Date(itinerary.start_date).toLocaleDateString()} to ${new Date(itinerary.end_date).toLocaleDateString()})` : 'Loading...'}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="Region" 
+                  secondary={regions.find(r => r.id.toString() === formData.region_id)?.name || 'Not selected'} 
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="District" 
+                  secondary={districts.find(d => d.id.toString() === formData.district_id)?.name || 'Not selected'} 
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="Circuit" 
+                  secondary={circuits.find(c => c.id.toString() === formData.circuit_id)?.name || 'Not selected'} 
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="School" 
+                  secondary={schools.find(s => s.id.toString() === formData.school_id)?.name || 'Not selected'} 
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="Assessor Name" 
+                  secondary={formData.assessor_name || 'Not provided'} 
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText 
+                  primary="Assessment Date" 
+                  secondary={formData.assessment_date || 'Not provided'} 
+                />
+              </ListItem>
+              <Divider sx={{ my: 2 }} />
               
-              <Grid container spacing={3}>
+              {/* Show summary of responses */}
+              {Object.entries(questionsBySection).map(([sectionName, sectionQuestions]) => (
+                <div key={sectionName}>
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+                    {sectionName}
+                  </Typography>
+                  {sectionQuestions.map(question => {
+                    const fieldKey = Object.keys(formData).find(key => key.startsWith(`q${question.id}_`));
+                    if (!fieldKey) return null;
+                    
+                    let displayValue = formData[fieldKey];
+                    if (typeof displayValue === 'boolean') {
+                      displayValue = displayValue ? 'Yes' : 'No';
+                    } else if (fieldKey === 'q18_implementation_plan_file' && formData[fieldKey]) {
+                      displayValue = formData[fieldKey].name || 'File uploaded';
+                    } else if (displayValue === null || displayValue === undefined || displayValue === '') {
+                      displayValue = 'Not provided';
+                    }
+                    
+                    return (
+                      <ListItem key={question.id}>
+                        <ListItemText 
+                          primary={question.question} 
+                          secondary={displayValue} 
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </div>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      );
+    }
+    
+    // Get the current section based on activeStep
+    const currentSectionName = sections[activeStep];
+    const currentSectionQuestions = questionsBySection[currentSectionName] || [];
+    
+    if (currentSectionQuestions.length === 0 && activeStep !== 0) {
+      return (
+        <Alert severity="warning">
+          No questions found for this section. Please contact an administrator.
+        </Alert>
+      );
+    }
+    
+    return (
+      <Card sx={{ mb: 4 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {currentSectionName}
+          </Typography>
+          
+          {/* Show itinerary information at the top */}
+          {itinerary && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Submitting data for itinerary: <strong>{itinerary.title}</strong>
+              <br />
+              Period: {new Date(itinerary.from_date).toLocaleDateString()} to {new Date(itinerary.until_date).toLocaleDateString()}
+            </Alert>
+          )}
+          
+          <Grid container spacing={3}>
+            {activeStep === 0 && (
+              <>
+                {/* School selection hierarchy */}
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth required sx={{ mb: 3 }}>
+                    <InputLabel id="region-select-label">Region</InputLabel>
+                    <Select
+                      labelId="region-select-label"
+                      name="region_id"
+                      value={formData.region_id}
+                      onChange={handleChange}
+                      label="Region"
+                    >
+                      <MenuItem value="">Select a region</MenuItem>
+                      {regions.map(region => (
+                        <MenuItem key={region.id} value={region.id.toString()}>
+                          {region.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {regionLoading && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                        <Typography variant="caption" color="text.secondary">
+                          Loading regions...
+                        </Typography>
+                      </Box>
+                    )}
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth required sx={{ mb: 3 }} disabled={!formData.region_id}>
+                    <InputLabel id="district-select-label">District</InputLabel>
+                    <Select
+                      labelId="district-select-label"
+                      name="district_id"
+                      value={formData.district_id}
+                      onChange={handleChange}
+                      label="District"
+                    >
+                      <MenuItem value="">Select a district</MenuItem>
+                      {filteredDistricts.map(district => (
+                        <MenuItem key={district.id} value={district.id.toString()}>
+                          {district.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {districtLoading && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                        <Typography variant="caption" color="text.secondary">
+                          Loading districts...
+                        </Typography>
+                      </Box>
+                    )}
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth required sx={{ mb: 3 }} disabled={!formData.district_id}>
+                    <InputLabel id="circuit-select-label">Circuit</InputLabel>
+                    <Select
+                      labelId="circuit-select-label"
+                      name="circuit_id"
+                      value={formData.circuit_id}
+                      onChange={handleChange}
+                      label="Circuit"
+                    >
+                      <MenuItem value="">Select a circuit</MenuItem>
+                      {filteredCircuits.map(circuit => (
+                        <MenuItem key={circuit.id} value={circuit.id.toString()}>
+                          {circuit.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {circuitLoading && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                        <Typography variant="caption" color="text.secondary">
+                          Loading circuits...
+                        </Typography>
+                      </Box>
+                    )}
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth required sx={{ mb: 3 }} disabled={!formData.circuit_id}>
                     <InputLabel id="school-select-label">School</InputLabel>
                     <Select
                       labelId="school-select-label"
@@ -365,34 +741,20 @@ const isLoading = status === "loading";
                       onChange={handleChange}
                       label="School"
                     >
-                      {schools.map(school => (
+                      <MenuItem value="">Select a school</MenuItem>
+                      {filteredSchools.map(school => (
                         <MenuItem key={school.id} value={school.id.toString()}>
-                          {school.name} ({school.district_name})
+                          {school.name}
                         </MenuItem>
                       ))}
                     </Select>
-                  </FormControl>
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth required sx={{ mb: 3 }}>
-                    <InputLabel id="itinerary-select-label">Itinerary</InputLabel>
-                    <Select
-                      labelId="itinerary-select-label"
-                      name="itinerary_id"
-                      value={formData.itinerary_id}
-                      onChange={handleChange}
-                      label="Itinerary"
-                      disabled={!!itineraryIdParam} // Disable if itinerary is pre-selected
-                    >
-                      {itineraries.map(itinerary => (
-                        <MenuItem key={itinerary.id} value={itinerary.id.toString()}>
-                          {itinerary.name} ({itinerary.start_date} to {itinerary.end_date})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {itineraryIdParam && (
-                      <FormHelperText>Itinerary pre-selected from your dashboard</FormHelperText>
+                    {schoolLoading && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                        <CircularProgress size={16} sx={{ mr: 1 }} />
+                        <Typography variant="caption" color="text.secondary">
+                          Loading schools...
+                        </Typography>
+                      </Box>
                     )}
                   </FormControl>
                 </Grid>
@@ -421,120 +783,178 @@ const isLoading = status === "loading";
                     sx={{ mb: 3 }}
                   />
                 </Grid>
+              </>
+            )}
+            
+            {currentSectionQuestions.map(question => {
+              // Check if this question has already been rendered to avoid duplicates
+              const fieldKey = Object.keys(formData).find(key => key.startsWith(`q${question.id}_`));
+              if (!fieldKey) return null;
+              
+              // Skip questions with duplicate IDs that have already been rendered
+              const questionIdStr = fieldKey.split('_')[0].replace('q', '');
+              const questionId = parseInt(questionIdStr);
+              
+              // Determine field type based on question properties
+              if (question.has_file_upload) {
+                return (
+                  <Grid item xs={12} key={question.id}>
+                    <FormControl fullWidth sx={{ mb: 3 }}>
+                      <FormLabel component="legend" sx={{ mb: 1, fontSize: '1rem', fontWeight: 500 }}>
+                        {question.question}
+                      </FormLabel>
+                      <Box sx={{ mt: 1 }}>
+                        <input
+                          accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          style={{ display: 'none' }}
+                          id={`upload-${question.id}`}
+                          type="file"
+                          onChange={handleFileChange}
+                        />
+                        <label htmlFor={`upload-${question.id}`}>
+                          <Button
+                            variant="outlined"
+                            component="span"
+                            startIcon={<CloudUploadIcon />}
+                          >
+                            Upload Implementation Plan
+                          </Button>
+                        </label>
+                        {formData[fieldKey] && (
+                          <Typography variant="caption" sx={{ ml: 2 }}>
+                            File: {formData[fieldKey].name}
+                          </Typography>
+                        )}
+                      </Box>
+                      <FormHelperText>
+                        Upload the school's LtP implementation plan (PDF or Word document)
+                      </FormHelperText>
+                    </FormControl>
+                  </Grid>
+                );
+              } else if (typeof formData[fieldKey] === 'boolean') {
+                return (
+                  <Grid item xs={12} key={question.id}>
+                    <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
+                      <FormLabel component="legend" sx={{ fontSize: '1rem', fontWeight: 500 }}>
+                        {question.question}
+                      </FormLabel>
+                      <FormGroup>
+                        <FormControlLabel
+                          control={
+                            <Checkbox 
+                              checked={formData[fieldKey]} 
+                              onChange={handleCheckboxChange}
+                              name={fieldKey}
+                            />
+                          }
+                          label="Yes"
+                        />
+                      </FormGroup>
+                    </FormControl>
+                  </Grid>
+                );
+              } else if (fieldKey.includes('frequency') || fieldKey.includes('support') || 
+                          fieldKey.includes('methods') || fieldKey.includes('environment') ||
+                          fieldKey.includes('using_ltp') || fieldKey.includes('with_ltp_lessons')) {
+                // This is a select field with predefined options
+                const getOptionsForField = (field) => {
+                  if (field.includes('frequency')) {
+                    return ['Weekly', 'Monthly', 'Once per term', 'Rarely', 'Never'];
+                  } else if (field.includes('support')) {
+                    return ['Very supportive', 'Somewhat supportive', 'Neutral', 'Not supportive'];
+                  } else if (field.includes('methods') || field.includes('environment')) {
+                    return ['Extensively', 'Somewhat', 'Minimally', 'Not at all'];
+                  } else if (field.includes('using_ltp') || field.includes('with_ltp_lessons')) {
+                    return ['0-25%', '26-50%', '51-75%', '76-100%'];
+                  }
+                  return [];
+                };
                 
-                <Grid item xs={12}>
-                  <FormControl fullWidth required sx={{ mb: 3 }}>
-                    <InputLabel id="school-type-label">School Type</InputLabel>
-                    <Select
-                      labelId="school-type-label"
-                      name="q1_school_type"
-                      value={formData.q1_school_type}
+                const options = getOptionsForField(fieldKey);
+                
+                return (
+                  <Grid item xs={12} md={12} key={question.id}>
+                    <FormControl fullWidth sx={{ mb: 3 }}>
+                      <InputLabel id={`label-${fieldKey}`} sx={{ whiteSpace: 'normal', position: 'relative', transform: 'none', mb: 1 }}>
+                        {question.question}
+                      </InputLabel>
+                      <Select
+                        labelId={`label-${fieldKey}`}
+                        name={fieldKey}
+                        value={formData[fieldKey]}
+                        onChange={handleChange}
+                        label=""
+                      >
+                        {options.map(option => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                );
+              } else if (fieldKey.includes('challenges') || fieldKey.includes('support_needed')) {
+                // This is a textarea
+                return (
+                  <Grid item xs={12} key={question.id}>
+                    <TextField
+                      fullWidth
+                      label={question.question}
+                      name={fieldKey}
+                      value={formData[fieldKey]}
                       onChange={handleChange}
-                      label="School Type"
-                    >
-                      <MenuItem value="Primary">Primary</MenuItem>
-                      <MenuItem value="JHS">JHS</MenuItem>
-                      <MenuItem value="Primary and JHS">Primary and JHS</MenuItem>
-                      <MenuItem value="KG">KG</MenuItem>
-                      <MenuItem value="KG and Primary">KG and Primary</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
+                      multiline
+                      rows={4}
+                      required={question.is_required}
+                      sx={{ mb: 3 }}
+                      InputLabelProps={{ 
+                        shrink: true,
+                        sx: { whiteSpace: 'normal', position: 'relative', transform: 'none', mb: 1 }
+                      }}
+                    />
+                  </Grid>
+                );
+              } else {
+                // Default to a text field or number field
+                const isNumber = fieldKey.includes('enrollment') || fieldKey.includes('teachers');
                 
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Total Enrollment"
-                    type="number"
-                    name="q2_total_enrollment"
-                    value={formData.q2_total_enrollment}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Boys Enrollment"
-                    type="number"
-                    name="q3_boys_enrollment"
-                    value={formData.q3_boys_enrollment}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Girls Enrollment"
-                    type="number"
-                    name="q4_girls_enrollment"
-                    value={formData.q4_girls_enrollment}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Total Teachers"
-                    type="number"
-                    name="q5_total_teachers"
-                    value={formData.q5_total_teachers}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Male Teachers"
-                    type="number"
-                    name="q6_male_teachers"
-                    value={formData.q6_male_teachers}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Female Teachers"
-                    type="number"
-                    name="q7_female_teachers"
-                    value={formData.q7_female_teachers}
-                    onChange={handleChange}
-                    required
-                    InputProps={{ inputProps: { min: 0 } }}
-                    sx={{ mb: 3 }}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        );
-        
-      // Other cases continue as in the original form
-      // ... Rest of the form sections from the original file
-      default:
-        return null;
-    }
+                return (
+                  <Grid item xs={12} md={6} key={question.id}>
+                    <TextField
+                      fullWidth
+                      label={question.question}
+                      name={fieldKey}
+                      value={formData[fieldKey]}
+                      onChange={handleChange}
+                      type={isNumber ? "number" : "text"}
+                      InputProps={{ inputProps: { min: 0 } }}
+                      required={question.is_required}
+                      sx={{ mb: 3 }}
+                      InputLabelProps={{ 
+                        shrink: true,
+                        sx: { whiteSpace: 'normal', position: 'relative', transform: 'none', mb: 1 }
+                      }}
+                    />
+                  </Grid>
+                );
+              }
+            })}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
   };
+  
+  if (isLoading || loading) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <LinearProgress />
+        <Typography sx={{ mt: 2 }}>Loading form...</Typography>
+      </Container>
+    );
+  }
   
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -606,7 +1026,7 @@ const isLoading = status === "loading";
                 variant="contained"
                 color="primary"
                 type="submit"
-                disabled={saving}
+                disabled={saving || !formData.school_id}
               >
                 {saving ? 'Submitting...' : 'Submit'}
               </Button>
@@ -616,6 +1036,7 @@ const isLoading = status === "loading";
                 color="primary"
                 onClick={handleNext}
                 endIcon={<NavigateNextIcon />}
+                disabled={activeStep === 0 && !formData.school_id}
               >
                 Next
               </Button>

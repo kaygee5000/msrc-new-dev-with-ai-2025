@@ -20,7 +20,7 @@ const FormDialog = ({
   onSubmit,
   isSubmitting = false,
   children,
-  maxWidth = 'sm',
+  maxWidth = 'md',
   submitLabel = 'Save',
   cancelLabel = 'Cancel',
   disableSubmit = false,

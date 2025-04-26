@@ -14,10 +14,22 @@ import {
 } from '@react-email/components';
 
 /**
- * Password reset email template
+ * Password reset or magic link email template
  */
-const ResetPasswordEmail = ({ name, resetUrl, expiryTime }) => {
-  const previewText = 'Reset your MSRC Ghana password';
+const ResetPasswordEmail = ({ 
+  name, 
+  resetUrl, 
+  expiryTime,
+  heading = 'Password Reset',
+  buttonText = 'Reset Your Password',
+  messageIntro = 'We received a request to reset your password for your MSRC Ghana account. If you did not make this request, you can safely ignore this email.',
+  messageAction = 'To reset your password, click the button below:',
+  isMagicLink = false
+}) => {
+  const previewText = isMagicLink ? 'Sign in to MSRC Ghana' : 'Reset your MSRC Ghana password';
+  
+  // Base64 encoded logo (using the msrc-logo.70a4620a.png file)
+  const logoSrc = '/assets/msrc-logo.70a4620a.png';
 
   return (
     <Html>
@@ -26,24 +38,24 @@ const ResetPasswordEmail = ({ name, resetUrl, expiryTime }) => {
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Img
-            src={`${process.env.NEXT_PUBLIC_APP_URL}/images/logo.png`}
+            src={`${process.env.NEXT_PUBLIC_APP_URL}${logoSrc}`}
             alt="MSRC Ghana Logo"
             width="120"
             height="auto"
             style={styles.logo}
           />
-          <Heading style={styles.heading}>Password Reset</Heading>
+          <Heading style={styles.heading}>{heading}</Heading>
           <Text style={styles.text}>Hello {name},</Text>
           <Text style={styles.text}>
-            We received a request to reset your password for your MSRC Ghana account. If you did not make this request, you can safely ignore this email.
+            {messageIntro}
           </Text>
           <Text style={styles.text}>
-            To reset your password, click the button below:
+            {messageAction}
           </Text>
           
           <Section style={styles.buttonSection}>
             <Button style={styles.button} href={resetUrl}>
-              Reset Your Password
+              {buttonText}
             </Button>
           </Section>
           
@@ -59,9 +71,11 @@ const ResetPasswordEmail = ({ name, resetUrl, expiryTime }) => {
             {resetUrl}
           </Text>
           
-          <Text style={styles.text}>
-            If you did not request a password reset, please contact your administrator immediately.
-          </Text>
+          {!isMagicLink && (
+            <Text style={styles.text}>
+              If you did not request a password reset, please contact your administrator immediately.
+            </Text>
+          )}
           
           <Hr style={styles.hr} />
           

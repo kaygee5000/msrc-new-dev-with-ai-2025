@@ -59,20 +59,14 @@ export class EmailSMSNotifier {
         }
       }
 
-      // // Only call replace if html is a string
-      // const cleanText = typeof html === 'string'
-      //   ? html.replace(/<[^>]*>/g, '')
-      //   : '';
-
       const info = await transport.sendMail({
-        from: `"MSRC Ghana" <${process.env.EMAIL_FROM || 'noreply@msrcghana.org'}>`,
+        from: `"mSRC Ghana" <${process.env.EMAIL_FROM || 'noreply@msrcghana.org'}>`,
         to,
         subject,
         html,
         text: text || html // Strip HTML if no text version provided
       });
-
-      console.log('Email sent: %s', info.messageId);
+      
       return { success: true, messageId: info.messageId };
     } catch (error) {
       console.error('Error sending email:', error);
@@ -91,16 +85,37 @@ export class EmailSMSNotifier {
   static async sendWelcomeEmail(user) {
     const { email, name, tempPassword } = user;
     
-    const htmlContent = render(welcomeEmail({
-      name,
-      tempPassword,
-      loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
-    }));
+    // Make sure the render is properly awaited if it's returning a Promise
+    let htmlContent;
+    try {
+      htmlContent = render(welcomeEmail({
+        name,
+        tempPassword,
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
+      }));
+      
+      if (htmlContent instanceof Promise) {
+        htmlContent = await htmlContent;
+      }
+    } catch (error) {
+      console.error('Error rendering welcome email:', error);
+      // Fallback to a simple HTML template if rendering fails
+      htmlContent = `
+        <div>
+          <h1>Welcome to MSRC Ghana</h1>
+          <p>Hello ${name},</p>
+          <p>Your account has been created successfully.</p>
+          ${tempPassword ? `<p>Your temporary password is: <strong>${tempPassword}</strong></p>` : ''}
+          <p>You can login at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">${process.env.NEXT_PUBLIC_APP_URL}/login</a></p>
+        </div>
+      `;
+    }
     
     return this.sendEmail({
       to: email,
       subject: 'Welcome to MSRC Ghana',
-      html: htmlContent
+      html: htmlContent,
+      text: `Hello ${name}, welcome to MSRC Ghana. ${tempPassword ? `Your temporary password is: ${tempPassword}.` : ''} You can login at: ${process.env.NEXT_PUBLIC_APP_URL}/login`
     });
   }
 
@@ -110,21 +125,62 @@ export class EmailSMSNotifier {
    * @param {string} params.email - User's email address
    * @param {string} params.name - User's full name
    * @param {string} params.resetToken - Password reset token
+   * @param {boolean} [params.isMagicLink] - Whether this is a magic link (sign in) email
    * @returns {Promise<any>} - Email sending result
    */
-  static async sendPasswordResetEmail({ email, name, resetToken }) {
+  static async sendPasswordResetEmail({ email, name, resetToken, isMagicLink = false }) {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
     
-    const htmlContent = render(resetPasswordEmail({
-      name,
-      resetUrl,
-      expiryTime: '1 hour'
-    }));
+    // For NextAuth magic links, the resetToken is already a full URL
+    const finalResetUrl = resetToken.startsWith('http') ? resetToken : resetUrl;
+    
+    // Customize email subject and heading based on whether it's a magic link or password reset
+    const subject = isMagicLink ? 'Sign in to mSRC Ghana' : 'Reset Your mSRC Ghana Password';
+    const heading = isMagicLink ? 'Sign in Link' : 'Password Reset';
+    const buttonText = isMagicLink ? 'Sign in to mSRC Ghana' : 'Reset Your Password';
+    const messageIntro = isMagicLink 
+      ? 'You requested a sign in link for your mSRC Ghana account. Click the button below to sign in:'
+      : 'We received a request to reset your password for your MSRC Ghana account. If you did not make this request, you can safely ignore this email.';
+    const messageAction = isMagicLink
+      ? 'To sign in to your account, click the button below:'
+      : 'To reset your password, click the button below:';
+    
+    // Make sure the render is properly awaited if it's returning a Promise
+    let htmlContent;
+    try {
+      htmlContent = render(resetPasswordEmail({
+        name,
+        resetUrl: finalResetUrl,
+        expiryTime: '1 hour',
+        heading,
+        buttonText,
+        messageIntro,
+        messageAction,
+        isMagicLink
+      }));
+      
+      if (htmlContent instanceof Promise) {
+        htmlContent = await htmlContent;
+      }
+    } catch (error) {
+      // Fallback to a simple HTML template if rendering fails
+      htmlContent = `
+        <div>
+          <h1>${heading}</h1>
+          <p>Hello ${name},</p>
+          <p>${messageIntro}</p>
+          <p>${messageAction}</p>
+          <p><a href="${finalResetUrl}">${buttonText}</a></p>
+          <p>This link will expire in 1 hour.</p>
+        </div>
+      `;
+    }
     
     return this.sendEmail({
       to: email,
-      subject: 'Reset Your MSRC Ghana Password',
-      html: htmlContent
+      subject,
+      html: htmlContent,
+      text: `Hello ${name}, ${messageIntro} ${finalResetUrl} (expires in 1 hour)`
     });
   }
 
@@ -137,16 +193,36 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendOTPEmail({ email, name, code }) {
-    const htmlContent = render(<OTPEmail
-      name={name}
-      code={code}
-      expiryMinutes={15}
-    />);
+    // Make sure the render is properly awaited if it's returning a Promise
+    let htmlContent;
+    try {
+      htmlContent = render(<OTPEmail
+        name={name}
+        code={code}
+        expiryMinutes={15}
+      />);
+      
+      if (htmlContent instanceof Promise) {
+        htmlContent = await htmlContent;
+      }
+    } catch (error) {
+      console.error('Error rendering OTP email:', error);
+      // Fallback to a simple HTML template if rendering fails
+      htmlContent = `
+        <div>
+          <h1>Your Authentication Code</h1>
+          <p>Hello ${name},</p>
+          <p>Your authentication code is: <strong>${code}</strong></p>
+          <p>This code will expire in 15 minutes.</p>
+        </div>
+      `;
+    }
     
     return this.sendEmail({
       to: email,
-      subject: 'Your MSRC Ghana Authentication Code',
-      html: htmlContent
+      subject: 'Your mSRC Ghana Authentication Code',
+      html: htmlContent,
+      text: `Hello ${name}, your mSRC Ghana authentication code is: ${code}. This code will expire in 15 minutes.`
     });
   }
 
@@ -211,7 +287,7 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - SMS sending result
    */
   static async sendCredentialsSMS({ phoneNumber, name, email, password }) {
-    const message = `Hello ${name}, your MSRC Ghana account has been created. Email: ${email} Password: ${password}. Please log in and change your password.`;
+    const message = `Hello ${name}, your mSRC Ghana account has been created. \n\nEmail: ${email} \nPassword: ${password}. \n\nPlease log in and change your password.`;
     return this.sendSMS({ phoneNumber, message });
   }
 
@@ -226,19 +302,45 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendBatchUserCreationEmail({ email, name, password, role, programName }) {
-    const htmlContent = render(batchUserCreationEmail({
-      name,
-      email,
-      password,
-      role: role || 'Data Collector',
-      programName: programName || 'MSRC Ghana',
-      loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
-    }));
+    // Make sure the render is properly awaited if it's returning a Promise
+    let htmlContent;
+    try {
+      htmlContent = render(batchUserCreationEmail({
+        name,
+        email,
+        password,
+        role: role || 'Data Collector',
+        programName: programName || 'mSRC Ghana',
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
+      }));
+      
+      if (htmlContent instanceof Promise) {
+        htmlContent = await htmlContent;
+      }
+    } catch (error) {
+      console.error('Error rendering batch user creation email:', error);
+      // Fallback to a simple HTML template if rendering fails
+      htmlContent = `
+        <div>
+          <h1>Your MSRC Ghana Account</h1>
+          <p>Hello ${name},</p>
+          <p>Your account has been created with the following details:</p>
+          <ul>
+            <li>Email: ${email}</li>
+            <li>Password: ${password}</li>
+            <li>Role: ${role || 'Data Collector'}</li>
+            <li>Program: ${programName || 'MSRC Ghana'}</li>
+          </ul>
+          <p>You can login at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">${process.env.NEXT_PUBLIC_APP_URL}/login</a></p>
+        </div>
+      `;
+    }
     
     return this.sendEmail({
       to: email,
-      subject: 'Your MSRC Ghana Account Information',
-      html: htmlContent
+      subject: 'Your mSRC Ghana Account Information',
+      html: htmlContent,
+      text: `Hello ${name}, your MSRC Ghana account has been created. Email: ${email}, Password: ${password}, Role: ${role || 'Data Collector'}, Program: ${programName || 'MSRC Ghana'}. Login at: ${process.env.NEXT_PUBLIC_APP_URL}/login`
     });
   }
 
@@ -268,7 +370,7 @@ export class EmailSMSNotifier {
           const htmlContent = `
             <div>
               <h1>${subject}</h1>
-              <p>Hello ${user.name || 'User'},</p>
+              <p>Hello ${user.first_name + ' ' + user.last_name || user.name || 'User'},</p>
               <div>${message}</div>
             </div>
           `;
@@ -288,15 +390,15 @@ export class EmailSMSNotifier {
         }
         
         // Send SMS if enabled and phone is available
-        if (sendSMS && user.phoneNumber) {
-          const smsMessage = `MSRC Ghana: ${subject}\n\n${message}`;
+        if (sendSMS && user.phone_number) {
+          const smsMessage = `mSRC Ghana: ${subject}\n\n${message}`;
           const smsResult = await this.sendSMS({ 
-            phoneNumber: user.phoneNumber, 
+            phoneNumber: user.phone_number, 
             message: smsMessage 
           });
           
           results.push({ 
-            user: user.id || user.phoneNumber, 
+            user: user.id || user.phone_number, 
             type: 'sms', 
             success: true,
             messageId: smsResult.messageId 
@@ -304,7 +406,7 @@ export class EmailSMSNotifier {
         }
       } catch (error) {
         results.push({ 
-          user: user.id || user.email || user.phoneNumber, 
+          user: user.id || user.email || user.phone_number, 
           type: 'unknown', 
           success: false,
           error: error.message 
@@ -325,7 +427,7 @@ export class EmailSMSNotifier {
     return this.sendSMS({ 
       phoneNumber, 
       message,
-      sender: 'MSRCTEST'
+      sender: 'mSRC TEST'
     });
   }
   
@@ -351,7 +453,7 @@ export class EmailSMSNotifier {
     
     return this.sendEmail({
       to: process.env.EMAIL_TEST_RECIPIENT || process.env.EMAIL_USER,
-      subject: 'MSRC Ghana Email System Test',
+      subject: 'mSRC Ghana Email System Test',
       html: htmlContent
     });
   }

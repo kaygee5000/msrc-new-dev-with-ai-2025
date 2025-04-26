@@ -71,3 +71,82 @@ export function getRelativeTimeString(date) {
   // If more than a week, return the formatted date
   return formatDate(dateObj);
 }
+
+/**
+ * Format a date in long format e.g. "Thursday, 14th February, 2024"
+ * @param {Date|string} date - Date object or date string
+ * @returns {string} - Formatted date string in long format
+ */
+export function formatLongDate(date) {
+  if (!date) return '';
+  
+  const dateObj = date instanceof Date ? date : new Date(date);
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) return '';
+  
+  const dayOfWeek = [
+    'Sunday', 'Monday', 'Tuesday', 'Wednesday', 
+    'Thursday', 'Friday', 'Saturday'
+  ][dateObj.getDay()];
+  
+  const day = dateObj.getDate();
+  
+  // Add ordinal suffix to day
+  const dayWithSuffix = day + getOrdinalSuffix(day);
+  
+  const month = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ][dateObj.getMonth()];
+  
+  const year = dateObj.getFullYear();
+  
+  return `${dayOfWeek}, ${dayWithSuffix} ${month}, ${year}`;
+}
+
+/**
+ * Format a date in short format e.g. "14 March, 2025"
+ * @param {Date|string} date - Date object or date string
+ * @returns {string} - Formatted date string in short format
+ */
+export function formatShortDate(date) {
+  if (!date) return '';
+  
+  const dateObj = date instanceof Date ? date : new Date(date);
+  
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) return '';
+  
+  const day = dateObj.getDate();
+  
+  const month = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ][dateObj.getMonth()];
+  
+  const year = dateObj.getFullYear();
+  
+  return `${day} ${month}, ${year}`;
+}
+
+/**
+ * Get ordinal suffix for a number (e.g. 1st, 2nd, 3rd, 4th)
+ * @param {number} n - The number to get the suffix for
+ * @returns {string} - The ordinal suffix (e.g., 'st', 'nd', 'rd', 'th')
+ */
+function getOrdinalSuffix(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/**
+ * Format a last login date (using birth_date field)
+ * @param {Date|string} date - Date object or date string (birth_date field)
+ * @param {boolean} useLongFormat - Whether to use long format
+ * @returns {string} - Formatted last login date
+ */
+export function formatLastLogin(date, useLongFormat = false) {
+  return useLongFormat ? formatLongDate(date) : formatShortDate(date);
+}

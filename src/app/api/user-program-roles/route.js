@@ -26,10 +26,13 @@ export async function GET(req) {
       );
     }
     
-    let query = 'SELECT upr.*, p.name as program_name, u.name as user_name, u.email FROM user_program_roles upr';
+    let query = 'SELECT upr.*, p.name as program_name, p.code as program_code, p.status as program_status,';
+    query += ' CONCAT(u.first_name, " ", u.last_name) as user_name, u.email';
+    query += ' FROM user_program_roles upr';
     query += ' LEFT JOIN programs p ON upr.program_id = p.id';
     query += ' LEFT JOIN users u ON upr.user_id = u.id';
     query += ' WHERE 1=1';
+    
     
     const queryParams = [];
     
@@ -44,14 +47,14 @@ export async function GET(req) {
     }
     
     // Add ordering
-    query += ' ORDER BY p.name, u.name';
+    query += ' ORDER BY p.name, user_name ASC';
     
     const db = await getConnection();
-    const [roles] = await db.execute(query, queryParams);
+    const [userProgramRoles] = await db.execute(query, queryParams);
     
     return NextResponse.json({
       success: true,
-      roles
+      userProgramRoles
     });
   } catch (error) {
     console.error('Error fetching user program roles:', error);
@@ -68,6 +71,7 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const authResult = await verifyServerAuth(req, ['admin']);
+    
     if (!authResult.success) {
       return NextResponse.json(
         { success: false, message: authResult.message },
@@ -75,7 +79,7 @@ export async function POST(req) {
       );
     }
     
-    const { userId, programId, role } = await req.json();
+    const { userId, programId, role, scopeType, scopeId } = await req.json();
     
     if (!userId || !programId || !role) {
       return NextResponse.json(
@@ -114,21 +118,33 @@ export async function POST(req) {
     if (existingRoles.length > 0) {
       // Update existing role
       [result] = await db.execute(
-        'UPDATE user_program_roles SET role = ? WHERE user_id = ? AND program_id = ?',
-        [role, userId, programId]
+        'UPDATE user_program_roles SET role = ?, scope_type = ?, scope_id = ? WHERE user_id = ? AND program_id = ?',
+        [role, scopeType, scopeId, userId, programId]
       );
     } else {
       // Create new role
       [result] = await db.execute(
-        'INSERT INTO user_program_roles (user_id, program_id, role) VALUES (?, ?, ?)',
-        [userId, programId, role]
+        'INSERT INTO user_program_roles (user_id, program_id, role, scope_type, scope_id) VALUES (?, ?, ?, ?, ?)',
+        [userId, programId, role, scopeType, scopeId]
       );
     }
+    
+    // Fetch the newly created or updated role with related information
+    const [userProgramRoles] = await db.execute(
+      `SELECT upr.*, p.name as program_name
+       FROM user_program_roles upr
+       LEFT JOIN programs p ON upr.program_id = p.id
+       WHERE upr.user_id = ? AND upr.program_id = ?`,
+      [userId, programId]
+    );
+    
+    const userProgramRole = userProgramRoles.length > 0 ? userProgramRoles[0] : null;
     
     return NextResponse.json({
       success: true,
       message: existingRoles.length > 0 ? 'Role updated' : 'Role assigned',
-      id: existingRoles.length > 0 ? existingRoles[0].id : result.insertId
+      id: existingRoles.length > 0 ? existingRoles[0].id : result.insertId,
+      userProgramRole
     });
   } catch (error) {
     console.error('Error assigning program role:', error);

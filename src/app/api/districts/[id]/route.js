@@ -1,43 +1,43 @@
 import { NextResponse } from 'next/server';
+import { getConnection } from '@/utils/db';
 
 /**
  * GET handler for retrieving a single district by ID
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    console.log('Districts [id] API called with ID:', id);
     
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `
-          SELECT d.*, r.name as region_name 
-          FROM districts d
-          LEFT JOIN regions r ON d.region_id = r.id
-          WHERE d.id = ${id}
-        `
-      }),
-    });
-
-    const data = await response.json();
+    const db = await getConnection();
     
-    if (!data.rows || data.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'District not found' },
-        { status: 404 }
-      );
+    // Get district with related region data
+    const [rows] = await db.query(`
+      SELECT d.*, r.name as region_name 
+      FROM districts d
+      LEFT JOIN regions r ON d.region_id = r.id
+      WHERE d.id = ?
+    `, [id]);
+    
+    if (!rows || rows.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'District not found'
+      }, { status: 404 });
     }
 
-    return NextResponse.json(data.rows[0]);
+    return NextResponse.json({
+      success: true,
+      data: rows[0]
+    });
   } catch (error) {
     console.error('Error fetching district:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch district' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch district',
+      details: error.message
+    }, { status: 500 });
   }
 }
 
@@ -46,7 +46,8 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
     const body = await request.json();
     const { name, code, region_id } = body;
 
@@ -57,40 +58,26 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Verify region exists
-    const regionCheck = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT id FROM regions WHERE id = ${region_id}`
-      }),
-    });
+    const db = await getConnection();
 
-    const regionData = await regionCheck.json();
-    if (!regionData.rows || regionData.rows.length === 0) {
+    // Verify region exists
+    const [regionRows] = await db.query(
+      'SELECT id FROM regions WHERE id = ?',
+      [region_id]
+    );
+
+    if (!regionRows || regionRows.length === 0) {
       return NextResponse.json(
         { error: 'Region not found' },
         { status: 400 }
       );
     }
 
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `UPDATE districts SET name = '${name}', code = '${code}', region_id = ${region_id}, updated_at = NOW() WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update district');
-    }
+    // Update district
+    await db.query(
+      'UPDATE districts SET name = ?, code = ?, region_id = ?, updated_at = NOW() WHERE id = ?',
+      [name, code, region_id, id]
+    );
 
     return NextResponse.json({ message: 'District updated successfully' });
   } catch (error) {
@@ -107,22 +94,17 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
     
     // Check if district has associated circuits
-    const checkResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT COUNT(*) as count FROM circuits WHERE district_id = ${id}`
-      }),
-    });
-
-    const checkData = await checkResponse.json();
+    const [circuitRows] = await db.query(
+      'SELECT COUNT(*) as count FROM circuits WHERE district_id = ?',
+      [id]
+    );
     
-    if (checkData.rows[0].count > 0) {
+    if (circuitRows[0].count > 0) {
       return NextResponse.json(
         { error: 'Cannot delete district with associated circuits' },
         { status: 400 }
@@ -130,21 +112,7 @@ export async function DELETE(request, { params }) {
     }
 
     // No circuits, proceed with deletion
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `DELETE FROM districts WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete district');
-    }
+    await db.query('DELETE FROM districts WHERE id = ?', [id]);
 
     return NextResponse.json({ message: 'District deleted successfully' });
   } catch (error) {

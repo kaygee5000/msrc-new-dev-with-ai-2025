@@ -1,32 +1,26 @@
 import { NextResponse } from 'next/server';
+import { getConnection } from '@/utils/db';
 
 /**
  * GET handler for retrieving a single region by ID
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
     
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT * FROM regions WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
+    // Query the database for the region
+    const [rows] = await db.query('SELECT * FROM regions WHERE id = ?', [id]);
     
-    if (!data.rows || data.rows.length === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'Region not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(data.rows[0]);
+    return NextResponse.json(rows[0]);
   } catch (error) {
     console.error('Error fetching region:', error);
     return NextResponse.json(
@@ -41,7 +35,8 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
     const body = await request.json();
     const { name, code } = body;
 
@@ -52,21 +47,13 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `UPDATE regions SET name = '${name}', code = '${code}', updated_at = NOW() WHERE id = ${id}`
-      }),
-    });
+    const db = await getConnection();
 
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update region');
-    }
+    // Update region
+    await db.query(
+      'UPDATE regions SET name = ?, code = ?, updated_at = NOW() WHERE id = ?',
+      [name, code, id]
+    );
 
     return NextResponse.json({ message: 'Region updated successfully' });
   } catch (error) {
@@ -83,22 +70,17 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
     
     // Check if region has associated districts
-    const checkResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT COUNT(*) as count FROM districts WHERE region_id = ${id}`
-      }),
-    });
-
-    const checkData = await checkResponse.json();
+    const [districtRows] = await db.query(
+      'SELECT COUNT(*) as count FROM districts WHERE region_id = ?',
+      [id]
+    );
     
-    if (checkData.rows[0].count > 0) {
+    if (districtRows[0].count > 0) {
       return NextResponse.json(
         { error: 'Cannot delete region with associated districts' },
         { status: 400 }
@@ -106,21 +88,7 @@ export async function DELETE(request, { params }) {
     }
 
     // No districts, proceed with deletion
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `DELETE FROM regions WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete region');
-    }
+    await db.query('DELETE FROM regions WHERE id = ?', [id]);
 
     return NextResponse.json({ message: 'Region deleted successfully' });
   } catch (error) {

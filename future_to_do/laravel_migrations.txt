@@ -24,7 +24,7 @@ class AddExtensibleUserManagementTables extends Migration
               `name` varchar(100) NOT NULL,
               `code` varchar(50) NOT NULL UNIQUE,
               `description` text,
-              `active` tinyint(1) DEFAULT '1',
+              `status` enum('active', 'inactive') DEFAULT 'active',
               `created_at` timestamp NULL DEFAULT NULL,
               `updated_at` timestamp NULL DEFAULT NULL,
               PRIMARY KEY (`id`)
@@ -33,10 +33,10 @@ class AddExtensibleUserManagementTables extends Migration
 
         // Seed initial programs
         DB::statement("
-            INSERT INTO `programs` (`name`, `code`, `description`, `active`, `created_at`, `updated_at`) VALUES
-            ('Core MSRC System', 'core', 'The main MSRC system for general administration', 1, NOW(), NOW()),
-            ('Reentry Program', 'reentry', 'Pregnancy and school reentry data collection program', 1, NOW(), NOW()),
-            ('Right to Play', 'rtp', 'Right to Play (RTP) program for sports and play-based education', 1, NOW(), NOW());
+            INSERT INTO `programs` (`name`, `code`, `description`, `status`, `created_at`, `updated_at`) VALUES
+            ('Core MSRC System', 'core', 'The main MSRC system for general administration', 'active', NOW(), NOW()),
+            ('Reentry Program', 'reentry', 'Pregnancy and school reentry data collection program', 'active', NOW(), NOW()),
+            ('Right to Play', 'rtp', 'Right to Play (RTP) program for sports and play-based education', 'active', NOW(), NOW());
         ");
 
         // Create User Program Roles junction table with correct column type
@@ -97,6 +97,13 @@ class AddExtensibleUserManagementTables extends Migration
                 $table->string('target', 50)->nullable();
             }
         });
+
+        // Add deleted_at column to right_to_play_itineraries table if it doesn't exist
+        if (!Schema::hasColumn('right_to_play_itineraries', 'deleted_at')) {
+            Schema::table('right_to_play_itineraries', function (Blueprint $table) {
+                $table->softDeletes();
+            });
+        }
 
         // Create Consolidated Checklist Responses table
         Schema::create('right_to_play_consolidated_checklist_responses', function (Blueprint $table) {
@@ -186,6 +193,13 @@ class AddExtensibleUserManagementTables extends Migration
         Schema::dropIfExists('right_to_play_pip_responses');
         Schema::dropIfExists('right_to_play_consolidated_checklist_answers');
         Schema::dropIfExists('right_to_play_consolidated_checklist_responses');
+
+        // Remove the deleted_at column from right_to_play_itineraries
+        if (Schema::hasColumn('right_to_play_itineraries', 'deleted_at')) {
+            Schema::table('right_to_play_itineraries', function (Blueprint $table) {
+                $table->dropSoftDeletes();
+            });
+        }
 
         // Remove added columns from right_to_play_questions
         Schema::table('right_to_play_questions', function (Blueprint $table) {

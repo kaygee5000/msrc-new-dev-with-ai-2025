@@ -91,14 +91,41 @@ export default function DashboardLayout({ children }) {
 
   const handleLogout = () => {
     handleProfileMenuClose();
-    signOut();
-    router.push('/login');
+    
+    // Clear all localStorage items related to authentication
+    if (typeof window !== 'undefined') {
+      // Clear specific auth-related items
+      localStorage.removeItem('msrc_auth');
+      localStorage.removeItem('msrc_current_program');
+      
+      // Find and clear any other msrc_ prefixed items
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('msrc_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    
+    // Call the logout API endpoint to clear cookies
+    fetch('/api/auth/logout', { method: 'GET' })
+      .then(() => {
+        // Use signOut with redirect:false to avoid the default behavior
+        signOut({ redirect: false }).then(() => {
+          // Force a complete page reload to the homepage
+          window.location.href = '/';
+        });
+      })
+      .catch(error => {
+        console.error('Error during logout:', error);
+        // Fallback: redirect anyway
+        window.location.href = '/';
+      });
   };
 
   // Get user initials for avatar
   const getUserInitials = () => {
     if (!user || !user.name) return "U";
-    return user.name.split(' ').map((n) => n[0]).join('').toUpperCase();
+    return user.first_name.split(' ').map((n) => n[0]).join('').toUpperCase();
   };
 
   const drawer = (

@@ -17,6 +17,7 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const regionId = searchParams.get('region_id');
     const districtId = searchParams.get('district_id');
+    const circuitId = searchParams.get('circuit_id');
     const galopStatus = searchParams.get('galop_status');
     const responseStatus = searchParams.get('response_status') || 'all';
     const itineraryId = searchParams.get('itinerary_id');
@@ -26,16 +27,18 @@ export async function GET(req) {
       SELECT 
         s.id, 
         s.name as school_name, 
-        s.emis_code,
+        s.ges_code,
         s.is_galop,
+        c.id as circuit_id,
+        c.name as circuit_name,
         d.id as district_id,
         d.name as district_name,
         r.id as region_id,
         r.name as region_name,
         (
-          SELECT COUNT(*) 
-          FROM right_to_play_school_responses sr 
-          WHERE sr.school_id = s.id AND sr.deleted_at IS NULL
+          SELECT COUNT(*)
+          FROM right_to_play_question_answers qa
+          WHERE qa.school_id = s.id AND qa.deleted_at IS NULL
         ) as total_school_output_submissions,
         (
           SELECT COUNT(*) 
@@ -49,6 +52,7 @@ export async function GET(req) {
         ) as total_partners_submissions
       FROM 
         schools s
+      JOIN circuits c ON s.circuit_id = c.id
       JOIN districts d ON s.district_id = d.id
       JOIN regions r ON d.region_id = r.id
       WHERE 1=1
@@ -67,6 +71,11 @@ export async function GET(req) {
       queryParams.push(parseInt(districtId));
     }
     
+    if (circuitId) {
+      query += ` AND c.id = ?`;
+      queryParams.push(parseInt(circuitId));
+    }
+
     if (galopStatus !== null && galopStatus !== undefined) {
       query += ` AND s.is_galop = ?`;
       queryParams.push(parseInt(galopStatus));
@@ -76,14 +85,14 @@ export async function GET(req) {
     if (itineraryId && responseStatus !== 'all') {
       if (responseStatus === 'responded') {
         query += ` AND (
-          EXISTS (SELECT 1 FROM right_to_play_school_responses sr WHERE sr.school_id = s.id AND sr.itinerary_id = ? AND sr.deleted_at IS NULL)
+          EXISTS (SELECT 1 FROM right_to_play_question_answers qa WHERE qa.school_id = s.id AND qa.itinerary_id = ? AND qa.deleted_at IS NULL)
           OR EXISTS (SELECT 1 FROM right_to_play_consolidated_checklist_responses ccr WHERE ccr.school_id = s.id AND ccr.itinerary_id = ? AND ccr.deleted_at IS NULL)
           OR EXISTS (SELECT 1 FROM right_to_play_pip_responses pr WHERE pr.school_id = s.id AND pr.itinerary_id = ? AND pr.deleted_at IS NULL)
         )`;
         queryParams.push(parseInt(itineraryId), parseInt(itineraryId), parseInt(itineraryId));
       } else if (responseStatus === 'not-responded') {
         query += ` AND NOT (
-          EXISTS (SELECT 1 FROM right_to_play_school_responses sr WHERE sr.school_id = s.id AND sr.itinerary_id = ? AND sr.deleted_at IS NULL)
+          EXISTS (SELECT 1 FROM right_to_play_question_answers qa WHERE qa.school_id = s.id AND qa.itinerary_id = ? AND qa.deleted_at IS NULL)
           OR EXISTS (SELECT 1 FROM right_to_play_consolidated_checklist_responses ccr WHERE ccr.school_id = s.id AND ccr.itinerary_id = ? AND ccr.deleted_at IS NULL)
           OR EXISTS (SELECT 1 FROM right_to_play_pip_responses pr WHERE pr.school_id = s.id AND pr.itinerary_id = ? AND pr.deleted_at IS NULL)
         )`;
@@ -96,9 +105,9 @@ export async function GET(req) {
       query = query.replace(
         'FROM schools s',
         `(
-          SELECT COUNT(*) 
-          FROM right_to_play_school_responses sr 
-          WHERE sr.school_id = s.id AND sr.itinerary_id = ${parseInt(itineraryId)} AND sr.deleted_at IS NULL
+          SELECT COUNT(*)
+          FROM right_to_play_question_answers qa
+          WHERE qa.school_id = s.id AND qa.itinerary_id = ${parseInt(itineraryId)} AND qa.deleted_at IS NULL
         ) as itinerary_school_output_submissions,
         (
           SELECT COUNT(*) 

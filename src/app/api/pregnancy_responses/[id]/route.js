@@ -4,7 +4,8 @@ import db from '@/utils/db';
 // GET - Get a single response by ID with all its details
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
     
     if (!id) {
       return NextResponse.json({ message: 'Response ID is required' }, { status: 400 });

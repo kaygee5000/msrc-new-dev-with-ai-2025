@@ -172,16 +172,16 @@ export default function UserDetail() {
                 sx={{ mr: 1 }}
               />
               
-              <Chip 
+              {/* <Chip 
                 label={user.status === 'active' ? 'Active' : 'Inactive'} 
                 color={user.status === 'active' ? 'success' : 'error'} 
                 size="small" 
                 variant="outlined"
-              />
+              /> */}
             </Box>
             
             <Typography variant="body2" color="text.secondary">
-              Last login: {user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+              Last login: {user.birth_date ? new Date(user.birth_date).toLocaleString() : 'Never'}
             </Typography>
           </Box>
         </Box>

@@ -161,7 +161,7 @@ export async function GET(req, { params }) {
       school: {
         id: school.id,
         name: school.name,
-        emis_code: school.emis_code,
+        ges_code: school.ges_code,
         is_galop: school.is_galop,
         district_name: school.district_name,
         region_name: school.region_name

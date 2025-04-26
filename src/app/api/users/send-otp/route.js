@@ -72,7 +72,7 @@ export async function POST(req) {
       // Import is inside the if condition to avoid unnecessary imports
       const { sendOTPEmail } = await import('@/utils/emailSmsNotifier');
       await sendOTPEmail({
-        name: user.name,
+        name: user.first_name + ' ' + user.last_name,
         email: recipient,
         code: otp
       });
@@ -80,7 +80,7 @@ export async function POST(req) {
       // Import is inside the if condition to avoid unnecessary imports
       const { sendOTPSMS } = await import('@/utils/emailSmsNotifier');
       await sendOTPSMS({
-        name: user.name,
+        name: user.first_name + ' ' + user.last_name,
         phoneNumber: recipient,
         code: otp
       });

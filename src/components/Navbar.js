@@ -85,6 +85,7 @@ export default function Navbar() {
   // Dashboard menu items - only shown when logged in
   const dashboardItems = [
     { name: 'Dashboard', path: '/dashboard' },
+    { name: 'Reentry and Pregnancy', path: '/reentry' },
     { name: 'Right to Play', path: '/rtp' },
   ];
 
@@ -118,7 +119,35 @@ export default function Navbar() {
 
   const handleLogout = () => {
     handleProfileMenuClose();
-    signOut();
+    
+    // Clear all localStorage items related to authentication
+    if (typeof window !== 'undefined') {
+      // Clear specific auth-related items
+      localStorage.removeItem('msrc_auth');
+      localStorage.removeItem('msrc_current_program');
+      
+      // Find and clear any other msrc_ prefixed items
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('msrc_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+    
+    // Call the logout API endpoint to clear cookies
+    fetch('/api/auth/logout', { method: 'GET' })
+      .then(() => {
+        // Use signOut with redirect:false to avoid the default behavior
+        signOut({ redirect: false }).then(() => {
+          // Force a complete page reload to the homepage
+          window.location.href = '/';
+        });
+      })
+      .catch(error => {
+        console.error('Error during logout:', error);
+        // Fallback: redirect anyway
+        window.location.href = '/';
+      });
   };
 
   // Determine which nav items to show based on authentication
@@ -229,8 +258,8 @@ export default function Navbar() {
 
   // Get user initials for avatar
   const getUserInitials = () => {
-    if (!user || !user.name) return "U";
-    return user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    if (!user || !user.first_name || !user.last_name) return "U";
+    return user.first_name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   return (
@@ -240,18 +269,29 @@ export default function Navbar() {
           <Container maxWidth="xl">
             <Toolbar disableGutters sx={{ display: 'flex', justifyContent: 'space-between' }}>
               {/* Logo/Brand */}
-              <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-                <Typography
-                  variant="h6"
-                  component="div"
-                  sx={{ 
-                    fontWeight: 700, 
-                    fontSize: '1.5rem',
-                    color: 'primary.main'
-                  }}
-                >
-                  mSRC
-                </Typography>
+              <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <img 
+                    src="/assets/msrc-logo.70a4620a.png" 
+                    alt="MSRC Logo" 
+                    style={{ 
+                      height: '40px', 
+                      width: 'auto', 
+                      marginRight: '8px' 
+                    }} 
+                  />
+                  <Typography
+                    variant="h6"
+                    component="div"
+                    sx={{ 
+                      fontWeight: 700, 
+                      fontSize: '1.5rem',
+                      color: 'primary.main'
+                    }}
+                  >
+                    mSRC
+                  </Typography>
+                </Box>
               </Link>
               
               {/* Desktop Navigation */}
@@ -366,7 +406,7 @@ export default function Navbar() {
                           {user && (
                             <Box sx={{ px: 2, py: 1.5 }}>
                               <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                                {user.name || 'User'}
+                                {user.first_name + ' ' + user.last_name || 'User'}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
                                 {user.email || ''}

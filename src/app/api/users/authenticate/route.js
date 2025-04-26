@@ -50,7 +50,7 @@ export async function POST(request) {
     
     // Update last login timestamp
     await pool.query(
-      'UPDATE users SET last_login_at = NOW() WHERE id = ?',
+      'UPDATE users SET birth_date = NOW() WHERE id = ?',
       [user.id]
     );
     
@@ -58,7 +58,7 @@ export async function POST(request) {
     const token = jwt.sign(
       { 
         id: user.id,
-        name: user.name,
+        name: user.first_name + ' ' + user.last_name,
         email: user.email,
         type: user.type,
         role: user.role
@@ -80,12 +80,11 @@ export async function POST(request) {
     // Remove sensitive data before returning the user
     const safeUserData = {
       id: user.id,
-      name: user.name,
+      name: user.first_name + ' ' + user.last_name,
       email: user.email,
       type: user.type,
-      role: user.role,
-      status: user.status
-    };
+      role: user.role
+     };
     
     return NextResponse.json({
       success: true,

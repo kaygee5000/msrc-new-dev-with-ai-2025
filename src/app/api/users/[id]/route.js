@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { getConnection } from '@/utils/db';
 
 /**
  * Generate a random password of specified length
@@ -63,135 +64,134 @@ async function sendNotification(user, password, isNew = true) {
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const url = new URL(request.url);
+    const includeProgramRoles = url.searchParams.get('includeProgramRoles') === 'true';
+    
+    const db = await getConnection();
     
     // Get basic user info
-    const userResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `
-          SELECT id, type, super_admin, first_name, last_name, other_names, 
-                 email, phone_number, gender, identification_number, 
-                 birth_date, avatar, scope_id, created_at, updated_at
-          FROM users
-          WHERE id = ${id} AND deleted_at IS NULL
-        `
-      }),
-    });
+    const [userData] = await db.query(`
+      SELECT id, type, super_admin, first_name, last_name, other_names, 
+             email, phone_number, gender, identification_number, 
+             birth_date, avatar, scope_id, created_at, updated_at
+      FROM users
+      WHERE id = ? AND deleted_at IS NULL
+    `, [id]);
 
-    const userData = await userResponse.json();
-    
-    if (!userData.rows || userData.rows.length === 0) {
+    if (!userData || userData.length === 0) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
 
-    const user = userData.rows[0];
+    const user = userData[0];
     
     // Add scope information based on user type
     if (user.scope_id) {
-      if (user.type === 'admin') {
+      if (user.type === 'regional_admin') {
         // Admin scope is a region
-        const regionResponse = await fetch('http://localhost:3010/sql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sql: `SELECT * FROM regions WHERE id = ${user.scope_id}`
-          }),
-        });
-        const regionData = await regionResponse.json();
-        if (regionData.rows && regionData.rows.length > 0) {
-          user.scope = regionData.rows[0];
+        const [regionData] = await db.query(`
+          SELECT * FROM regions WHERE id = ?
+        `, [user.scope_id]);
+        
+        if (regionData && regionData.length > 0) {
+          user.scope = regionData[0];
         }
-      } else if (user.type === 'circuit_supervisor') {
-        // SISO scope is a district
-        const districtResponse = await fetch('http://localhost:3010/sql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sql: `
-              SELECT d.*, r.name as region_name, r.id as region_id
-              FROM districts d
-              JOIN regions r ON d.region_id = r.id
-              WHERE d.id = ${user.scope_id}
-            `
-          }),
-        });
-        const districtData = await districtResponse.json();
-        if (districtData.rows && districtData.rows.length > 0) {
-          user.scope = districtData.rows[0];
+      } 
+      else // Check if user is a district_admin and fetch related data
+      if (user && user.type === 'district_admin' && user.scope_id) {
+        const db = await getConnection();
+        
+        // Get district with its region
+        const [districtData] = await db.query(`
+          SELECT d.*, r.name as region_name, r.id as region_id
+          FROM districts d
+          JOIN regions r ON d.region_id = r.id
+          WHERE d.id = ?
+        `, [user.scope_id]);
+        
+        if (districtData && districtData.length > 0) {
+          // Store district and region info
+          const district = districtData[0];
+          
+          // Fetch all circuits in this district
+          const [circuitsData] = await db.query(`
+            SELECT c.id, c.name, c.code 
+            FROM circuits c
+            WHERE c.district_id = ?
+            ORDER BY c.name
+          `, [district.id]);
+          
+          // Now you have the district with region_name and all circuits
+          // You can use this data as needed
+          user.district = district;
+          user.circuits = circuitsData || [];
         }
-      } else if (user.type === 'head_facilitator') {
-        // Head facilitator scope is a school
-        const schoolResponse = await fetch('http://localhost:3010/sql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sql: `
-              SELECT s.*, c.name as circuit_name, c.id as circuit_id,
-                    d.name as district_name, d.id as district_id,
-                    r.name as region_name, r.id as region_id
-              FROM schools s
-              JOIN circuits c ON s.circuit_id = c.id
-              JOIN districts d ON c.district_id = d.id
-              JOIN regions r ON d.region_id = r.id
-              WHERE s.id = ${user.scope_id}
-            `
-          }),
-        });
-        const schoolData = await schoolResponse.json();
-        if (schoolData.rows && schoolData.rows.length > 0) {
-          user.scope = schoolData.rows[0];
+      }
+      
+      else if (user && user.type === 'circuit_supervisor' && user.scope_id) {
+        const db = await getConnection();
+        
+        // Get district with its region
+        const [circuitData] = await db.query(`
+          SELECT c.*, r.name as region_name, r.id as region_id
+          d.name as district_name, d.id as district_id
+          FROM circuits c
+          JOIN regions r ON c.region_id = r.id
+          JOIN districts d ON c.district_id = d.id
+          WHERE c.id = ?
+        `, [user.scope_id]);
+        
+        if (districtData && districtData.length > 0) {
+          // Store district and region info
+          const district = districtData[0];
+          
+          // Fetch all circuits in this district
+          const [circuitsData] = await db.query(`
+            SELECT c.id, c.name, c.code 
+            FROM circuits c
+            WHERE c.district_id = ?
+            ORDER BY c.name
+          `, [district.id]);
+          
+          // Now you have the district with region_name and all circuits
+          // You can use this data as needed
+          user.district = district;
+          user.circuits = circuitsData || [];
         }
       }
     }
     
-    // For facilitators, get associated schools
-    if (user.type === 'facilitator') {
-      const schoolsResponse = await fetch('http://localhost:3010/sql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sql: `
-            SELECT s.id, s.name, s.code, s.address, s.circuit_id,
-                  c.name as circuit_name,
-                  d.name as district_name, d.id as district_id,
-                  r.name as region_name, r.id as region_id
-            FROM schools_teachers st
-            JOIN schools s ON st.school_id = s.id
-            JOIN circuits c ON s.circuit_id = c.id
-            JOIN districts d ON c.district_id = d.id
-            JOIN regions r ON d.region_id = r.id
-            WHERE st.teacher_id = ${id}
-          `
-        }),
-      });
-      const schoolsData = await schoolsResponse.json();
-      if (schoolsData.rows && schoolsData.rows.length > 0) {
-        user.schools = schoolsData.rows;
+  
+    
+    // Get program roles if requested
+    if (includeProgramRoles) {
+      const [programRolesData] = await db.query(`
+        SELECT upr.id, upr.user_id, upr.program_id, upr.role, upr.scope_type, upr.scope_id,
+               p.name as program_name, p.code as program_code
+        FROM user_program_roles upr
+        JOIN programs p ON upr.program_id = p.id
+        WHERE upr.user_id = ?
+      `, [id]);
+      
+      if (programRolesData && programRolesData.length > 0) {
+        user.program_roles = programRolesData;
       } else {
-        user.schools = [];
+        user.program_roles = [];
       }
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json({
+      success: true,
+      user: user
+    });
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch user' },
+      { success: false, error: 'Failed to fetch user' },
       { status: 500 }
     );
   }
@@ -202,256 +202,118 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
-    const body = await request.json();
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const userData = await request.json();
     const { 
       first_name, 
       last_name, 
-      other_names, 
       email, 
-      phone_number, 
+      phone_number,
       gender,
+      other_names,
+      type,
       identification_number,
       birth_date,
+      avatar,
       scope_id,
-      schools = [], // For facilitators only
-      resetPassword = false
-    } = body;
-
-    // Verify user exists
-    const userCheckResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT id, type, email, phone_number FROM users WHERE id = ${id} AND deleted_at IS NULL`
-      }),
-    });
-
-    const userCheckData = await userCheckResponse.json();
-    if (!userCheckData.rows || userCheckData.rows.length === 0) {
+      scope
+    } = userData;
+    
+    // Validate required fields
+    if (!first_name || !last_name || !email || !type || !phone_number) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { success: false, error: 'First name, last name, email, phone number and type are required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if email already exists (for another user)
+    const [existingEmailUsers] = await pool.query(
+      'SELECT * FROM users WHERE email = ? AND id != ?', 
+      [email, id]
+    );
+    
+    if (existingEmailUsers.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'A user with this email already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Check if phone number already exists (for another user)
+    const [existingPhoneUsers] = await pool.query(
+      'SELECT * FROM users WHERE phone_number = ? AND id != ?', 
+      [phone_number, id]
+    );
+    
+    if (existingPhoneUsers.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'A user with this phone number already exists' },
+        { status: 409 }
+      );
+    }
+
+    // Update user
+    await pool.query(
+      `UPDATE users SET 
+        first_name = ?, 
+        last_name = ?,
+        email = ?, 
+        phone_number = ?, 
+        type = ?,
+        gender = ?,
+        other_names = ?,
+        identification_number = ?,
+        birth_date = ?,
+        avatar = ?,
+        scope_id = ?,
+        scope = ?,
+        updated_at = NOW()
+       WHERE id = ?`,
+      [
+        first_name, 
+        last_name,
+        email, 
+        phone_number, 
+        type,
+        gender || null,
+        other_names || null,
+        identification_number || null,
+        birth_date || null,
+        avatar || null,
+        scope_id || null,
+        scope || null,
+        id
+      ]
+    );
+
+    // Retrieve the updated user
+    const [updatedUsers] = await pool.query(
+      `SELECT 
+        id, first_name, last_name, email, phone_number, type, 
+        gender, other_names, identification_number, birth_date, scope_id, scope,
+        created_at, updated_at
+       FROM users WHERE id = ?`,
+      [id]
+    );
+
+    if (updatedUsers.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
 
-    const existingUser = userCheckData.rows[0];
-    const userType = existingUser.type;
-
-    // Validate required fields
-    if (!first_name || !last_name || !email || !phone_number) {
-      return NextResponse.json(
-        { error: 'First name, last name, email, and phone number are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check for email/phone uniqueness (only if changed)
-    if (email !== existingUser.email || phone_number !== existingUser.phone_number) {
-      const checkExistingResponse = await fetch('http://localhost:3010/sql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sql: `
-            SELECT id FROM users 
-            WHERE (email = '${email}' OR phone_number = '${phone_number}') 
-            AND id != ${id}
-          `
-        }),
-      });
-
-      const checkExistingData = await checkExistingResponse.json();
-      if (checkExistingData.rows && checkExistingData.rows.length > 0) {
-        return NextResponse.json(
-          { error: 'Email or phone number already in use by another user' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate scope based on user type
-    if ((userType === 'admin' || userType === 'circuit_supervisor' || userType === 'head_facilitator') && !scope_id) {
-      return NextResponse.json(
-        { error: `Scope ID is required for ${userType} users` },
-        { status: 400 }
-      );
-    }
-
-    if (userType === 'facilitator' && (!schools || schools.length === 0)) {
-      return NextResponse.json(
-        { error: 'At least one school must be assigned to a facilitator' },
-        { status: 400 }
-      );
-    }
-
-    // Verify scope exists based on user type
-    if (scope_id) {
-      let scopeTable;
-      switch (userType) {
-        case 'admin':
-          scopeTable = 'regions';
-          break;
-        case 'circuit_supervisor':
-          scopeTable = 'districts';
-          break;
-        case 'head_facilitator':
-          scopeTable = 'schools';
-          break;
-      }
-
-      const scopeCheckResponse = await fetch('http://localhost:3010/sql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sql: `SELECT id FROM ${scopeTable} WHERE id = ${scope_id}`
-        }),
-      });
-
-      const scopeCheckData = await scopeCheckResponse.json();
-      if (!scopeCheckData.rows || scopeCheckData.rows.length === 0) {
-        return NextResponse.json(
-          { error: `Invalid scope for ${userType}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // For facilitators, verify all schools exist
-    if (userType === 'facilitator' && schools.length > 0) {
-      for (const schoolId of schools) {
-        const schoolCheckResponse = await fetch('http://localhost:3010/sql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sql: `SELECT id FROM schools WHERE id = ${schoolId}`
-          }),
-        });
-
-        const schoolCheckData = await schoolCheckResponse.json();
-        if (!schoolCheckData.rows || schoolCheckData.rows.length === 0) {
-          return NextResponse.json(
-            { error: `School with ID ${schoolId} not found` },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // Prepare update query
-    let setClause = `
-      first_name = '${first_name}',
-      last_name = '${last_name}',
-      other_names = ${other_names ? `'${other_names}'` : 'NULL'},
-      email = '${email}',
-      phone_number = '${phone_number}',
-      gender = ${gender ? `'${gender}'` : 'NULL'},
-      identification_number = ${identification_number ? `'${identification_number}'` : 'NULL'},
-      birth_date = ${birth_date ? `'${birth_date}'` : 'NULL'},
-      updated_at = NOW()
-    `;
-
-    if ((userType === 'admin' || userType === 'circuit_supervisor' || userType === 'head_facilitator') && scope_id) {
-      setClause += `, scope_id = ${scope_id}`;
-    }
-
-    let passwordReset = false;
-    let newPassword = null;
-
-    // Handle password reset if requested
-    if (resetPassword) {
-      // Generate a new random password
-      newPassword = generatePassword(12);
-      
-      // Hash password using crypto instead of bcrypt
-      const hashedPassword = hashPassword(newPassword);
-      
-      setClause += `, password = '${hashedPassword}'`;
-      passwordReset = true;
-    }
-
-    // Update user
-    const updateUserResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `
-          UPDATE users SET ${setClause} WHERE id = ${id}
-        `
-      }),
-    });
-
-    const updateUserData = await updateUserResponse.json();
-    
-    if (!updateUserData.success) {
-      throw new Error(updateUserData.error || 'Failed to update user');
-    }
-
-    // For facilitators, update school associations
-    if (userType === 'facilitator' && schools.length > 0) {
-      // First, delete existing associations
-      await fetch('http://localhost:3010/sql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sql: `DELETE FROM schools_teachers WHERE teacher_id = ${id}`
-        }),
-      });
-
-      // Then create new associations
-      for (const schoolId of schools) {
-        await fetch('http://localhost:3010/sql', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sql: `
-              INSERT INTO schools_teachers (school_id, teacher_id, created_at, updated_at)
-              VALUES (${schoolId}, ${id}, NOW(), NOW())
-            `
-          }),
-        });
-      }
-    }
-
-    // Send notification if password was reset
-    if (passwordReset) {
-      await sendNotification(
-        { 
-          email, 
-          phone_number, 
-          first_name, 
-          last_name 
-        }, 
-        newPassword, 
-        false
-      );
-    }
-
-    return NextResponse.json({
+    return NextResponse.json({ 
+      success: true, 
       message: 'User updated successfully',
-      passwordReset,
-      notificationSent: passwordReset ? {
-        email: !!email,
-        sms: !!phone_number
-      } : null
+      user: updatedUsers[0] 
     });
   } catch (error) {
     console.error('Error updating user:', error);
     return NextResponse.json(
-      { error: 'Failed to update user' },
+      { success: false, error: 'Failed to update user' },
       { status: 500 }
     );
   }
@@ -462,64 +324,44 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
 
     // Check if user exists
-    const userCheckResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT id, type FROM users WHERE id = ${id} AND deleted_at IS NULL`
-      }),
-    });
+    const [userCheckData] = await db.query(`
+      SELECT id, type FROM users WHERE id = ? AND deleted_at IS NULL
+    `, [id]);
 
-    const userCheckData = await userCheckResponse.json();
-    if (!userCheckData.rows || userCheckData.rows.length === 0) {
+    if (!userCheckData || userCheckData.length === 0) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { success: false, error: 'User not found' },
         { status: 404 }
       );
     }
 
-    const userType = userCheckData.rows[0].type;
+    const userType = userCheckData[0].type;
 
     // For facilitators, remove school associations
     if (userType === 'facilitator') {
-      await fetch('http://localhost:3010/sql', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sql: `DELETE FROM schools_teachers WHERE teacher_id = ${id}`
-        }),
-      });
+      await db.query(`
+        DELETE FROM schools_teachers WHERE teacher_id = ?
+      `, [id]);
     }
 
     // Soft delete user (set deleted_at timestamp)
-    const deleteUserResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `UPDATE users SET deleted_at = NOW() WHERE id = ${id}`
-      }),
+    await db.query(`
+      UPDATE users SET deleted_at = NOW() WHERE id = ?
+    `, [id]);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'User deleted successfully' 
     });
-
-    const deleteUserData = await deleteUserResponse.json();
-    
-    if (!deleteUserData.success) {
-      throw new Error(deleteUserData.error || 'Failed to delete user');
-    }
-
-    return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
     return NextResponse.json(
-      { error: 'Failed to delete user' },
+      { success: false, error: 'Failed to delete user' },
       { status: 500 }
     );
   }

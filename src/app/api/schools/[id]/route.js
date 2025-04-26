@@ -1,39 +1,33 @@
 import { NextResponse } from 'next/server';
+import { getConnection } from '@/utils/db';
 
 /**
  * GET handler for retrieving a single school by ID
  */
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
     
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `
-          SELECT s.*, c.name as circuit_name, d.name as district_name, r.name as region_name 
-          FROM schools s
-          LEFT JOIN circuits c ON s.circuit_id = c.id
-          LEFT JOIN districts d ON c.district_id = d.id
-          LEFT JOIN regions r ON d.region_id = r.id
-          WHERE s.id = ${id}
-        `
-      }),
-    });
-
-    const data = await response.json();
+    // Get school with related data
+    const [rows] = await db.query(`
+      SELECT s.*, c.name as circuit_name, d.name as district_name, r.name as region_name 
+      FROM schools s
+      LEFT JOIN circuits c ON s.circuit_id = c.id
+      LEFT JOIN districts d ON c.district_id = d.id
+      LEFT JOIN regions r ON d.region_id = r.id
+      WHERE s.id = ?
+    `, [id]);
     
-    if (!data.rows || data.rows.length === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json(
         { error: 'School not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(data.rows[0]);
+    return NextResponse.json(rows[0]);
   } catch (error) {
     console.error('Error fetching school:', error);
     return NextResponse.json(
@@ -48,7 +42,8 @@ export async function GET(request, { params }) {
  */
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
     const body = await request.json();
     const { name, code, circuit_id, address, contact, type } = body;
 
@@ -59,48 +54,34 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Verify circuit exists
-    const circuitCheck = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT id FROM circuits WHERE id = ${circuit_id}`
-      }),
-    });
+    const db = await getConnection();
 
-    const circuitData = await circuitCheck.json();
-    if (!circuitData.rows || circuitData.rows.length === 0) {
+    // Verify circuit exists
+    const [circuitRows] = await db.query(
+      'SELECT id FROM circuits WHERE id = ?', 
+      [circuit_id]
+    );
+
+    if (!circuitRows || circuitRows.length === 0) {
       return NextResponse.json(
         { error: 'Circuit not found' },
         { status: 400 }
       );
     }
 
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `UPDATE schools SET 
-              name = '${name}', 
-              code = '${code}', 
-              circuit_id = ${circuit_id}, 
-              address = ${address ? `'${address}'` : 'NULL'}, 
-              contact = ${contact ? `'${contact}'` : 'NULL'}, 
-              type = ${type ? `'${type}'` : 'NULL'}, 
-              updated_at = NOW() 
-              WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update school');
-    }
+    // Update school
+    await db.query(
+      `UPDATE schools SET 
+        name = ?, 
+        code = ?, 
+        circuit_id = ?, 
+        address = ?, 
+        contact = ?, 
+        type = ?, 
+        updated_at = NOW() 
+      WHERE id = ?`,
+      [name, code, circuit_id, address || null, contact || null, type || null, id]
+    );
 
     return NextResponse.json({ message: 'School updated successfully' });
   } catch (error) {
@@ -117,22 +98,17 @@ export async function PUT(request, { params }) {
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params;
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+    const db = await getConnection();
     
     // Check for associated data like enrollments, teacher assignments, etc.
-    const checkEnrollmentsResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT COUNT(*) as count FROM enrolments WHERE school_id = ${id}`
-      }),
-    });
-
-    const checkEnrollmentsData = await checkEnrollmentsResponse.json();
+    const [enrollmentsRows] = await db.query(
+      'SELECT COUNT(*) as count FROM enrolments WHERE school_id = ?',
+      [id]
+    );
     
-    if (checkEnrollmentsData.rows[0].count > 0) {
+    if (enrollmentsRows[0].count > 0) {
       return NextResponse.json(
         { error: 'Cannot delete school with associated enrollment data' },
         { status: 400 }
@@ -140,19 +116,12 @@ export async function DELETE(request, { params }) {
     }
     
     // Check for associated teachers
-    const checkTeachersResponse = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `SELECT COUNT(*) as count FROM schools_teachers WHERE school_id = ${id}`
-      }),
-    });
-
-    const checkTeachersData = await checkTeachersResponse.json();
+    const [teachersRows] = await db.query(
+      'SELECT COUNT(*) as count FROM schools_teachers WHERE school_id = ?',
+      [id]
+    );
     
-    if (checkTeachersData.rows[0].count > 0) {
+    if (teachersRows[0].count > 0) {
       return NextResponse.json(
         { error: 'Cannot delete school with associated teacher data' },
         { status: 400 }
@@ -160,21 +129,7 @@ export async function DELETE(request, { params }) {
     }
 
     // No dependent data, proceed with deletion
-    const response = await fetch('http://localhost:3010/sql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sql: `DELETE FROM schools WHERE id = ${id}`
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete school');
-    }
+    await db.query('DELETE FROM schools WHERE id = ?', [id]);
 
     return NextResponse.json({ message: 'School deleted successfully' });
   } catch (error) {
