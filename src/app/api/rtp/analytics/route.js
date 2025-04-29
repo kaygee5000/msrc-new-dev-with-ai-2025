@@ -14,6 +14,11 @@ export async function GET(req) {
     const viewMode = searchParams.get('viewMode') || 'combined'; // 'combined', 'gender-disaggregated'
     const districtId = searchParams.get('districtId'); // optional district filter
     const regionId = searchParams.get('regionId'); // optional region filter
+    const showCalculations = searchParams.get('showCalculations') === 'true'; // show calculation details
+    const dataSource = searchParams.get('dataSource'); // filter by data source: 'school', 'district', 'checklist', 'pip'
+    const questionId = searchParams.get('questionId'); // filter by specific question ID
+    const fromDate = searchParams.get('fromDate'); // filter by date range
+    const toDate = searchParams.get('toDate'); // filter by date range
     
     // Validate required parameters
     if (!itineraryId) {
@@ -52,17 +57,99 @@ export async function GET(req) {
         baseParams.push(parseInt(regionId));
       }
       
+      // Add date range filters if provided
+      if (fromDate) {
+        baseConditions.push('AND qa.created_at >= ?');
+        baseParams.push(fromDate);
+      }
+      
+      if (toDate) {
+        baseConditions.push('AND qa.created_at <= ?');
+        baseParams.push(toDate);
+      }
+      
+      // Add question ID filter if provided
+      if (questionId) {
+        baseConditions.push('AND qa.question_id = ?');
+        baseParams.push(parseInt(questionId));
+      }
+      
       // Combine conditions for query building
       const whereClause = baseConditions.join(' ');
       
+      // Store query details if showing calculations
+      const calculationDetails = showCalculations ? {
+        filters: {
+          itineraryId: parseInt(itineraryId),
+          schoolType: schoolType || 'all',
+          districtId: districtId ? parseInt(districtId) : null,
+          regionId: regionId ? parseInt(regionId) : null,
+          fromDate: fromDate || null,
+          toDate: toDate || null,
+          questionId: questionId ? parseInt(questionId) : null,
+          dataSource: dataSource || 'all'
+        },
+        queries: {}
+      } : null;
+      
       // 1. Get summary statistics
-      const summary = await getSummaryData(connection, whereClause, baseParams);
+      const summary = await getSummaryData(connection, whereClause, baseParams, calculationDetails);
       
       // 2. Get school-level indicators
-      const schoolOutputs = await getSchoolOutputIndicators(connection, whereClause, baseParams, viewMode);
+      const schoolOutputs = await getSchoolOutputIndicators(connection, whereClause, baseParams, viewMode, calculationDetails);
       
-      // 3. Get district-level indicators (simplified since we don't have the district responses table yet)
-      const districtOutputs = await getDistrictOutputIndicators(connection, whereClause, baseParams);
+      // 3. Get district-level indicators from the district responses table
+      const districtOutputs = await getDistrictOutputIndicators(connection, whereClause, baseParams, calculationDetails);
+      
+      // 3.1 Get consolidated checklist indicators
+      const consolidatedChecklistOutputs = await getConsolidatedChecklistIndicators(connection, itineraryId, calculationDetails);
+      
+      // 3.2 Get partners in play indicators
+      const pipOutputs = await getPartnersInPlayIndicators(connection, itineraryId, calculationDetails);
+      
+      // Filter data sources if requested
+      if (dataSource) {
+        if (dataSource === 'school') {
+          // Only include school output data
+          consolidatedChecklistOutputs = null;
+          districtOutputs = null;
+          pipOutputs = null;
+          if (calculationDetails) {
+            calculationDetails.activeDataSources = ['right_to_play_question_answers'];
+          }
+        } else if (dataSource === 'district') {
+          // Only include district output data
+          schoolOutputs = null;
+          consolidatedChecklistOutputs = null;
+          pipOutputs = null;
+          if (calculationDetails) {
+            calculationDetails.activeDataSources = ['right_to_play_district_responses'];
+          }
+        } else if (dataSource === 'checklist') {
+          // Only include consolidated checklist data
+          schoolOutputs = null;
+          districtOutputs = null;
+          pipOutputs = null;
+          if (calculationDetails) {
+            calculationDetails.activeDataSources = ['right_to_play_consolidated_checklist_responses'];
+          }
+        } else if (dataSource === 'pip') {
+          // Only include partners in play data
+          schoolOutputs = null;
+          districtOutputs = null;
+          consolidatedChecklistOutputs = null;
+          if (calculationDetails) {
+            calculationDetails.activeDataSources = ['right_to_play_pip_responses'];
+          }
+        }
+      } else if (calculationDetails) {
+        calculationDetails.activeDataSources = [
+          'right_to_play_question_answers',
+          'right_to_play_district_responses',
+          'right_to_play_consolidated_checklist_responses',
+          'right_to_play_pip_responses'
+        ];
+      }
       
       // 4. Get school type breakdown
       const schoolTypeBreakdown = await getSchoolTypeBreakdown(connection, whereClause, baseParams);
@@ -80,12 +167,19 @@ export async function GET(req) {
         summary,
         outputIndicators: {
           schoolLevel: schoolOutputs,
-          districtLevel: districtOutputs
+          districtLevel: districtOutputs,
+          consolidatedChecklist: consolidatedChecklistOutputs,
+          partnersInPlay: pipOutputs
         },
         schoolTypeBreakdown,
         districtSubmissions,
         genderAnalysis: genderAnalysis || undefined
       };
+      
+      // Add calculation details if requested
+      if (showCalculations) {
+        dashboardData.calculationDetails = calculationDetails;
+      }
       
       return NextResponse.json({
         status: 'success',
@@ -108,8 +202,23 @@ export async function GET(req) {
 /**
  * Get summary statistics for the dashboard
  */
-async function getSummaryData(connection, whereClause, params) {
+async function getSummaryData(connection, whereClause, params, calculationDetails = null) {
   try {
+    // Store the query for calculation transparency if needed
+    const summaryQuery = `
+      SELECT COUNT(DISTINCT qa.school_id) as total_schools
+      FROM right_to_play_question_answers qa
+      JOIN schools s ON qa.school_id = s.id
+      JOIN districts d ON s.district_id = d.id
+      WHERE 1=1 ${whereClause}
+    `;
+    
+    if (calculationDetails) {
+      calculationDetails.queries.summaryData = {
+        query: summaryQuery,
+        params: [...params]
+      };
+    }
     // 1. Total schools in the itinerary
     const [totalSchoolsResult] = await connection.execute(`
       SELECT COUNT(DISTINCT qa.school_id) as total_schools
@@ -203,8 +312,72 @@ async function getSummaryData(connection, whereClause, params) {
 /**
  * Get school-level output indicators
  */
-async function getSchoolOutputIndicators(connection, whereClause, params, viewMode) {
+async function getSchoolOutputIndicators(connection, whereClause, params, viewMode, calculationDetails = null) {
   try {
+    // Store the query for calculation transparency if needed
+    const indicatorsQuery = `
+      SELECT
+        # Teacher Champions
+        SUM(CASE WHEN qa.question_id = 1 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teacher_champions,
+        SUM(CASE WHEN qa.question_id = 2 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teacher_champions,
+        
+        # INSET Trainings
+        SUM(CASE WHEN qa.question_id = 3 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as inset_trainings,
+        
+        # Teachers by training type
+        SUM(CASE WHEN qa.question_id = 4 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teachers_pbl,
+        SUM(CASE WHEN qa.question_id = 5 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teachers_pbl,
+        SUM(CASE WHEN qa.question_id = 6 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teachers_ece,
+        SUM(CASE WHEN qa.question_id = 7 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teachers_ece,
+        SUM(CASE WHEN qa.question_id = 8 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teachers_other,
+        SUM(CASE WHEN qa.question_id = 9 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teachers_other,
+        SUM(CASE WHEN qa.question_id = 10 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teachers_no_training,
+        SUM(CASE WHEN qa.question_id = 11 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teachers_no_training,
+        
+        # Student enrollment
+        SUM(CASE WHEN qa.question_id = 12 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as boys_enrolled,
+        SUM(CASE WHEN qa.question_id = 13 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as girls_enrolled,
+        SUM(CASE WHEN qa.question_id = 14 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as boys_special_needs,
+        SUM(CASE WHEN qa.question_id = 15 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as girls_special_needs,
+        
+        # Mentoring visits
+        SUM(CASE WHEN qa.question_id = 16 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as mentoring_visits,
+        
+        # Teacher transfers
+        SUM(CASE WHEN qa.question_id = 17 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as male_teacher_transfers,
+        SUM(CASE WHEN qa.question_id = 18 THEN CAST(qa.answer AS UNSIGNED) ELSE 0 END) as female_teacher_transfers
+      FROM right_to_play_question_answers qa
+      JOIN schools s ON qa.school_id = s.id
+      JOIN districts d ON s.district_id = d.id
+      WHERE qa.question_id BETWEEN 1 AND 18 ${whereClause}
+    `;
+    
+    if (calculationDetails) {
+      calculationDetails.queries.schoolOutputIndicators = {
+        query: indicatorsQuery,
+        params: [...params],
+        questionMappings: {
+          '1': 'Male Teacher Champions',
+          '2': 'Female Teacher Champions',
+          '3': 'INSET Trainings',
+          '4': 'Male Teachers PBL',
+          '5': 'Female Teachers PBL',
+          '6': 'Male Teachers ECE',
+          '7': 'Female Teachers ECE',
+          '8': 'Male Teachers Other',
+          '9': 'Female Teachers Other',
+          '10': 'Male Teachers No Training',
+          '11': 'Female Teachers No Training',
+          '12': 'Boys Enrolled',
+          '13': 'Girls Enrolled',
+          '14': 'Boys Special Needs',
+          '15': 'Girls Special Needs',
+          '16': 'Mentoring Visits',
+          '17': 'Male Teacher Transfers',
+          '18': 'Female Teacher Transfers'
+        }
+      };
+    }
     // Get totals for all numeric indicators
     const [indicatorTotals] = await connection.execute(`
       SELECT
@@ -363,52 +536,122 @@ async function getSchoolOutputIndicators(connection, whereClause, params, viewMo
 }
 
 /**
- * Get district-level output indicators (simplified since we don't have the district responses table yet)
+ * Get district-level output indicators
  */
-async function getDistrictOutputIndicators(connection, whereClause, params) {
+async function getDistrictOutputIndicators(connection, whereClause, params, calculationDetails = null) {
   try {
-    // Since we don't have the district_response tables yet, we'll return a simplified structure
-    // with zeros for all values. This allows the frontend to render correctly without errors.
+    // Create a modified where clause for district responses
+    // Remove school-specific conditions and replace qa with dr
+    const modifiedWhereClause = whereClause
+      .replace(/qa\./g, 'dr.')
+      .replace('AND s.district_id = ?', 'AND dr.district_id = ?');
     
+    // Store the query for calculation transparency if needed
+    const districtQuery = `
+      SELECT
+        # Planning meetings
+        SUM(CASE WHEN dr.question_id = 1 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as planning_meetings,
+        
+        # Planning meeting attendees
+        SUM(CASE WHEN dr.question_id = 2 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_planning_attendees,
+        SUM(CASE WHEN dr.question_id = 3 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_planning_attendees,
+        
+        # Schools visited
+        SUM(CASE WHEN dr.question_id = 4 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as schools_visited,
+        
+        # Trainers from DST
+        SUM(CASE WHEN dr.question_id = 5 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_trainers,
+        SUM(CASE WHEN dr.question_id = 6 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_trainers,
+        
+        # National level meetings
+        SUM(CASE WHEN dr.question_id = 7 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as national_meetings,
+        
+        # National meeting attendees
+        SUM(CASE WHEN dr.question_id = 8 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_national_attendees,
+        SUM(CASE WHEN dr.question_id = 9 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_national_attendees
+      FROM right_to_play_district_responses dr
+      WHERE dr.deleted_at IS NULL AND dr.itinerary_id = ?
+    `;
+    
+    if (calculationDetails) {
+      calculationDetails.queries.districtOutputIndicators = {
+        query: districtQuery,
+        params: [params[0]],
+        questionMappings: {
+          '1': 'Planning Meetings',
+          '2': 'Male Planning Attendees',
+          '3': 'Female Planning Attendees',
+          '4': 'Schools Visited',
+          '5': 'Male Trainers',
+          '6': 'Female Trainers',
+          '7': 'National Meetings',
+          '8': 'Male National Attendees',
+          '9': 'Female National Attendees'
+        },
+        dataSource: 'right_to_play_district_responses'
+      };
+    }
+    // We already have modifiedWhereClause from earlier in the function
+    // Extract the itinerary ID from params (first parameter)
+    const itineraryId = params[0];
+    const otherParams = params.slice(1);
+    
+    // Query the district responses table
+    const [districtData] = await connection.execute(`
+      SELECT
+        # Planning meetings
+        SUM(CASE WHEN dr.question_id = 1 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as planning_meetings,
+        
+        # Planning meeting attendees
+        SUM(CASE WHEN dr.question_id = 2 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_planning_attendees,
+        SUM(CASE WHEN dr.question_id = 3 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_planning_attendees,
+        
+        # Schools visited
+        SUM(CASE WHEN dr.question_id = 4 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as schools_visited,
+        
+        # Trainers from DST
+        SUM(CASE WHEN dr.question_id = 5 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_trainers,
+        SUM(CASE WHEN dr.question_id = 6 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_trainers,
+        
+        # National level meetings
+        SUM(CASE WHEN dr.question_id = 7 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as national_meetings,
+        
+        # National meeting attendees
+        SUM(CASE WHEN dr.question_id = 8 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_national_attendees,
+        SUM(CASE WHEN dr.question_id = 9 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_national_attendees
+      FROM right_to_play_district_responses dr
+      WHERE dr.deleted_at IS NULL AND dr.itinerary_id = ?
+    `, [itineraryId]);
+    
+    const totals = districtData[0] || {};
+    
+    // Get district breakdown if needed
+    let districtBreakdown = null;
+    
+    // Format the results
     return {
-      districtTeamSupportPlans: 0,
-      trainingProvided: 0,
-      districtTeamMembersTrained: {
-        total: 0,
-        male: 0,
-        female: 0
-      },
-      districtsMentoringPlans: 0,
-      districtTeamsFormed: 0,
-      financialSupportDistricts: 0,
-      planningMeetings: 0,
+      planningMeetings: parseInt(totals.planning_meetings || 0),
       planningAttendees: {
-        total: 0,
-        male: 0,
-        female: 0
+        total: parseInt(totals.male_planning_attendees || 0) + parseInt(totals.female_planning_attendees || 0),
+        male: parseInt(totals.male_planning_attendees || 0),
+        female: parseInt(totals.female_planning_attendees || 0)
       },
-      schoolsVisited: 0,
+      schoolsVisited: parseInt(totals.schools_visited || 0),
       trainersFromDST: {
-        total: 0,
-        male: 0,
-        female: 0
+        total: parseInt(totals.male_trainers || 0) + parseInt(totals.female_trainers || 0),
+        male: parseInt(totals.male_trainers || 0),
+        female: parseInt(totals.female_trainers || 0)
       },
-      nationalMeetings: 0,
+      nationalMeetings: parseInt(totals.national_meetings || 0),
       nationalAttendees: {
-        total: 0,
-        male: 0,
-        female: 0
+        total: parseInt(totals.male_national_attendees || 0) + parseInt(totals.female_national_attendees || 0),
+        male: parseInt(totals.male_national_attendees || 0),
+        female: parseInt(totals.female_national_attendees || 0)
       }
     };
   } catch (error) {
     console.error('Error getting district output indicators:', error);
     return {
-      districtTeamSupportPlans: 0,
-      trainingProvided: 0,
-      districtTeamMembersTrained: { total: 0, male: 0, female: 0 },
-      districtsMentoringPlans: 0,
-      districtTeamsFormed: 0,
-      financialSupportDistricts: 0,
       planningMeetings: 0,
       planningAttendees: { total: 0, male: 0, female: 0 },
       schoolsVisited: 0,
@@ -476,6 +719,193 @@ async function getDistrictSubmissions(connection, whereClause, params) {
   } catch (error) {
     console.error('Error getting district submissions:', error);
     return [];
+  }
+}
+
+/**
+ * Get consolidated checklist indicators
+ */
+async function getConsolidatedChecklistIndicators(connection, itineraryId) {
+  try {
+    // Query the consolidated checklist responses table
+    const [checklistData] = await connection.execute(`
+      SELECT
+        # School environment
+        AVG(CASE WHEN ccr.question_id = 1 THEN CAST(ccr.answer AS UNSIGNED) ELSE NULL END) as avg_school_environment,
+        
+        # Teacher performance
+        AVG(CASE WHEN ccr.question_id = 2 THEN CAST(ccr.answer AS UNSIGNED) ELSE NULL END) as avg_teacher_performance,
+        
+        # Student engagement
+        AVG(CASE WHEN ccr.question_id = 3 THEN CAST(ccr.answer AS UNSIGNED) ELSE NULL END) as avg_student_engagement,
+        
+        # Community involvement
+        AVG(CASE WHEN ccr.question_id = 4 THEN CAST(ccr.answer AS UNSIGNED) ELSE NULL END) as avg_community_involvement,
+        
+        # Overall program implementation
+        AVG(CASE WHEN ccr.question_id = 5 THEN CAST(ccr.answer AS UNSIGNED) ELSE NULL END) as avg_program_implementation,
+        
+        # Count of responses
+        COUNT(DISTINCT ccr.id) as total_responses
+      FROM right_to_play_consolidated_checklist_responses ccr
+      WHERE ccr.deleted_at IS NULL AND ccr.itinerary_id = ?
+    `, [itineraryId]);
+    
+    const totals = checklistData[0] || {};
+    
+    // Format the results with scores out of 5
+    return {
+      schoolEnvironment: parseFloat(totals.avg_school_environment || 0).toFixed(1),
+      teacherPerformance: parseFloat(totals.avg_teacher_performance || 0).toFixed(1),
+      studentEngagement: parseFloat(totals.avg_student_engagement || 0).toFixed(1),
+      communityInvolvement: parseFloat(totals.avg_community_involvement || 0).toFixed(1),
+      programImplementation: parseFloat(totals.avg_program_implementation || 0).toFixed(1),
+      totalResponses: parseInt(totals.total_responses || 0)
+    };
+  } catch (error) {
+    console.error('Error getting consolidated checklist indicators:', error);
+    return {
+      schoolEnvironment: '0.0',
+      teacherPerformance: '0.0',
+      studentEngagement: '0.0',
+      communityInvolvement: '0.0',
+      programImplementation: '0.0',
+      totalResponses: 0
+    };
+  }
+}
+
+/**
+ * Get district gender gaps
+ */
+async function getDistrictGenderGaps(connection, itineraryId) {
+  try {
+    // Query the district responses table for gender data
+    const [genderData] = await connection.execute(`
+      SELECT
+        # Planning meeting attendees
+        SUM(CASE WHEN dr.question_id = 2 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_planning_attendees,
+        SUM(CASE WHEN dr.question_id = 3 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_planning_attendees,
+        
+        # Trainers from DST
+        SUM(CASE WHEN dr.question_id = 5 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_trainers,
+        SUM(CASE WHEN dr.question_id = 6 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_trainers,
+        
+        # National meeting attendees
+        SUM(CASE WHEN dr.question_id = 8 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as male_national_attendees,
+        SUM(CASE WHEN dr.question_id = 9 THEN CAST(dr.answer AS UNSIGNED) ELSE 0 END) as female_national_attendees
+      FROM right_to_play_district_responses dr
+      WHERE dr.deleted_at IS NULL AND dr.itinerary_id = ?
+    `, [itineraryId]);
+    
+    const data = genderData[0] || {};
+    
+    // Calculate gender gaps and percentages
+    const malePlanningAttendees = parseInt(data.male_planning_attendees || 0);
+    const femalePlanningAttendees = parseInt(data.female_planning_attendees || 0);
+    const planningGap = femalePlanningAttendees - malePlanningAttendees;
+    const planningGapPercentage = malePlanningAttendees > 0 
+      ? (planningGap / malePlanningAttendees) * 100 : 0;
+    
+    const maleTrainers = parseInt(data.male_trainers || 0);
+    const femaleTrainers = parseInt(data.female_trainers || 0);
+    const trainersGap = femaleTrainers - maleTrainers;
+    const trainersGapPercentage = maleTrainers > 0 
+      ? (trainersGap / maleTrainers) * 100 : 0;
+    
+    const maleNationalAttendees = parseInt(data.male_national_attendees || 0);
+    const femaleNationalAttendees = parseInt(data.female_national_attendees || 0);
+    const nationalGap = femaleNationalAttendees - maleNationalAttendees;
+    const nationalGapPercentage = maleNationalAttendees > 0 
+      ? (nationalGap / maleNationalAttendees) * 100 : 0;
+    
+    // Format the results
+    return {
+      teamMembers: {
+        male: maleNationalAttendees,
+        female: femaleNationalAttendees,
+        gap: nationalGap,
+        gapPercentage: parseFloat(nationalGapPercentage.toFixed(1))
+      },
+      planningAttendees: {
+        male: malePlanningAttendees,
+        female: femalePlanningAttendees,
+        gap: planningGap,
+        gapPercentage: parseFloat(planningGapPercentage.toFixed(1))
+      },
+      trainers: {
+        male: maleTrainers,
+        female: femaleTrainers,
+        gap: trainersGap,
+        gapPercentage: parseFloat(trainersGapPercentage.toFixed(1))
+      }
+    };
+  } catch (error) {
+    console.error('Error getting district gender gaps:', error);
+    return {
+      teamMembers: { male: 0, female: 0, gap: 0, gapPercentage: 0 },
+      planningAttendees: { male: 0, female: 0, gap: 0, gapPercentage: 0 },
+      trainers: { male: 0, female: 0, gap: 0, gapPercentage: 0 }
+    };
+  }
+}
+
+/**
+ * Get partners in play indicators
+ */
+async function getPartnersInPlayIndicators(connection, itineraryId) {
+  try {
+    // Query the partners in play responses table
+    const [pipData] = await connection.execute(`
+      SELECT
+        # Funding partners
+        SUM(CASE WHEN pip.question_id = 1 THEN CAST(pip.answer AS UNSIGNED) ELSE 0 END) as funding_partners,
+        
+        # Implementation partners
+        SUM(CASE WHEN pip.question_id = 2 THEN CAST(pip.answer AS UNSIGNED) ELSE 0 END) as implementation_partners,
+        
+        # Technical partners
+        SUM(CASE WHEN pip.question_id = 3 THEN CAST(pip.answer AS UNSIGNED) ELSE 0 END) as technical_partners,
+        
+        # Advocacy partners
+        SUM(CASE WHEN pip.question_id = 4 THEN CAST(pip.answer AS UNSIGNED) ELSE 0 END) as advocacy_partners,
+        
+        # Research partners
+        SUM(CASE WHEN pip.question_id = 5 THEN CAST(pip.answer AS UNSIGNED) ELSE 0 END) as research_partners,
+        
+        # Count of responses
+        COUNT(DISTINCT pip.id) as total_responses
+      FROM right_to_play_pip_responses pip
+      WHERE pip.deleted_at IS NULL AND pip.itinerary_id = ?
+    `, [itineraryId]);
+    
+    const totals = pipData[0] || {};
+    
+    // Format the results
+    return {
+      fundingPartners: parseInt(totals.funding_partners || 0),
+      implementationPartners: parseInt(totals.implementation_partners || 0),
+      technicalPartners: parseInt(totals.technical_partners || 0),
+      advocacyPartners: parseInt(totals.advocacy_partners || 0),
+      researchPartners: parseInt(totals.research_partners || 0),
+      totalPartners: parseInt(totals.funding_partners || 0) + 
+                    parseInt(totals.implementation_partners || 0) + 
+                    parseInt(totals.technical_partners || 0) + 
+                    parseInt(totals.advocacy_partners || 0) + 
+                    parseInt(totals.research_partners || 0),
+      totalResponses: parseInt(totals.total_responses || 0)
+    };
+  } catch (error) {
+    console.error('Error getting partners in play indicators:', error);
+    return {
+      fundingPartners: 0,
+      implementationPartners: 0,
+      technicalPartners: 0,
+      advocacyPartners: 0,
+      researchPartners: 0,
+      totalPartners: 0,
+      totalResponses: 0
+    };
   }
 }
 
@@ -573,27 +1003,8 @@ async function getGenderAnalysis(connection, whereClause, params, schoolOutputs)
             : 0
         }
       },
-      // Simplified district level gaps since we don't have that data yet
-      districtLevelGaps: {
-        teamMembers: {
-          male: 0,
-          female: 0,
-          gap: 0,
-          gapPercentage: 0
-        },
-        planningAttendees: {
-          male: 0,
-          female: 0,
-          gap: 0,
-          gapPercentage: 0
-        },
-        trainers: {
-          male: 0,
-          female: 0,
-          gap: 0,
-          gapPercentage: 0
-        }
-      },
+      // District level gender gaps from the district responses table
+      districtLevelGaps: await getDistrictGenderGaps(connection, params[0]),
       // Simplified performance comparison since we don't have outcomes data yet
       performanceComparison: {
         lessonPlans: {
@@ -627,12 +1038,118 @@ async function getGenderAnalysis(connection, whereClause, params, schoolOutputs)
       districtLevelGaps: {
         teamMembers: { male: 0, female: 0, gap: 0, gapPercentage: 0 },
         planningAttendees: { male: 0, female: 0, gap: 0, gapPercentage: 0 },
-        trainers: { male: 0, female: 0, gap: 0, gapPercentage: 0 }
+        trainers: { male: 0, female: 0, gap: 0, gapPercentage: 0 },
+        districtResponses: { male: 0, female: 0, gap: 0, gapPercentage: 0 }
       },
       performanceComparison: {
         lessonPlans: { male: 0, female: 0, gap: 0 },
         teachingSkills: { male: 0, female: 0, gap: 0 }
       }
     };
+  }
+}
+
+// New functions to get district-level data
+async function getDistrictTeamMembers(connection, districtId) {
+  try {
+    const [teamMembersData] = await connection.execute(`
+      SELECT 
+        COUNT(CASE WHEN dr.team_member_gender = 'male' THEN 1 ELSE NULL END) as male,
+        COUNT(CASE WHEN dr.team_member_gender = 'female' THEN 1 ELSE NULL END) as female
+      FROM right_to_play_district_responses dr
+      WHERE dr.district_id = ?
+    `, [districtId]);
+    
+    const teamMembers = teamMembersData[0] || {};
+    
+    return {
+      male: parseInt(teamMembers.male || 0),
+      female: parseInt(teamMembers.female || 0),
+      gap: parseInt(teamMembers.female || 0) - parseInt(teamMembers.male || 0),
+      gapPercentage: parseInt(teamMembers.male || 0) > 0 
+        ? ((parseInt(teamMembers.female || 0) - parseInt(teamMembers.male || 0)) / parseInt(teamMembers.male || 0)) * 100
+        : 0
+    };
+  } catch (error) {
+    console.error('Error getting district team members:', error);
+    return { male: 0, female: 0, gap: 0, gapPercentage: 0 };
+  }
+}
+
+async function getDistrictPlanningAttendees(connection, districtId) {
+  try {
+    const [planningAttendeesData] = await connection.execute(`
+      SELECT 
+        COUNT(CASE WHEN dr.planning_attendee_gender = 'male' THEN 1 ELSE NULL END) as male,
+        COUNT(CASE WHEN dr.planning_attendee_gender = 'female' THEN 1 ELSE NULL END) as female
+      FROM right_to_play_district_responses dr
+      WHERE dr.district_id = ?
+    `, [districtId]);
+    
+    const planningAttendees = planningAttendeesData[0] || {};
+    
+    return {
+      male: parseInt(planningAttendees.male || 0),
+      female: parseInt(planningAttendees.female || 0),
+      gap: parseInt(planningAttendees.female || 0) - parseInt(planningAttendees.male || 0),
+      gapPercentage: parseInt(planningAttendees.male || 0) > 0 
+        ? ((parseInt(planningAttendees.female || 0) - parseInt(planningAttendees.male || 0)) / parseInt(planningAttendees.male || 0)) * 100
+        : 0
+    };
+  } catch (error) {
+    console.error('Error getting district planning attendees:', error);
+    return { male: 0, female: 0, gap: 0, gapPercentage: 0 };
+  }
+}
+
+async function getDistrictTrainers(connection, districtId) {
+  try {
+    const [trainersData] = await connection.execute(`
+      SELECT 
+        COUNT(CASE WHEN dr.trainer_gender = 'male' THEN 1 ELSE NULL END) as male,
+        COUNT(CASE WHEN dr.trainer_gender = 'female' THEN 1 ELSE NULL END) as female
+      FROM right_to_play_district_responses dr
+      WHERE dr.district_id = ?
+    `, [districtId]);
+    
+    const trainers = trainersData[0] || {};
+    
+    return {
+      male: parseInt(trainers.male || 0),
+      female: parseInt(trainers.female || 0),
+      gap: parseInt(trainers.female || 0) - parseInt(trainers.male || 0),
+      gapPercentage: parseInt(trainers.male || 0) > 0 
+        ? ((parseInt(trainers.female || 0) - parseInt(trainers.male || 0)) / parseInt(trainers.male || 0)) * 100
+        : 0
+    };
+  } catch (error) {
+    console.error('Error getting district trainers:', error);
+    return { male: 0, female: 0, gap: 0, gapPercentage: 0 };
+  }
+}
+
+async function getDistrictResponses(connection, districtId) {
+  try {
+    const [districtResponsesData] = await connection.execute(`
+      SELECT 
+        COUNT(CASE WHEN dr.response_gender = 'male' THEN 1 ELSE NULL END) as male,
+        COUNT(CASE WHEN dr.response_gender = 'female' THEN 1 ELSE NULL END) as female
+      FROM right_to_play_district_responses dr
+      WHERE dr.district_id = ?
+    `, [districtId]);
+    
+    const districtResponses = districtResponsesData[0] || {};
+    
+    return {
+      male: parseInt(districtResponses.male || 0),
+      female: parseInt(districtResponses.female || 0),
+      gap: parseInt(districtResponses.female || 0) - parseInt(districtResponses.male || 0),
+      gapPercentage: parseInt(districtResponses.male || 0) > 0 
+        ? ((parseInt(districtResponses.female || 0) - parseInt(districtResponses.male || 0)) / parseInt(districtResponses.male || 0)) * 100
+        : 0
+    };
+  } catch (error) {
+    console.error('Error getting district responses:', error);
+    return { male: 0, female: 0, gap: 0, gapPercentage: 0 };
   }
 }

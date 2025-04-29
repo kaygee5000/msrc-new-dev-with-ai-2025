@@ -185,7 +185,7 @@ export default function RTPOutcomeIndicators({ itineraryId }) {
                 </IconButton>
               </Box>
               <Typography variant="h3" sx={{ mt: 2, fontWeight: 'bold' }}>
-                {schoolsReached?.schoolsReached || 0}
+                {schoolsReached || 0}
               </Typography>
             </CardContent>
           </Card>
@@ -230,7 +230,7 @@ export default function RTPOutcomeIndicators({ itineraryId }) {
                 Schools Reporting
               </Typography>
               <Typography variant="h3" sx={{ mt: 2, fontWeight: 'bold' }}>
-                {enrollment?.schoolCount || 0}
+                {implementationPlans?.totalSchools || 0}
               </Typography>
             </CardContent>
           </Card>

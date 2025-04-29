@@ -9,10 +9,10 @@ import { verifyServerAuth } from '@/utils/serverAuth';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
+    const page = Math.max(0, parseInt(searchParams.get('page') || '0')); // Ensure page is at least 0, default to 0
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const regionId = searchParams.get('region_id');
+    const regionId = searchParams.get('regionId'); // Match parameter name with client-side
     const id = searchParams.get('id');
     
     console.log('Districts API called with params:', { page, limit, search, regionId, id });
@@ -58,7 +58,9 @@ export async function GET(request) {
         // Query the database for districts with region names
         let queryParams = [...params];
         if (limit !== -1) {
-          queryParams.push((page - 1) * limit, limit);
+          // Ensure offset is never negative
+          const offset = Math.max(0, page * limit);
+          queryParams.push(offset, limit);
         }
         
         const queryString = `

@@ -93,17 +93,17 @@ export default function IndicatorBreakdown({
   const getFormulaDescription = () => {
     switch (indicatorType) {
       case 'implementationPlans':
-        return '(Number of YES responses to Q17 / Total responses) × 100';
+        return '(Number of "Yes" responses to Q53 (implementation plan) ÷ Total schools) × 100';
       case 'developmentPlans':
-        return '(Number of schools with uploaded plans for Q18 / Total schools) × 100';
+        return '(Number of "Yes" responses to Q67 (written LtP plans) ÷ Total schools) × 100';
       case 'lessonPlans':
-        return '(Number of YES responses to Q19 / Total responses) × 100';
+        return '(Number of "Yes" responses to Q55 (LtP lesson plans) ÷ Total teachers) × 100';
       case 'learningEnvironments':
-        return `Weighted average of "friendly tone" (30%), "acknowledging effort" (30%), and "pupil participation" (40%) scores.
-                Schools scoring above 3.5/5 are considered to be using LtP methods.`;
+        return `(Avg Friendly Tone × 0.3 + Avg Acknowledging Effort × 0.3 + Avg Pupil Participation × 0.4).
+                Weighted score > 3.5/5 indicates LtP methods.`;
       case 'teacherSkills':
-        return `Average score across 10 teacher skill questions (Q29, Q30, Q31, Q32, Q33, Q39, Q45, Q46, Q48, Q49).
-                Teachers scoring above 3.5/5 are considered to have LtP facilitation skills.`;
+        return `Mean of Q29, Q30, Q31, Q32, Q33, Q39, Q45, Q46, Q48, Q49 scores.
+                Avg score > 3.5/5 indicates LtP facilitation skills.`;
       case 'enrollment':
         return 'Sum of boys enrolled (Q12) and girls enrolled (Q13) across all schools';
       case 'schoolsReached':

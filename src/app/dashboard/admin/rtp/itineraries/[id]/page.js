@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { use, useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -56,7 +56,8 @@ const CATEGORIES = [
 
 export default function ItineraryDetailPage({ params }) {
   const router = useRouter();
-  const itineraryId = params.id;
+  // params is async; unwrap with use()
+  const { id: itineraryId } = use(params);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [itinerary, setItinerary] = useState(null);
@@ -69,66 +70,136 @@ export default function ItineraryDetailPage({ params }) {
     const fetchItineraryData = async () => {
       setLoading(true);
       try {
-        // In a real implementation, fetch from API
-        // const response = await fetch(`/api/rtp/itineraries/${itineraryId}`);
-        // const data = await response.json();
-        // setItinerary(data.itinerary);
+        // Fetch itinerary details from API
+        const itineraryResponse = await fetch(`/api/rtp/itineraries/${itineraryId}`);
+        if (!itineraryResponse.ok) {
+          throw new Error(`Failed to fetch itinerary: ${itineraryResponse.status}`);
+        }
+        const itineraryData = await itineraryResponse.json();
         
-        // Simulate API response with mock data
-        setTimeout(() => {
-          const mockItinerary = {
-            id: itineraryId,
-            title: `Term 2 Sports Assessment ${new Date().getFullYear()}`,
-            period: "Term",
-            type: "Regular",
-            year: new Date().getFullYear(),
-            from_date: "2025-03-01",
-            until_date: "2025-04-15",
-            is_valid: true,
-            description: "This itinerary assesses the implementation of sports programs across schools in the district for the second term of the school year.",
-            stats: {
-              totalSchools: 124,
-              respondedSchools: 96,
-              totalQuestions: 245,
-              completedResponses: 187,
-              responseRate: 77,
-              completionRate: 65
-            }
-          };
-          
-          setItinerary(mockItinerary);
-          
-          // Mock category statistics
-          setCategoryStats([
-            { id: 1, name: 'School Output Indicators', total: 65, completed: 48, progress: 74 },
-            { id: 2, name: 'District Output Indicators', total: 45, completed: 38, progress: 84 },
-            { id: 3, name: 'Consolidated Checklist', total: 75, completed: 62, progress: 83 },
-            { id: 4, name: 'Partners in Play', total: 60, completed: 39, progress: 65 }
-          ]);
-          
-          // Mock school statistics
-          setSchoolStats([
-            { id: 1, name: 'Accra Basic School', district: 'Accra', responseStatus: 'Completed', submissionDate: '2025-03-15', completionRate: 100 },
-            { id: 2, name: 'Tema Elementary', district: 'Tema', responseStatus: 'Partial', submissionDate: '2025-03-18', completionRate: 78 },
-            { id: 3, name: 'Kumasi Middle School', district: 'Kumasi', responseStatus: 'Completed', submissionDate: '2025-03-10', completionRate: 95 },
-            { id: 4, name: 'Takoradi Primary', district: 'Takoradi', responseStatus: 'Not Started', submissionDate: null, completionRate: 0 },
-            { id: 5, name: 'Cape Coast Elementary', district: 'Cape Coast', responseStatus: 'Completed', submissionDate: '2025-03-12', completionRate: 100 },
-          ]);
-          
-          // Mock district statistics
-          setDistrictStats([
-            { id: 1, name: 'Accra', schools: 28, responded: 22, completionRate: 89 },
-            { id: 2, name: 'Tema', schools: 32, responded: 26, completionRate: 76 },
-            { id: 3, name: 'Kumasi', schools: 35, responded: 29, completionRate: 82 },
-            { id: 4, name: 'Takoradi', schools: 15, responded: 9, completionRate: 65 },
-            { id: 5, name: 'Cape Coast', schools: 14, responded: 10, completionRate: 78 },
-          ]);
-          
-          setLoading(false);
-        }, 1000);
+        // Fetch analytics data for this itinerary
+        const analyticsResponse = await fetch(`/api/rtp/analytics?itineraryId=${itineraryId}`);
+        if (!analyticsResponse.ok) {
+          throw new Error(`Failed to fetch analytics: ${analyticsResponse.status}`);
+        }
+        const analyticsData = await analyticsResponse.json();
+        
+        // Fetch outcome indicators for this itinerary
+        const indicatorsResponse = await fetch(`/api/rtp/outcome-indicators?itineraryId=${itineraryId}`);
+        if (!indicatorsResponse.ok) {
+          throw new Error(`Failed to fetch indicators: ${indicatorsResponse.status}`);
+        }
+        const indicatorsData = await indicatorsResponse.json();
+        
+        // Fetch schools data for this itinerary
+        const schoolsResponse = await fetch(`/api/rtp/schools?itineraryId=${itineraryId}`);
+        if (!schoolsResponse.ok) {
+          throw new Error(`Failed to fetch schools: ${schoolsResponse.status}`);
+        }
+        const schoolsData = await schoolsResponse.json();
+        
+        // Fetch districts data for this itinerary
+        const districtsResponse = await fetch(`/api/rtp/districts?itineraryId=${itineraryId}`);
+        if (!districtsResponse.ok) {
+          throw new Error(`Failed to fetch districts: ${districtsResponse.status}`);
+        }
+        const districtsData = await districtsResponse.json();
+        
+        // Calculate response and completion rates
+        const totalSchools = schoolsData.data?.length || 0;
+        const respondedSchools = schoolsData.data?.filter(school => 
+          school.responses && school.responses > 0
+        ).length || 0;
+        
+        const totalQuestions = itineraryData.questions?.length || 0;
+        const completedResponses = analyticsData.data?.summary?.totalResponses || 0;
+        
+        const responseRate = totalSchools > 0 ? Math.round((respondedSchools / totalSchools) * 100) : 0;
+        const completionRate = totalQuestions > 0 ? Math.round((completedResponses / (totalSchools * totalQuestions)) * 100) : 0;
+        
+        // Enhance itinerary data with calculated stats
+        const enhancedItinerary = {
+          ...itineraryData,
+          description: itineraryData.description || "This itinerary collects data on Right to Play implementation across schools.",
+          stats: {
+            totalSchools,
+            respondedSchools,
+            totalQuestions,
+            completedResponses,
+            responseRate,
+            completionRate,
+            schoolOutputResponses: itineraryData.stats?.school_output_responses || 0,
+            districtOutputResponses: itineraryData.stats?.district_output_responses || 0,
+            checklistResponses: itineraryData.stats?.checklist_responses || 0,
+            pipResponses: itineraryData.stats?.pip_responses || 0
+          }
+        };
+        
+        setItinerary(enhancedItinerary);
+        
+        // Process category statistics
+        const categories = [
+          { 
+            id: 1, 
+            name: 'School Output Indicators', 
+            total: analyticsData.data?.schoolOutput?.totalQuestions || 0,
+            completed: analyticsData.data?.schoolOutput?.totalResponses || 0,
+            progress: analyticsData.data?.schoolOutput?.completionRate || 0
+          },
+          { 
+            id: 2, 
+            name: 'District Output Indicators', 
+            total: analyticsData.data?.districtOutput?.totalQuestions || 0,
+            completed: analyticsData.data?.districtOutput?.totalResponses || 0,
+            progress: analyticsData.data?.districtOutput?.completionRate || 0
+          },
+          { 
+            id: 3, 
+            name: 'Consolidated Checklist', 
+            total: analyticsData.data?.consolidatedChecklist?.totalQuestions || 0,
+            completed: analyticsData.data?.consolidatedChecklist?.totalResponses || 0,
+            progress: analyticsData.data?.consolidatedChecklist?.completionRate || 0
+          },
+          { 
+            id: 4, 
+            name: 'Partners in Play', 
+            total: analyticsData.data?.partnersInPlay?.totalQuestions || 0,
+            completed: analyticsData.data?.partnersInPlay?.totalResponses || 0,
+            progress: analyticsData.data?.partnersInPlay?.completionRate || 0
+          }
+        ];
+        
+        setCategoryStats(categories);
+        
+        // Process school statistics
+        const schoolStats = schoolsData.data?.map(school => ({
+          id: school.id,
+          name: school.name,
+          district: school.district_name,
+          responseStatus: school.responses > 0 ? 
+            (school.completion_rate >= 100 ? 'Completed' : 'Partial') : 
+            'Not Started',
+          submissionDate: school.last_submission_date,
+          completionRate: school.completion_rate || 0
+        })) || [];
+        
+        setSchoolStats(schoolStats);
+        
+        // Process district statistics
+        const districtStats = districtsData.data?.map(district => ({
+          id: district.id,
+          name: district.name,
+          schools: district.total_schools || 0,
+          responded: district.responded_schools || 0,
+          completionRate: district.completion_rate || 0
+        })) || [];
+        
+        setDistrictStats(districtStats);
+        
+        setLoading(false);
       } catch (err) {
-        console.error(err);
-        setError('Failed to load itinerary data');
+        console.error('Error fetching itinerary data:', err);
+        setError(`Failed to load itinerary data: ${err.message}`);
         setLoading(false);
       }
     };
@@ -182,6 +253,11 @@ export default function ItineraryDetailPage({ params }) {
     }
   };
 
+  // Calculate school participation data from schoolStats
+  const completedSchools = schoolStats.filter(school => school.responseStatus === 'Completed').length;
+  const partialSchools = schoolStats.filter(school => school.responseStatus === 'Partial').length;
+  const notStartedSchools = schoolStats.filter(school => school.responseStatus === 'Not Started').length;
+  
   // Chart configuration for school participation
   const schoolParticipationOptions = {
     chart: {
@@ -207,7 +283,7 @@ export default function ItineraryDetailPage({ params }) {
               formatter: function (w) {
                 const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                 const completed = w.globals.series[0];
-                return Math.round((completed / total) * 100) + '%';
+                return total > 0 ? Math.round((completed / total) * 100) + '%' : '0%';
               }
             }
           }
@@ -476,8 +552,8 @@ export default function ItineraryDetailPage({ params }) {
                     <Chart
                       options={categoryChartOptions}
                       series={[{
-                        name: 'Completion',
-                        data: categoryStats.map(cat => cat.progress)
+                        name: 'Completion Rate',
+                        data: categoryStats.map(cat => cat.progress || 0)
                       }]}
                       type="bar"
                       height={350}
@@ -488,7 +564,7 @@ export default function ItineraryDetailPage({ params }) {
                   <Grid item xs={12} md={6}>
                     <Chart
                       options={schoolParticipationOptions}
-                      series={[60, 25, 15]} // Completed, Partial, Not Started
+                      series={[completedSchools, partialSchools, notStartedSchools]} // [Completed, Partial, Not Started]
                       type="donut"
                       height={350}
                     />

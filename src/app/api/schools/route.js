@@ -10,15 +10,20 @@ export async function GET(request) {
   try {
     // Get search params
     const { searchParams } = new URL(request.url);
-    const regionId = searchParams.get('region_id');
-    const districtId = searchParams.get('district_id');
+    const regionId = searchParams.get('region_id') || searchParams.get('regionId');
+    const districtId = searchParams.get('district_id') || searchParams.get('districtId');
     const circuitId = searchParams.get('circuit_id') || searchParams.get('circuitId');
     const id = searchParams.get('id');
+    const search = searchParams.get('search') || '';
     
-    console.log('Schools API called with params:', { regionId, districtId, circuitId, id });
+    // Pagination params
+    const page = Math.max(0, parseInt(searchParams.get('page') || '0'));
+    const limit = parseInt(searchParams.get('limit') || '10');
+    
+    console.log('Schools API called with params:', { regionId, districtId, circuitId, id, page, limit, search });
     
     // Create cache key based on query parameters
-    const cacheKey = `schools:${id || ''}:${regionId || ''}:${districtId || ''}:${circuitId || ''}`;
+    const cacheKey = `schools:${id || ''}:${regionId || ''}:${districtId || ''}:${circuitId || ''}:${search}:${page}:${limit}`;
     
     // Use cache service for schools data
     const cachedOrFresh = await CacheService.getOrSet(
@@ -107,7 +112,25 @@ export async function GET(request) {
           query += " AND s.circuit_id = ?";
           queryParams.push(circuitId);
         }
+        if (search) {
+          query += " AND (s.name LIKE ? OR s.ges_code LIKE ?)";
+          queryParams.push(`%${search}%`, `%${search}%`);
+        }
+        
         query += " ORDER BY s.name ASC";
+        
+        // Get total count for pagination
+        const countQuery = query.replace('SELECT \n            s.id, \n            s.name, \n            s.ges_code,\n            s.district_id,\n            s.circuit_id,\n            d.region_id,\n            d.name AS district_name,\n            c.name AS circuit_name,\n            r.name AS region_name', 'SELECT COUNT(*) as total');
+        
+        const [countResult] = await db.query(countQuery, queryParams);
+        const total = countResult[0].total;
+        
+        // Add pagination
+        if (limit !== -1) {
+          const offset = page * limit;
+          query += " LIMIT ?, ?";
+          queryParams.push(offset, limit);
+        }
         
         console.log('SQL query:', query);
         console.log('Query params:', queryParams);
@@ -137,7 +160,15 @@ export async function GET(request) {
           }
         }));
         
-        return { schools };
+        // Create pagination object
+        const pagination = {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit)
+        };
+        
+        return { schools, pagination };
       },
       // Cache schools data for 6 hours (21600 seconds)
       21600
@@ -146,7 +177,8 @@ export async function GET(request) {
     // Always wrap the response in NextResponse.json() with success and data fields
     return NextResponse.json({
       success: true,
-      data: cachedOrFresh
+      data: cachedOrFresh,
+      total: cachedOrFresh.pagination?.total || 0
     }, { status: 200 });
   } catch (error) {
     console.error('Error fetching schools:', error);

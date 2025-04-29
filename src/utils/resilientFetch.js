@@ -36,11 +36,25 @@ export async function resilientFetch(url, options = {}, config = {}) {
   try {
     // Add timeout to fetch requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort('Request timed out after 30 seconds');
+    }, 30000); // 30 second timeout
+    
+    // If options already has a signal, we need to handle both signals
+    const { signal: existingSignal, ...otherOptions } = options;
+    
+    // Create a composite signal if needed
+    let signal = controller.signal;
+    if (existingSignal) {
+      // If the component unmounts and aborts its signal, we'll still abort our request
+      existingSignal.addEventListener('abort', () => {
+        controller.abort('Component signal was aborted');
+      });
+    }
     
     const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
+      ...otherOptions,
+      signal,
       headers: {
         ...options.headers,
         'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -76,13 +90,23 @@ export async function resilientFetch(url, options = {}, config = {}) {
     const data = await response.json();
     return { data };
   } catch (error) {
-    console.error('Fetch error:', error);
-    
-    // Handle specific error types
+    // For AbortError, we don't want to log it as an error since it's often intentional
+    // (e.g., component unmounting, navigation, etc.)
     if (error.name === 'AbortError') {
-      console.log('Request timed out');
-      if (onOffline) onOffline();
-      return { error: 'Request timed out', timeout: true };
+      console.log('Request was aborted:', error.message || 'No reason provided');
+      
+      // Only call onOffline if this was a timeout abort, not a component unmount
+      if (error.message && error.message.includes('timed out') && onOffline) {
+        onOffline();
+      }
+      
+      return { 
+        error: error.message || 'Request was aborted', 
+        aborted: true,
+        timeout: error.message && error.message.includes('timed out')
+      };
+    } else {
+      console.error('Fetch error:', error);
     }
     
     // Network errors like ECONNRESET will typically trigger a TypeError
@@ -189,4 +213,12 @@ export async function deleteApi(url, options = {}, config = {}) {
     method: 'DELETE',
     ...options
   }, config);
+}
+
+/**
+ * Creates an AbortController that can be used to cancel requests when a component unmounts
+ * @returns {AbortController} - An AbortController instance
+ */
+export function createRequestController() {
+  return new AbortController();
 }

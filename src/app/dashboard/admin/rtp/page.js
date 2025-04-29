@@ -28,7 +28,15 @@ import {
   TableRow,
   Avatar,
   Menu,
-  MenuItem
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  List,
+  ListItem,
+  ListItemText,
+  Autocomplete,
+  TextField
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -45,32 +53,36 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import DownloadIcon from '@mui/icons-material/FileDownload';
+import InfoOutlined from '@mui/icons-material/InfoOutlined';
 
 import { createExportFilename, fetchAndExportCSV } from '@/utils/export';
+import { formatLastLogin } from '@/utils/dates';
 
 // Import chart components - we're using ApexCharts
 import dynamic from 'next/dynamic';
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
-// Categories constants
+// Categories constants with question_form for breakdown
 const CATEGORIES = [
-  { id: 1, name: 'School Output Indicators', icon: <SchoolIcon /> },
-  { id: 2, name: 'District Output Indicators', icon: <AssessmentIcon /> },
-  { id: 3, name: 'Consolidated Checklist', icon: <PlaylistAddCheckIcon /> },
-  { id: 4, name: 'Partners in Play', icon: <GroupsIcon /> }
+  { id: 1, name: 'School Output Indicators', form: 'school-output', icon: <SchoolIcon /> },
+  { id: 2, name: 'District Output Indicators', form: 'district-output', icon: <AssessmentIcon /> },
+  { id: 3, name: 'Consolidated Checklist', form: 'consolidated-checklist', icon: <PlaylistAddCheckIcon /> },
+  { id: 4, name: 'Partners in Play', form: 'partners-in-play', icon: <GroupsIcon /> }
 ];
 
 export default function RTPOverviewPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [overviewError, setOverviewError] = useState(null);
   const [itineraries, setItineraries] = useState([]);
   const [activeItinerary, setActiveItinerary] = useState(null);
   const [stats, setStats] = useState({
-    totalSubmissions: 0,
+    totalSchoolSubmissions: 0,
     activeSchools: 0,
     responseRate: 0,
     completionRate: 0,
+    totalSchools: 0,
     categorySummary: {
       schoolOutput: { total: 0, completed: 0 },
       districtOutput: { total: 0, completed: 0 },
@@ -78,12 +90,49 @@ export default function RTPOverviewPage() {
       partnersInPlay: { total: 0, completed: 0 }
     }
   });
+  
+  // State for chart trend data
+  const [trendData, setTrendData] = useState({
+    categories: [],
+    series: [
+      { name: 'School Output', data: [] },
+      { name: 'District Output', data: [] },
+      { name: 'Consolidated Checklist', data: [] },
+      { name: 'Partners in Play', data: [] }
+    ]
+  });
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [trendError, setTrendError] = useState(null);
 
   const [exportAnchor, setExportAnchor] = useState(null);
   const [exportLoading, setExportLoading] = useState(false);
 
+  // breakdown modal state
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+  const [breakdownType, setBreakdownType] = useState('');
+  const [breakdownData, setBreakdownData] = useState([]);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+
   const handleExportClick = (event) => setExportAnchor(event.currentTarget);
   const handleExportClose = () => setExportAnchor(null);
+
+  // open breakdown modal
+  const handleOpenBreakdown = async (type) => {
+    setBreakdownType(type);
+    setBreakdownLoading(true);
+    setBreakdownOpen(true);
+    try {
+      const res = await fetch(`/api/rtp/overview/breakdown?itineraryId=${activeItinerary.id}&type=${type}`);
+      const json = await res.json();
+      if (json.success) setBreakdownData(json.data);
+      else setBreakdownData([]);
+    } catch {
+      setBreakdownData([]);
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
+  const handleCloseBreakdown = () => setBreakdownOpen(false);
 
   const exportData = async (type) => {
     setExportLoading(true);
@@ -150,6 +199,51 @@ export default function RTPOverviewPage() {
   };
 
   useEffect(() => {
+    if (activeItinerary) {
+      setOverviewError(null);
+      setLoading(true);
+      fetch(`/api/rtp/overview?itineraryId=${activeItinerary.id}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.success) {
+            setStats(json.data.stats);
+            console.log('stats', stats);
+            console.log('json.data.stats', json.data.stats);
+            setOverviewError(null);
+          } else {
+            console.error('Overview API error', json.error);
+            setOverviewError(json.error);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          setOverviewError(err.message);
+        })
+        .finally(() => setLoading(false));
+        
+      // Fetch trend data for charts
+      setTrendLoading(true);
+      setTrendError(null);
+      fetch(`/api/rtp/overview/trends?itineraryId=${activeItinerary.id}`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.data) {
+            setTrendData(json.data);
+            setTrendError(null);
+          } else {
+            console.error('Trend data API error', json.error);
+            setTrendError(json.error);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch trend data', err);
+          setTrendError(err.message);
+        })
+        .finally(() => setTrendLoading(false));
+    }
+  }, [activeItinerary]);
+
+  useEffect(() => {
     const fetchRTPData = async () => {
       setLoading(true);
       setError(null);
@@ -157,31 +251,16 @@ export default function RTPOverviewPage() {
         // Fetch itineraries
         const itineraryRes = await fetch('/api/rtp/itineraries');
         const itineraryData = await itineraryRes.json();
-        
         if (itineraryData.itineraries && itineraryData.itineraries.length > 0) {
           const sortedItineraries = itineraryData.itineraries.sort((a, b) => {
-            // Sort by is_valid (active first), then by date (newest first)
             if (a.is_valid !== b.is_valid) return b.is_valid - a.is_valid;
             return new Date(b.from_date) - new Date(a.from_date);
           });
-          
           setItineraries(sortedItineraries);
-          setActiveItinerary(sortedItineraries.find(it => it.is_valid) || sortedItineraries[0]);
+          const active = sortedItineraries.find(it => it.is_valid) || sortedItineraries[0];
+          setActiveItinerary(active);
+          // Overview stats will be fetched by separate effect
         }
-
-        // Mock statistics data - in a real implementation, this would come from API
-        setStats({
-          totalSubmissions: 283,
-          activeSchools: 124,
-          responseRate: 78,
-          completionRate: 65,
-          categorySummary: {
-            schoolOutput: { total: 245, completed: 187 },
-            districtOutput: { total: 128, completed: 89 },
-            consolidatedChecklist: { total: 187, completed: 112 },
-            partnersInPlay: { total: 205, completed: 143 }
-          }
-        });
       } catch (err) {
         console.error(err);
         setError("Failed to load RTP data");
@@ -189,7 +268,6 @@ export default function RTPOverviewPage() {
         setLoading(false);
       }
     };
-    
     fetchRTPData();
   }, []);
 
@@ -217,7 +295,7 @@ export default function RTPOverviewPage() {
     },
     yaxis: {
       title: {
-        text: 'Number of Schools'
+        text: 'Number of Entities'
       }
     },
     fill: {
@@ -238,7 +316,7 @@ export default function RTPOverviewPage() {
   const trendChartOptions = {
     chart: {
       type: 'line',
-      height:350,
+      height: 350,
       toolbar: {
         show: false
       }
@@ -248,7 +326,7 @@ export default function RTPOverviewPage() {
       width: 3
     },
     xaxis: {
-      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+      categories: trendData.categories.length > 0 ? trendData.categories : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
     },
     yaxis: {
       title: {
@@ -266,7 +344,7 @@ export default function RTPOverviewPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="xl" sx={{ mt: 1, mb: 4 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center' }}>
           <SportsSoccerIcon sx={{ mr: 2, fontSize: 35, color: 'primary.main' }} />
@@ -313,6 +391,8 @@ export default function RTPOverviewPage() {
         </Box>
       </Box>
 
+      {/* show overview error if any */}
+      {overviewError && <Alert severity="error" sx={{ mb: 2 }}>{overviewError}</Alert>}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
@@ -327,18 +407,16 @@ export default function RTPOverviewPage() {
         <>
           {/* Active Itinerary Section */}
           <Paper sx={{ p: 3, mb: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h5" component="h2">
-                Active Itinerary
-              </Typography>
-              <Button 
-                component={Link}
-                href="/dashboard/admin/rtp/itineraries"
-                endIcon={<ArrowForwardIcon />}
-                size="small"
-              >
-                View All Itineraries
-              </Button>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+              <Autocomplete
+                options={itineraries}
+                getOptionLabel={(opt) => opt.title}
+                renderInput={(params) => <TextField {...params} label="Select Itinerary" variant="outlined" size="small" />}
+                value={activeItinerary}
+                onChange={(e, val) => setActiveItinerary(val)}
+                sx={{ width: 300 }}
+                disableClearable
+              />
             </Box>
             
             {activeItinerary ? (
@@ -349,8 +427,14 @@ export default function RTPOverviewPage() {
                       {activeItinerary.title}
                     </Typography>
                     <Typography variant="body1">
-                      <strong>Period:</strong> {activeItinerary.period} {activeItinerary.type} {activeItinerary.year} •
-                      <strong> Date Range:</strong> {activeItinerary.from_date} to {activeItinerary.until_date}
+                      <strong>Period:</strong> {activeItinerary.period} {activeItinerary.type} {activeItinerary.year} •{' '}
+                      <strong>Date Range:</strong>{' '}
+                      <Tooltip title={formatLastLogin(activeItinerary.from_date, true)}>
+                        <span>{formatLastLogin(activeItinerary.from_date)}</span>
+                      </Tooltip>{' '}to{' '}
+                      <Tooltip title={formatLastLogin(activeItinerary.until_date, true)}>
+                        <span>{formatLastLogin(activeItinerary.until_date)}</span>
+                      </Tooltip>
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
                       <Chip 
@@ -359,13 +443,13 @@ export default function RTPOverviewPage() {
                         size="small" 
                       />
                       <Typography variant="body2" color="text.secondary">
-                        Questions: <strong>245</strong> • 
-                        Schools: <strong>124</strong> • 
-                        Response Rate: <strong>78%</strong>
+                        Submissions: <strong>{stats.activeSchools}</strong> {' '}<Tooltip title="Number of distinct schools that have submitted at least one response"><InfoOutlined fontSize="small"/></Tooltip> •
+                        Invited Schools: <strong>{stats.totalSchools}</strong> {' '}<Tooltip title="Total number of schools invited to participate"><InfoOutlined fontSize="small"/></Tooltip> •
+                        Response Rate: <strong>{stats.responseRate.toFixed(2)}%</strong> {' '}<Tooltip title="Percentage of invited schools that have submitted"><InfoOutlined fontSize="small"/></Tooltip>
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                  <Grid item xs={12} md={4} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <Stack direction="row" spacing={1}>
                       <Button 
                         variant="contained" 
@@ -388,38 +472,35 @@ export default function RTPOverviewPage() {
                 
                 <Divider sx={{ my: 2 }} />
                 
-                {/* Category Progress Bars */}
+                {/* Category Completion */}
                 <Typography variant="h6" gutterBottom>Category Completion</Typography>
                 <Grid container spacing={2}>
                   {CATEGORIES.map((category, index) => {
-                    const categoryData = Object.values(stats.categorySummary)[index];
-                    const progress = categoryData ? Math.round((categoryData.completed / categoryData.total) * 100) : 0;
-                    
+                    const data = Object.values(stats.categorySummary)[index];
+                    const total = data?.total || 0;
+                    const completed = data?.completed || 0;
+                    const progress = total ? Math.round((completed / total) * 100) : 0;
                     return (
                       <Grid item xs={12} md={6} key={category.id}>
-                        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Paper
+                          variant="outlined"
+                          sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                          onClick={() => handleOpenBreakdown(category.form)}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                             <Box sx={{ mr: 1, color: 'primary.main' }}>{category.icon}</Box>
                             <Typography variant="body2">{category.name}</Typography>
                           </Box>
-                          <Typography variant="body2">
-                            {categoryData ? `${categoryData.completed}/${categoryData.total}` : '0/0'}
+                          <Typography variant="body2" gutterBottom>
+                            {completed}/{total} submissions completed
                           </Typography>
-                        </Box>
-                        <Box sx={{ width: '100%', mr: 1 }}>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={progress} 
-                            sx={{ 
-                              height: 8, 
-                              borderRadius: 5,
-                              backgroundColor: 'rgba(0,0,0,0.1)'
-                            }} 
-                          />
-                        </Box>
-                        <Typography variant="caption" color="text.secondary">
-                          {progress}% Complete
-                        </Typography>
+                          <Box sx={{ width: '100%', mb: 1 }}>
+                            <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 5 }} />
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {progress}% Complete
+                          </Typography>
+                        </Paper>
                       </Grid>
                     );
                   })}
@@ -442,95 +523,101 @@ export default function RTPOverviewPage() {
           
           {/* Summary Statistics */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
+            <Grid size={{xs:12, sm:6 , md:3}} sx={{ display: 'flex' }}>
+              <Card sx={{ flex: 1 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
-                      <Typography color="textSecondary" gutterBottom variant="overline">
-                        TOTAL SUBMISSIONS
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography color="textSecondary" gutterBottom variant="overline">
+                          TOTAL SUBMISSIONS
+                        </Typography>
+                        <Tooltip title="Total number of survey submissions received" sx={{ ml: 0.5 }}>
+                          <InfoOutlined fontSize="small" />
+                        </Tooltip>
+                      </Box>
                       <Typography variant="h4">
-                        {stats.totalSubmissions}
+                        {stats.totalSchoolSubmissions}
                       </Typography>
                     </Box>
                     <Avatar sx={{ bgcolor: 'primary.light', p: 1 }}>
                       <AssessmentIcon />
                     </Avatar>
                   </Box>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    <span style={{ color: '#4caf50', fontWeight: 'bold' }}>+12% </span>
-                    since last month
-                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
+            <Grid size={{xs:12, sm:6, md:3}} sx={{ display: 'flex' }}>
+              <Card sx={{ flex: 1 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
-                      <Typography color="textSecondary" gutterBottom variant="overline">
-                        ACTIVE SCHOOLS
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography color="textSecondary" gutterBottom variant="overline">
+                          ACTIVE SCHOOLS
+                        </Typography>
+                        <Tooltip title="How many distinct schools have ever submitted" sx={{ ml: 0.5 }}>
+                          <InfoOutlined fontSize="small" />
+                        </Tooltip>
+                      </Box>
                       <Typography variant="h4">
-                        {stats.activeSchools}
+                        <Box component="span" sx={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => handleOpenBreakdown('activeSchools')}>
+                          {stats.activeSchools}
+                        </Box>
                       </Typography>
                     </Box>
                     <Avatar sx={{ bgcolor: 'info.light', p: 1 }}>
                       <SchoolIcon />
                     </Avatar>
                   </Box>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    <span style={{ color: '#4caf50', fontWeight: 'bold' }}>+5% </span>
-                    since last month
-                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
+            <Grid size={{xs:12, sm:6, md:3}} sx={{ display: 'flex' }}>
+              <Card sx={{ flex: 1 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
-                      <Typography color="textSecondary" gutterBottom variant="overline">
-                        RESPONSE RATE
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography color="textSecondary" gutterBottom variant="overline">
+                          RESPONSE RATE
+                        </Typography>
+                        <Tooltip title="% of schools invited that have submitted at least one response" sx={{ ml: 0.5 }}>
+                          <InfoOutlined fontSize="small" />
+                        </Tooltip>
+                      </Box>
                       <Typography variant="h4">
-                        {stats.responseRate}%
+                        {stats.responseRate.toFixed(2)}%
                       </Typography>
                     </Box>
                     <Avatar sx={{ bgcolor: 'success.light', p: 1 }}>
                       <PieChartIcon />
                     </Avatar>
                   </Box>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    <span style={{ color: '#4caf50', fontWeight: 'bold' }}>+8% </span>
-                    since last month
-                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
+            <Grid size={{xs:12, sm:6, md:3}} sx={{ display: 'flex' }}>
+              <Card sx={{ flex: 1 }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
-                      <Typography color="textSecondary" gutterBottom variant="overline">
-                        COMPLETION RATE
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography color="textSecondary" gutterBottom variant="overline">
+                          COMPLETION RATE
+                        </Typography>
+                        <Tooltip title="% of invited schools that completed all questions" sx={{ ml: 0.5 }}>
+                          <InfoOutlined fontSize="small" />
+                        </Tooltip>
+                      </Box>
                       <Typography variant="h4">
-                        {stats.completionRate}%
+                        {stats.completionRate.toFixed(2)}%
                       </Typography>
                     </Box>
                     <Avatar sx={{ bgcolor: 'warning.light', p: 1 }}>
                       <TrendingUpIcon />
                     </Avatar>
                   </Box>
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    <span style={{ color: '#f44336', fontWeight: 'bold' }}>-3% </span>
-                    since last month
-                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -538,7 +625,7 @@ export default function RTPOverviewPage() {
           
           {/* Charts Section */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} md={6}>
+            <Grid  size={{xs:12, md:6}}>
               <Paper sx={{ p: 2 }}>
                 <Chart
                   options={categoryChartOptions}
@@ -564,14 +651,15 @@ export default function RTPOverviewPage() {
                   ]}
                   type="bar"
                   height={350}
+                  width="100%"
                 />
               </Paper>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid  size={{xs:12, md:6}}>
               <Paper sx={{ p: 2 }}>
                 <Chart
                   options={trendChartOptions}
-                  series={[
+                  series={trendData.series.length > 0 ? trendData.series : [
                     {
                       name: 'School Output',
                       data: [30, 42, 65, 78, 86, 95, 103]
@@ -591,13 +679,24 @@ export default function RTPOverviewPage() {
                   ]}
                   type="line"
                   height={350}
+                  width="100%"
                 />
+                {trendLoading && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                )}
+                {trendError && (
+                  <Alert severity="error" sx={{ mt: 2 }} variant="outlined">
+                    Failed to load trend data: {trendError}
+                  </Alert>
+                )}
               </Paper>
             </Grid>
           </Grid>
           
           {/* Category Cards Section */}
-          <Typography variant="h5" sx={{ mb: 2 }}>RTP Categories</Typography>
+          {/* <Typography variant="h5" sx={{ mb: 2 }}>RTP Categories</Typography>
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {CATEGORIES.map((category, index) => {
               const categoryData = Object.values(stats.categorySummary)[index];
@@ -654,7 +753,7 @@ export default function RTPOverviewPage() {
               );
             })}
           </Grid>
-          
+           */}
           {/* Recent Itineraries Section */}
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -692,7 +791,14 @@ export default function RTPOverviewPage() {
                         </Link>
                       </TableCell>
                       <TableCell>{itinerary.period} {itinerary.type} {itinerary.year}</TableCell>
-                      <TableCell>{itinerary.from_date} - {itinerary.until_date}</TableCell>
+                      <TableCell>
+                        <Tooltip title={formatLastLogin(itinerary.from_date, true)}>
+                          <span>{formatLastLogin(itinerary.from_date)}</span>
+                        </Tooltip>{' '}-{' '}
+                        <Tooltip title={formatLastLogin(itinerary.until_date, true)}>
+                          <span>{formatLastLogin(itinerary.until_date)}</span>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell>
                         <Chip 
                           label={itinerary.is_valid ? "Active" : "Inactive"} 
@@ -728,6 +834,31 @@ export default function RTPOverviewPage() {
               </Table>
             </TableContainer>
           </Paper>
+
+          {/* Breakdown Modal */}
+          <Dialog open={breakdownOpen} onClose={handleCloseBreakdown} fullWidth maxWidth="sm">
+            <DialogTitle>
+              {breakdownType === 'activeSchools' || breakdownType === 'school-output' ? 'Schools Submitted'
+               : breakdownType === 'district-output' ? 'Districts Responded'
+               : breakdownType === 'consolidated-checklist' ? 'Schools Completed Checklist'
+               : breakdownType === 'partners-in-play' ? 'Schools in Partners in Play'
+               : 'Category Breakdown'}
+            </DialogTitle>
+            <DialogContent dividers>
+              {breakdownLoading ? (
+                <Box sx={{ display:'flex', justifyContent:'center', p:2 }}><CircularProgress/></Box>
+              ) : (
+                <List>
+                  {breakdownData.map(item => (
+                    <ListItem key={item.id} divider>
+                      <ListItemText primary={item.name} />
+                    </ListItem>
+                  ))}
+                  {breakdownData.length === 0 && <Typography>No data available</Typography>}
+                </List>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </Container>

@@ -271,7 +271,7 @@ export default function SchoolsDistrictsManagementPage() {
   
   // Fetch schools when filters change
   useEffect(() => {
-    if (!loading) {
+    if (!loading && (filters.region || filters.district)) {
       fetchSchools();
     }
   }, [filters.region, filters.district, filters.galopOnly, schoolPagination.page, schoolPagination.rowsPerPage]);
@@ -313,7 +313,7 @@ export default function SchoolsDistrictsManagementPage() {
       const response = await fetch(url);
       const data = await response.json();
       
-      setSchools(data.schools || []);
+      setSchools(data.data.schools || []);
       setSchoolPagination(prev => ({
         ...prev,
         totalCount: data.total || 0
@@ -341,7 +341,7 @@ export default function SchoolsDistrictsManagementPage() {
       const response = await fetch(url);
       const data = await response.json();
       
-      setDistricts(data.districts || []);
+      setDistricts(data.data.districts || []);
       setDistrictPagination(prev => ({
         ...prev,
         totalCount: data.total || 0
@@ -608,7 +608,7 @@ export default function SchoolsDistrictsManagementPage() {
           {/* Itinerary Selector */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={8}>
+              <Grid size={{xs: 12, md: 8}}>
                 <Typography variant="h6" gutterBottom>
                   Select Itinerary for Submission Data
                 </Typography>
@@ -616,8 +616,8 @@ export default function SchoolsDistrictsManagementPage() {
                   Choose an itinerary to view submission statistics and participation data
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
+              <Grid item size={{ xs: 12, md: 4 }}> 
+                <FormControl fullWidth >
                   <InputLabel id="itinerary-select-label">Itinerary</InputLabel>
                   <Select
                     labelId="itinerary-select-label"

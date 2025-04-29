@@ -448,14 +448,41 @@ export default function GenderAnalysisPage() {
   };
 
   const generateGenderGapChart = () => ({
-    options: { chart: { type: 'bar' }, xaxis: { categories: ['Teacher Champions','PBL Training','ECE Training','Other Training','No Training'] } },
-    series: [ { name: 'Gender Gap', data: [analyticsData.teacherTrainingGap.teacherChampions.gap, analyticsData.teacherTrainingGap.teachersPBL.gap, analyticsData.teacherTrainingGap.teachersECE.gap, analyticsData.teacherTrainingGap.teachersOther.gap, analyticsData.teacherTrainingGap.teachersNoTraining.gap] } ]
+    options: {
+      chart: { type: 'bar' },
+      xaxis: { categories: ['Teacher Champions','PBL Training','ECE Training','Other Training','No Training'] }
+    },
+    series: [{
+      name: 'Gender Gap',
+      data: [
+        analyticsData.genderAnalysis.teacherTrainingGap.teacherChampions.gap,
+        analyticsData.genderAnalysis.teacherTrainingGap.teachersPBL.gap,
+        analyticsData.genderAnalysis.teacherTrainingGap.teachersECE.gap,
+        analyticsData.genderAnalysis.teacherTrainingGap.teachersOther.gap,
+        analyticsData.genderAnalysis.teacherTrainingGap.teachersNoTraining.gap
+      ]
+    }]
   });
 
-  const generateOutcomeChart = () => ({
-    options: { chart: { type: 'bar' }, xaxis: { categories: ['Implementation Plans','LTP Dev Plans','Lesson Plans','Learning Environments','Teaching Skills'] } },
-    series: [ { name: 'Percentage', data: [analyticsData.schoolsWithImplementationPlans, analyticsData.schoolsWithLTPDevPlans, analyticsData.teachersWithLTPLessonPlans.total, analyticsData.learningEnvironmentsWithLTPMethods, analyticsData.teachersWithLTPSkills.total] } ]
-  });
+  const generateOutcomeChart = () => {
+    const o = analyticsData.outputIndicators.outcomeIndicators;
+    return {
+      options: {
+        chart: { type: 'bar' },
+        xaxis: { categories: ['Implementation Plans','LTP Dev Plans','Lesson Plans','Learning Environments','Teaching Skills'] }
+      },
+      series: [{
+        name: 'Percentage',
+        data: [
+          o.implementationPlans.percentage,
+          o.developmentPlans.percentage,
+          o.lessonPlans.percentage,
+          o.learningEnvironments.percentage,
+          o.teacherSkills.percentage
+        ]
+      }]
+    };
+  };
 
   const generateTrendsChart = () => ({
     options: { chart: { type: 'line' }, xaxis: { categories: analyticsData.trends.itineraries.map(i => i.term || i.title) } },

@@ -1,0 +1,402 @@
+[
+	{
+		"region_name" : "BONO",
+		"district_name" : "JAMAN NORTH",
+		"circuit_name" : "GOKA",
+		"school_name" : "ASANTEKROM D/A PRIMARY",
+		"teacher_name" : "KYEREH CLEMENT",
+		"staff_number" : "1436636"
+	},
+	{
+		"region_name" : "BONO",
+		"district_name" : "BEREKUM WEST",
+		"circuit_name" : "NSAPOR",
+		"school_name" : "NSAPOR METHODIST BASIC",
+		"teacher_name" : "BOATENG LINDA",
+		"staff_number" : "784242"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "OBUASI EAST",
+		"circuit_name" : "KWABENAKWA",
+		"school_name" : "POMPOSO R/C PRIMARY 'A'",
+		"teacher_name" : "Enyam Mary",
+		"staff_number" : "189040"
+	},
+	{
+		"region_name" : "OTI",
+		"district_name" : "BIAKOYE",
+		"circuit_name" : "WORAWORA",
+		"school_name" : "AKPOSO KABO R.C KG & PRIMARY SCHOOL",
+		"teacher_name" : "AKATA DANIELS REGINA",
+		"staff_number" : "156739"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "AMANSIE WEST",
+		"circuit_name" : "PAKYI",
+		"school_name" : "PAKYI NO. 1 DA KG & PRIMARY",
+		"teacher_name" : "MARTEY GLORIA",
+		"staff_number" : "1428913"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "WASA AMENFI EAST",
+		"circuit_name" : "AKROPONG 'A'",
+		"school_name" : "WASA AKROPONG M/A BASIC",
+		"teacher_name" : "BISMARK AMPONSAH",
+		"staff_number" : "1420209"
+	},
+	{
+		"region_name" : "UPPER WEST",
+		"district_name" : "NADOWLI KALEO",
+		"circuit_name" : "KALSEGRA",
+		"school_name" : "KALSEGRA R/C PRIMARY",
+		"teacher_name" : "SUMBANSO PAUL ASUMAH",
+		"staff_number" : "1351424"
+	},
+	{
+		"region_name" : "EASTERN",
+		"district_name" : "KWAHU AFRAM PLAINS SOUTH",
+		"circuit_name" : "TEASE",
+		"school_name" : "TEASE D/A KG/PRIMARY",
+		"teacher_name" : "ATUAHENE JANICE",
+		"staff_number" : "705010"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "TOLON",
+		"circuit_name" : "YOGGU CIRCUIT",
+		"school_name" : "KPALIGUN A.M.E ZION KG, PRIMARY SCHOOL",
+		"teacher_name" : "OSMAN ABU",
+		"staff_number" : "887776"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "SAGNARIGU",
+		"circuit_name" : "TISHIGU",
+		"school_name" : "BETHEL BETHODIST PRIMARY/KG 'A'",
+		"teacher_name" : "ADAM AYI",
+		"staff_number" : "136800"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "AFIGYA KWABRE",
+		"circuit_name" : "ABOABOGYA",
+		"school_name" : "SWEDRU METHODIST PRIMARY",
+		"teacher_name" : "Arthur Ekow Anita",
+		"staff_number" : "819317"
+	},
+	{
+		"region_name" : "UPPER EAST",
+		"district_name" : "BUILSA NORTH MUNICIPAL",
+		"circuit_name" : "SANDEMA CENTRAL",
+		"school_name" : "SANDEMA OLD PRIMARY",
+		"teacher_name" : "ASUPAH CLEMENCIA",
+		"staff_number" : "655722"
+	},
+	{
+		"region_name" : "VOLTA",
+		"district_name" : "KETA MUNICIPAL",
+		"circuit_name" : "ABOR/TSIAME",
+		"school_name" : "ABOR E.P. PRIMARY AND KG SCHOOL",
+		"teacher_name" : "ABUSAH OPHELIA AMA",
+		"staff_number" : "847850"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "WASA AMENFI CENTRAL",
+		"circuit_name" : "AGONA AMENFI EAST",
+		"school_name" : "ANKASIE CATHOLIC BASIC",
+		"teacher_name" : "FRIMPONG OFFEN RICHARD",
+		"staff_number" : "1437509"
+	},
+	{
+		"region_name" : "WESTERN NORTH",
+		"district_name" : "SEFWI-WIAWSO",
+		"circuit_name" : "DWINASE NORTH",
+		"school_name" : "DOMEABRA M/A KG/PRIMARY",
+		"teacher_name" : "TETTEH MARY",
+		"staff_number" : "1245787"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "AHAFO ANO SOUTH WEST",
+		"circuit_name" : "HWIBAA",
+		"school_name" : "PEWODIE D/A BASIC SCHOOL",
+		"teacher_name" : "ACHEAMPONG MICHAEL",
+		"staff_number" : "1349824"
+	},
+	{
+		"region_name" : "GREATER ACCRA",
+		"district_name" : "OKAIKWEI NORTH",
+		"circuit_name" : "APENKWA (25)",
+		"school_name" : "SHIAYENNOH PRIMARY/KG",
+		"teacher_name" : "TAWIAH URSULA",
+		"staff_number" : "89885"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "ELLEMBELE",
+		"circuit_name" : "AWIEBO",
+		"school_name" : "ALLABOKAZO D/A BASIC",
+		"teacher_name" : "SOMIAH FREDERICK",
+		"staff_number" : "955927"
+	},
+	{
+		"region_name" : "UPPER EAST",
+		"district_name" : "TEMPANE",
+		"circuit_name" : "KPIKPIRA CIRCUIT",
+		"school_name" : "NAMBINA D/A KG/PRIMARY SCHOOL",
+		"teacher_name" : "Akasum Joseph Azuma",
+		"staff_number" : "1256752"
+	},
+	{
+		"region_name" : "WESTERN NORTH",
+		"district_name" : "BIBIANI/ANHWIASO/BEKWAI",
+		"circuit_name" : "AWASO B",
+		"school_name" : "ASAWINSO 'A' METH. KG/PRIMARY 'A'",
+		"teacher_name" : "ELLUO DANIEL",
+		"staff_number" : "962580"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "TOLON",
+		"circuit_name" : "KASULIYILI",
+		"school_name" : "KANGBAGU S.D.A PRIMARY SCHOOL",
+		"teacher_name" : "RAFIATU IBRAHIM",
+		"staff_number" : "1427476"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "ASANTE-AKIM NORTH",
+		"circuit_name" : "AMANTENAMAN",
+		"school_name" : "WORAPONSO D/A PRIMARY",
+		"teacher_name" : "AGYEI GYASI ABRAHAM",
+		"staff_number" : "939603"
+	},
+	{
+		"region_name" : "OTI",
+		"district_name" : "KRACHI WEST",
+		"circuit_name" : "OSRAMANAE",
+		"school_name" : "OSRAMANAE D/A KG/PRIMARY SCHOOL 'A'",
+		"teacher_name" : "OTU DANIEL BEKOE",
+		"staff_number" : "1510923"
+	},
+	{
+		"region_name" : "GREATER ACCRA",
+		"district_name" : "TEMA METRO",
+		"circuit_name" : "AWUDUM",
+		"school_name" : "MANHEAN ANGLICAN 'A & B' PRIMARY",
+		"teacher_name" : "AMOH PATIENCE",
+		"staff_number" : "303971"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "SEKYERE SOUTH",
+		"circuit_name" : "BIPOA",
+		"school_name" : "BIPOA SDA KG/PRIMARY",
+		"teacher_name" : "GYAMFI KOFI",
+		"staff_number" : "220532"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "TAMALE METRO",
+		"circuit_name" : "ZOGBELI",
+		"school_name" : "ZOGBELI M/A PRIMARY 'A' SCHOOL",
+		"teacher_name" : "FELATIGA WEMOYE  FRANCISCA",
+		"staff_number" : "606306"
+	},
+	{
+		"region_name" : "BONO",
+		"district_name" : "WENCHI MUNICIPAL",
+		"circuit_name" : "WENCHI CENTRAL",
+		"school_name" : "WENCHI ALHAJI BENI ISLAMIC BASIC",
+		"teacher_name" : "ABUBAKAR IDDRISS",
+		"staff_number" : "608485"
+	},
+	{
+		"region_name" : "NORTH EAST",
+		"district_name" : "YUNYOO-NASUAN",
+		"circuit_name" : "GBANKURUGU CIRCUIT",
+		"school_name" : "BUNBUNA NO.1  D/A KG/PRIMARY",
+		"teacher_name" : "ISSAHAKU ABU",
+		"staff_number" : "1270011"
+	},
+	{
+		"region_name" : "VOLTA",
+		"district_name" : "HO MUNICIPAL",
+		"circuit_name" : "KPODZI",
+		"school_name" : "HO REGIONAL MODEL M/A BASIC SCHOOL",
+		"teacher_name" : "AGBLETA EMMANUEL KOMLA",
+		"staff_number" : "224935"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "TARKWA-NSUAEM",
+		"circuit_name" : "NSUAEM SOUTH",
+		"school_name" : "CHICHIWERE M/A BASIC SCHOOL",
+		"teacher_name" : "ADAM RAIMATU",
+		"staff_number" : "GTLE/TAS/0005/20"
+	},
+	{
+		"region_name" : "UPPER EAST",
+		"district_name" : "BONGO",
+		"circuit_name" : "SOUTH EAST",
+		"school_name" : "BEO-NAYIKURA D/A PRIMARY",
+		"teacher_name" : "Abagna Solomon Awoola",
+		"staff_number" : "944190"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "JOMORO",
+		"circuit_name" : "BONYERE",
+		"school_name" : "TAKINTA M/A KG/PRIMARY",
+		"teacher_name" : "ANYIMAH EVANS",
+		"staff_number" : "299393"
+	},
+	{
+		"region_name" : "BONO EAST",
+		"district_name" : "SENE WEST",
+		"circuit_name" : "KWAME DANSO",
+		"school_name" : "KWAME DANSO R/C KG & PRIMARY",
+		"teacher_name" : "ISAAC ABOBILA",
+		"staff_number" : "1352562"
+	},
+	{
+		"region_name" : "OTI",
+		"district_name" : "KRACHI WEST",
+		"circuit_name" : "OSRAMANAE",
+		"school_name" : "OSRAMANAE D/A KG/PRIMARY 'B' SCHOOL",
+		"teacher_name" : "KOFI JACOB ASIAM",
+		"staff_number" : "1214455"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "SAVELUGU",
+		"circuit_name" : "SAVELUGU EAST",
+		"school_name" : "BUNGLUNG EA PRIMARY SCHOOL",
+		"teacher_name" : "Yakubu Mohammed",
+		"staff_number" : "698563"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "WASA AMENFI EAST",
+		"circuit_name" : "NKONYA",
+		"school_name" : "ADJAKUSO M/A BASIC",
+		"teacher_name" : "ADUKWEI ACQUAYE ANNA- PEARL",
+		"staff_number" : "1433443"
+	},
+	{
+		"region_name" : "WESTERN",
+		"district_name" : "WASSA EAST",
+		"circuit_name" : "EKUTUASE",
+		"school_name" : "EKUTUASE D/A BASIC SCHOOL 'B'",
+		"teacher_name" : "QUANSAH LAWRENCE",
+		"staff_number" : "664658"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "ATWIMA-KWANWOMA",
+		"circuit_name" : "TWEDIE",
+		"school_name" : "TWEDIE METHODIST KG & PRIMARY",
+		"teacher_name" : "OSEI MARTHA AKOTO",
+		"staff_number" : "630960"
+	},
+	{
+		"region_name" : "WESTERN NORTH",
+		"district_name" : "BODI",
+		"circuit_name" : "KWASIADUKROM",
+		"school_name" : "PUAKROM D/A BASIC",
+		"teacher_name" : "ABABIO SAMPSON",
+		"staff_number" : "93840"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "ASANTE AKIM SOUTH",
+		"circuit_name" : "JUASO EAST",
+		"school_name" : "MORSO M/A KG/PRIMARY",
+		"teacher_name" : "BENFO JULIANA KWOFIE",
+		"staff_number" : "N"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "BOSOME FREHO",
+		"circuit_name" : "ANYANSO",
+		"school_name" : "ANUMSO METHODIST PRIMARY",
+		"teacher_name" : "HARRIET ANTWI",
+		"staff_number" : "904408"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "OBUASI MUNICIPAL",
+		"circuit_name" : "KUNKA",
+		"school_name" : "BOGOBIRI M/A PRIMARY 'A'",
+		"teacher_name" : "Poku Comfort Adu",
+		"staff_number" : "251454"
+	},
+	{
+		"region_name" : "AHAFO",
+		"district_name" : "ASUNAFO NORTH",
+		"circuit_name" : "AYOMSO 'A'",
+		"school_name" : "KUMAHO M/A BASIC",
+		"teacher_name" : "NINA BOAKYE",
+		"staff_number" : "1021"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "SAGNARIGU",
+		"circuit_name" : "MILE 9",
+		"school_name" : "ZAGYURI MISKIYA ISLAMIC PRIMARY/KG",
+		"teacher_name" : "SEIDU ADAMU",
+		"staff_number" : "969738"
+	},
+	{
+		"region_name" : "VOLTA",
+		"district_name" : "KPANDO MUNICIPAL",
+		"circuit_name" : "AKPINI NORTH",
+		"school_name" : "KPANDO FESI DEBIDEBI D/A PRIMARY",
+		"teacher_name" : "Nyavoryi Enoch Kwaku",
+		"staff_number" : "1211197"
+	},
+	{
+		"region_name" : "BONO",
+		"district_name" : "JAMAN NORTH",
+		"circuit_name" : "SAMPA NORTH",
+		"school_name" : "JENINI D/A PRIMARY",
+		"teacher_name" : "YELI ROSE AKUA",
+		"staff_number" : "640822"
+	},
+	{
+		"region_name" : "NORTHERN",
+		"district_name" : "KARAGA",
+		"circuit_name" : "KARAGA EAST",
+		"school_name" : "SHAMSIA E/A KG/PRIMARY",
+		"teacher_name" : "NYARKO PHILIP",
+		"staff_number" : "1433722"
+	},
+	{
+		"region_name" : "ASHANTI",
+		"district_name" : "AMANSIE WEST",
+		"circuit_name" : "MANSO NKWANTA",
+		"school_name" : "ATWERE -BROFOYEDRU DA KG & PRIMARY",
+		"teacher_name" : "YEBOAH GIFTY",
+		"staff_number" : "1213356"
+	},
+	{
+		"region_name" : "VOLTA",
+		"district_name" : "KETU SOUTH",
+		"circuit_name" : "AFLAO NORTH",
+		"school_name" : "AGBOGBOME R. C. BASIC SCHOOL",
+		"teacher_name" : "EGG AFEDO VAN PRIESTLY",
+		"staff_number" : "1430518"
+	},
+	{
+		"region_name" : "BONO EAST",
+		"district_name" : "PRU WEST",
+		"circuit_name" : "PRANG SOUTH",
+		"school_name" : "PRANG D/A N0.2 PRIMARY",
+		"teacher_name" : "SHEILA ZAMAHO",
+		"staff_number" : "1540942"
+	}
+]

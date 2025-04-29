@@ -24,7 +24,7 @@ import { formatDate, formatDateTime } from '@/utils/dates';
  * @returns {React.Component} - DataTable component
  */
 const DataTable = ({ columns = [], rows = [], pageSize = 10, onRowClick }) => {
-  console.log('[DataTable] rows prop:', rows);
+
 
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(pageSize);
@@ -41,7 +41,6 @@ const DataTable = ({ columns = [], rows = [], pageSize = 10, onRowClick }) => {
   // Helper to generate a unique key for each row
   const getRowKey = (row, index) => {
     const key = (row.id !== undefined && row.id !== null) ? row.id : (Object.values(row).join('-') + '-' + index);
-    // console.log('[DataTable] Row key:', key, '| Row:', row);
     return key;
   };
 

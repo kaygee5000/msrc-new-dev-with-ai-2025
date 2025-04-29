@@ -42,8 +42,8 @@ export async function GET(req) {
         (
           SELECT COUNT(DISTINCT s.id) 
           FROM schools s
-          LEFT JOIN right_to_play_school_responses sr ON s.id = sr.school_id AND sr.deleted_at IS NULL
-          WHERE s.district_id = d.id AND sr.id IS NOT NULL
+          LEFT JOIN right_to_play_question_answers qa ON s.id = qa.school_id AND qa.deleted_at IS NULL
+          WHERE s.district_id = d.id AND qa.id IS NOT NULL
         ) as schools_with_output_submissions,
         (
           SELECT COUNT(DISTINCT s.id) 
@@ -100,8 +100,8 @@ export async function GET(req) {
         (
           SELECT COUNT(DISTINCT s.id) 
           FROM schools s
-          LEFT JOIN right_to_play_school_responses sr ON s.id = sr.school_id 
-          WHERE s.district_id = d.id AND sr.itinerary_id = ${parseInt(itineraryId)} AND sr.deleted_at IS NULL
+          LEFT JOIN right_to_play_question_answers qa ON s.id = qa.school_id 
+          WHERE s.district_id = d.id AND qa.itinerary_id = ${parseInt(itineraryId)} AND qa.deleted_at IS NULL
         ) as itinerary_schools_with_output_submissions,
         (
           SELECT COUNT(DISTINCT s.id) 

@@ -1,0 +1,337 @@
+'use client';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  IconButton, 
+  Typography, 
+  Box, 
+  Divider, 
+  List, 
+  ListItem, 
+  ListItemText,
+  Chip,
+  Paper,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Button
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import DescriptionIcon from '@mui/icons-material/Description';
+import SchoolIcon from '@mui/icons-material/School';
+import LocationCityIcon from '@mui/icons-material/LocationCity';
+
+import SurveyDetailView from './SurveyDetailView';
+import DocumentGallery from './DocumentGallery';
+
+export default function DrilldownModal({ indicator, open, onClose }) {
+  const router = useRouter();
+  const [showDocumentGallery, setShowDocumentGallery] = useState(false);
+  
+  // Early return if not open or no indicator
+  if (!open || !indicator) return null;
+  
+  // Handle viewing survey details for a specific entity using URL navigation
+  const handleViewSurveyDetail = (entityType, entityName, region, district) => {
+    console.log('Navigating to survey detail view for:', entityType, entityName);
+    
+    // Close the current modal before navigation
+    onClose();
+    
+    // Navigate to the survey details page with URL parameters
+    const encodedEntityType = encodeURIComponent(entityType);
+    const encodedEntityName = encodeURIComponent(entityName);
+    const encodedRegion = encodeURIComponent(region || '');
+    const encodedDistrict = encodeURIComponent(district || '');
+    
+    // Build the URL with query parameters for region and district
+    const url = `/dashboard/admin/rtp-ui/survey-details/${encodedEntityType}/${encodedEntityName}?region=${encodedRegion}&district=${encodedDistrict}`;
+    
+    // Navigate to the new URL
+    router.push(url);
+  };
+  
+  // Document gallery view handling
+  if (showDocumentGallery) {
+    return (
+      <DocumentGallery onBack={() => setShowDocumentGallery(false)} />
+    );
+  }
+  
+  // If showing document gallery
+  if (showDocumentGallery) {
+    return <DocumentGallery onBack={handleBack} />;
+  }
+  
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth 
+      PaperProps={{ 
+        sx: { borderRadius: 2 }
+      }}
+    >
+      {/* Use a custom header instead of DialogTitle to avoid nesting heading elements */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: 2,
+          pb: 1
+        }}
+      >
+        <Typography variant="h5" fontWeight="bold">
+          {indicator.name}
+        </Typography>
+        <IconButton onClick={onClose} size="large">
+          <CloseIcon />
+        </IconButton>
+      </Box>
+      
+      <Divider />
+      
+      <DialogContent sx={{ pt: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <Typography variant="h3" color="primary" fontWeight="bold" sx={{ mr: 2 }}>
+            {indicator.value}
+            {indicator.value !== undefined && 
+             typeof indicator.value === 'number' && 
+             !['oi1', 'oi5'].includes(indicator.id) ? '%' : ''}
+          </Typography>
+          {indicator.trend && (
+            <Chip 
+              label={indicator.trend === 'up' ? 'Increasing' : 'Decreasing'}
+              color={indicator.trend === 'up' ? 'success' : 'error'}
+            />
+          )}
+        </Box>
+        
+        {indicator.calculation_trace && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <CalculateIcon color="primary" sx={{ mr: 1 }} />
+              <Typography variant="h6">Calculation Trace</Typography>
+            </Box>
+            
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell><Typography fontWeight="bold">Step</Typography></TableCell>
+                    <TableCell><Typography fontWeight="bold">Value</Typography></TableCell>
+                    <TableCell><Typography fontWeight="bold">Formula</Typography></TableCell>
+                    <TableCell><Typography fontWeight="bold">Result</Typography></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {indicator.calculation_trace.map((step, i) => (
+                    <TableRow key={i}>
+                      <TableCell>{step.step || ''}</TableCell>
+                      <TableCell>{step.value !== undefined ? step.value : ''}</TableCell>
+                      <TableCell>{step.formula || ''}</TableCell>
+                      <TableCell>{step.result !== undefined ? step.result : ''}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
+        
+        {/* Action buttons for detailed views */}
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <Button
+            variant="outlined"
+            startIcon={<DescriptionIcon />}
+            onClick={() => setShowDocumentGallery(true)}
+          >
+            View Document Gallery
+          </Button>
+        </Box>
+        
+        {indicator.breakdown && (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <BarChartIcon color="primary" sx={{ mr: 1 }} />
+              <Typography variant="h6">Breakdown Analysis</Typography>
+            </Box>
+            
+            <Grid container spacing={3}>
+              {indicator.breakdown.by_region && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography fontWeight="medium">By Region</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {indicator.breakdown.by_region.map((r, i) => (
+                          <ListItem key={i} divider={i < indicator.breakdown.by_region.length - 1}>
+                            <ListItemText 
+                              primary={r.region} 
+                              secondary={r.value}
+                              primaryTypographyProps={{ fontWeight: 'medium' }}
+                              secondaryTypographyProps={{ color: 'primary', fontWeight: 'bold' }}
+                            />
+                            <Button 
+                              size="small" 
+                              variant="text" 
+                              onClick={() => handleViewSurveyDetail('region', r.region, r.region, null)}
+                            >
+                              Details
+                            </Button>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+              
+              {indicator.breakdown.by_district && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography fontWeight="medium">By District</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {indicator.breakdown.by_district.map((d, i) => (
+                          <ListItem key={i} divider={i < indicator.breakdown.by_district.length - 1}>
+                            <ListItemText 
+                              primary={d.district} 
+                              secondary={d.value}
+                              primaryTypographyProps={{ fontWeight: 'medium' }}
+                              secondaryTypographyProps={{ color: 'primary', fontWeight: 'bold' }}
+                            />
+                            <Button 
+                              size="small" 
+                              variant="text" 
+                              onClick={() => handleViewSurveyDetail('district', d.district, indicator.breakdown.by_region?.[0]?.region || '', d.district)}
+                            >
+                              Details
+                            </Button>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+              
+              {indicator.breakdown.by_school && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography fontWeight="medium">By School</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {indicator.breakdown.by_school.map((s, i) => (
+                          <ListItem key={i} divider={i < indicator.breakdown.by_school.length - 1}>
+                            <ListItemText 
+                              primary={s.school} 
+                              secondary={s.value}
+                              primaryTypographyProps={{ fontWeight: 'medium' }}
+                              secondaryTypographyProps={{ color: 'primary', fontWeight: 'bold' }}
+                            />
+                            <Button 
+                              size="small" 
+                              variant="text" 
+                              onClick={() => handleViewSurveyDetail('school', s.school, indicator.breakdown.by_region?.[0]?.region || '', indicator.breakdown.by_district?.[0]?.district || '')}
+                            >
+                              Details
+                            </Button>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+              
+              {indicator.breakdown.by_teacher && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography fontWeight="medium">By Teacher</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {indicator.breakdown.by_teacher.map((t, i) => (
+                          <ListItem key={i} divider={i < indicator.breakdown.by_teacher.length - 1}>
+                            <ListItemText 
+                              primary={`${t.teacher} ${t.gender ? `(${t.gender})` : ''}`} 
+                              secondary={String(t.value)}
+                              primaryTypographyProps={{ fontWeight: 'medium' }}
+                              secondaryTypographyProps={{ color: 'primary', fontWeight: 'bold' }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+              
+              {indicator.breakdown.by_gender && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography fontWeight="medium">By Gender</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell><Typography fontWeight="bold">Gender</Typography></TableCell>
+                              <TableCell><Typography fontWeight="bold">Observed</Typography></TableCell>
+                              <TableCell><Typography fontWeight="bold">Above Avg</Typography></TableCell>
+                              <TableCell><Typography fontWeight="bold">Percentage</Typography></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {indicator.breakdown.by_gender.map((g, i) => (
+                              <TableRow key={i}>
+                                <TableCell>{g.gender}</TableCell>
+                                <TableCell>{g.observed}</TableCell>
+                                <TableCell>{g.aboveAverage}</TableCell>
+                                <TableCell>
+                                  <Typography color="primary" fontWeight="bold">
+                                    {g.value}%
+                                  </Typography>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </AccordionDetails>
+                  </Accordion>
+                </Grid>
+              )}
+            </Grid>
+          </Paper>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

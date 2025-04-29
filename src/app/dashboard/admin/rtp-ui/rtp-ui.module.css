@@ -1,0 +1,51 @@
+.rtpDashboardRoot {
+  background: #f7f9fa;
+  min-height: 100vh;
+  padding: 32px;
+}
+.indicatorCard {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px;
+  cursor: pointer;
+  background: #fff;
+  box-shadow: 0 2px 8px #f0f1f2;
+  transition: box-shadow 0.2s;
+}
+.indicatorCard:hover {
+  box-shadow: 0 4px 16px #d0e3ff;
+  border-color: #2a7ae4;
+}
+.filterBar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.dataTable {
+  width: 100%;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #f0f1f2;
+  margin-top: 16px;
+  border-collapse: collapse;
+}
+.dataTable th, .dataTable td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #f0f1f2;
+}
+.dataTable th {
+  background: #f7f9fa;
+}
+.mockToggle {
+  position: fixed;
+  top: 16px;
+  right: 24px;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 2px 8px #f0f1f2;
+}

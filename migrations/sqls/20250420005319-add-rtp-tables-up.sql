@@ -152,3 +152,26 @@ ADD INDEX `idx_cc_answers_question` (`question_id`, `answer_value`(20));
 
 ALTER TABLE `right_to_play_pip_answers`
 ADD INDEX `idx_pip_answers_question` (`question_id`, `answer_value`(20));
+
+-- Seed question scoring rules for outcome indicators
+INSERT INTO `right_to_play_question_scoring` (
+  `question_id`, `scoring_logic`, `scoring_formula`, `score_min`, `score_max`, `created_at`, `updated_at`
+) VALUES
+  (53, 'Yes→1, No→0',        'IF(answer_value="Yes",1,0)',              0,1,NOW(),NOW()),
+  (67, 'Yes→1, No→0',        'IF(answer_value="Yes",1,0)',              0,1,NOW(),NOW()),
+  (55, 'Yes→1, No→0',        'IF(answer_value="Yes",1,0)',              0,1,NOW(),NOW()),
+  (43, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (44, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (45, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (29, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (30, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (31, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (32, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (33, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (39, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (45, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (46, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (48, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (49, 'Scale 1–5',          'CAST(answer_value AS UNSIGNED)',             1,5,NOW(),NOW()),
+  (12, 'Count',              'CAST(answer_value AS UNSIGNED)',             0,NULL,NOW(),NOW()),
+  (13, 'Count',              'CAST(answer_value AS UNSIGNED)',             0,NULL,NOW(),NOW());
