@@ -607,7 +607,7 @@ export default function ReentryDashboard() {
         {/* Period Selector */}
         <Paper sx={{ p: 2, mb: 3 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid size={2}>
+            <Grid size={{sm:12, md:4}}>
               <FormControl fullWidth size="small">
                 <InputLabel>Year</InputLabel>
                 <Select
@@ -622,7 +622,7 @@ export default function ReentryDashboard() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={2}>
+            <Grid size={{sm:12, md:4}}>
               <FormControl fullWidth size="small">
                 <InputLabel>Term</InputLabel>
                 <Select
@@ -638,7 +638,7 @@ export default function ReentryDashboard() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={2}>
+            <Grid size={{sm:12, md:4}}>
               <FormControl fullWidth size="small">
                 <InputLabel>Week</InputLabel>
                 <Select
@@ -672,7 +672,7 @@ export default function ReentryDashboard() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid size={2}>
+            <Grid size={{sm:12, md:4}}>
               <Button 
                 variant="contained" 
                 onClick={handleApplyFilters}

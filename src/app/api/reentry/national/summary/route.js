@@ -41,8 +41,8 @@ export async function GET(request) {
       queryParams.push(level.toLowerCase()); // Database stores levels in lowercase
     }
 
-    const whereClause = whereConditions.length > 0 
-      ? `WHERE ${whereConditions.join(' AND ')}` 
+    const whereClause = whereConditions.length > 0
+      ? `WHERE ${whereConditions.join(' AND ')}`
       : '';
 
     // First, let's get the relevant question IDs
@@ -50,66 +50,105 @@ export async function GET(request) {
     // - PGISA: Girls pregnant and in school
     // - PGDOS: Girls pregnant and dropped out of school
     // - GDRTS/PGRTS: Girls who returned to school after childbirth
-    
+
     const pregnancyQuestionsQuery = `
       SELECT id, code, question 
       FROM pregnancy_tracker_questions 
       WHERE code IN ('PGISA', 'PGDOS', 'GDRTS', 'PGRTS')
     `;
-    
-    const pregnancyQuestions = await db.query(pregnancyQuestionsQuery);
 
-    console.log("pregnancyQuestionsQuery", pregnancyQuestionsQuery);
-    
-    
-    if (!pregnancyQuestions || pregnancyQuestions.length === 0) {
+    const pregnancyQuestions = await db.query(pregnancyQuestionsQuery);
+    console.log("pregnancyQuestions results:", pregnancyQuestions);
+
+    // The first element contains the actual query results
+    const questionsData = Array.isArray(pregnancyQuestions[0]) ? pregnancyQuestions[0] : [];
+    console.log("Questions data:", questionsData);
+
+    if (!questionsData || questionsData.length === 0) {
+      console.error("No pregnancy questions found in the database");
       return NextResponse.json(
-        { error: 'Pregnancy tracking questions not found in the database' },
+        { 
+          error: 'Pregnancy tracking questions not found in the database',
+          details: 'No questions found with codes: PGISA, PGDOS, GDRTS, PGRTS'
+        },
         { status: 500 }
       );
     }
-    
+
     // Map question codes to IDs
     const questionMap = {};
-    pregnancyQuestions.forEach(q => {
-      questionMap[q.code] = q.id;
+    questionsData.forEach(q => {
+      if (q && q.code && q.id) {
+        questionMap[q.code] = q.id;
+        console.log(`Mapped question: ${q.code} -> ${q.id}`);
+      } else {
+        console.warn('Invalid question format:', q);
+      }
     });
-    
+
+    // Verify all required questions are present
+    const requiredQuestions = ['PGISA', 'PGDOS', 'GDRTS', 'PGRTS'];
+    const missingQuestions = requiredQuestions.filter(q => !questionMap[q]);
+
+    if (missingQuestions.length > 0) {
+      console.error("Missing required questions:", missingQuestions);
+      return NextResponse.json(
+        { 
+          error: 'Missing required questions in database',
+          missingQuestions: missingQuestions
+        },
+        { status: 500 }
+      );
+    }
+
+    // Now we can safely use questionMap
+    const questionIds = {
+      PGISA: questionMap['PGISA'],
+      PGDOS: questionMap['PGDOS'],
+      GDRTS: questionMap['GDRTS'],
+      PGRTS: questionMap['PGRTS']
+    };
+
+    console.log("Question IDs:", questionIds);
+
     // Query for summary metrics using the question IDs
     const summaryQuery = `
-      SELECT 
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS total_pregnant_students,
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS in_school,
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS out_of_school,
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
-        SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS returned,
-        ROUND(
-          (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
-           SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
-          NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0), 
-          1
-        ) AS reentry_rate
-      FROM pregnancy_tracker_responses ptr
-      JOIN schools s ON ptr.school_id = s.id
-      ${whereClause}
-    `;
-    
-    console.log("summaryQuery", summaryQuery);
-    
+SELECT 
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS total_pregnant_students,
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS in_school,
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS out_of_school,
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
+  SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS returned,
+  ROUND(
+    (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
+     SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
+    NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0), 
+    1
+  ) AS reentry_rate
+FROM pregnancy_tracker_responses ptr
+JOIN schools s ON ptr.school_id = s.id
+WHERE ptr.question_id IN (?, ?, ?, ?)
+${whereClause ? 'AND ' + whereClause.replace('WHERE ', '') : ''}
+`;
+
     // Add question IDs to query params
     const summaryParams = [
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0,
-      questionMap['PGDOS'] || 0,
+      // For the CASE statements
+      questionIds.PGISA, questionIds.PGDOS,  // total_pregnant_students
+      questionIds.PGISA,                      // in_school
+      questionIds.PGDOS,                      // out_of_school
+      questionIds.GDRTS, questionIds.PGRTS,  // returned
+      questionIds.GDRTS, questionIds.PGRTS,  // reentry_rate numerator
+      questionIds.PGDOS,                     // reentry_rate denominator
+      // For the WHERE IN clause
+      questionIds.PGISA, questionIds.PGDOS, questionIds.GDRTS, questionIds.PGRTS,
+      // Add the existing query params (year, term, week, level)
       ...queryParams
     ];
+
+    console.log("summaryQuery", summaryQuery);
+    console.log("summaryParams", summaryParams);
 
     // Query for trend data (last 6 terms)
     const trendQuery = `
@@ -135,24 +174,19 @@ export async function GET(request) {
       ORDER BY ptr.year DESC, ptr.term DESC
       LIMIT 6
     `;
-    
-    // Add question IDs to trend params
+
+    // Add question IDs to trend params (same as summaryParams)
     const trendParams = [
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0,
-      questionMap['PGDOS'] || 0,
+      ...summaryParams.slice(0, -queryParams.length - 4), // All but the last 4 + queryParams
       ...queryParams,
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0
+      questionIds.PGISA, 
+      questionIds.PGDOS, 
+      questionIds.GDRTS, 
+      questionIds.PGRTS
     ];
+
+    console.log("trendQuery", trendQuery);
+    console.log("trendParams", trendParams);
 
     // Query for recent submissions
     const recentSubmissionsQuery = `
@@ -181,95 +215,95 @@ export async function GET(request) {
       JOIN circuits c ON s.circuit_id = c.id
       JOIN regions r ON s.region_id = r.id
       WHERE ptr.question_id IN (?, ?, ?, ?)
+      ${whereClause ? 'AND ' + whereClause.replace('WHERE ', '') : ''}
       GROUP BY s.id, ptr.year, ptr.term, ptr.week
       ORDER BY submission_date DESC
       LIMIT 10
     `;
-    
+
     // Add question IDs to recent submissions params
     const recentSubmissionsParams = [
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0,
-      questionMap['PGISA'] || 0,
-      questionMap['PGDOS'] || 0,
-      questionMap['GDRTS'] || 0,
-      questionMap['PGRTS'] || 0
+      questionIds.PGISA, questionIds.PGDOS,  // total_students
+      questionIds.PGISA,                     // in_school
+      questionIds.PGDOS,                     // out_of_school
+      questionIds.GDRTS, questionIds.PGRTS,  // returned
+      questionIds.PGISA, questionIds.PGDOS, questionIds.GDRTS, questionIds.PGRTS,
+      // Add the existing query params (year, term, week, level)
+      ...queryParams
     ];
+
+    console.log("recentSubmissionsParams", recentSubmissionsParams);
 
     // Execute queries
     const [summaryResults, trendResults, recentSubmissions] = await Promise.all([
       db.query(summaryQuery, summaryParams),
       db.query(trendQuery, trendParams),
-      db.query(recentSubmissionsQuery, recentSubmissionsParams)
+      db.query(recentSubmissionsQuery, recentSubmissionsParams)  
     ]);
 
-    console.log("summaryResults",summaryResults,"trendResults", trendResults, "recentSubmissions", recentSubmissions);
-    
-    // Process the results to clean up the data
-    // For summary, extract the first result object
-    const summaryData = summaryResults && summaryResults.length > 0 && summaryResults[0] 
-      ? {
-          total_pregnant_students: summaryResults[0].total_pregnant_students || 0,
-          in_school: summaryResults[0].in_school || 0,
-          out_of_school: summaryResults[0].out_of_school || 0,
-          returned: summaryResults[0].returned || 0,
-          reentry_rate: summaryResults[0].reentry_rate || 0
-        }
-      : {
-          total_pregnant_students: 0,
-          in_school: 0,
-          out_of_school: 0,
-          returned: 0,
-          reentry_rate: 0
-        };
+    console.log("summaryResults", summaryResults, "trendResults", trendResults, "recentSubmissions", recentSubmissions);
 
-    // For trends, map the array to clean objects
-    const trendsData = Array.isArray(trendResults) 
-      ? trendResults.map(trend => ({
-          year: trend.year,
-          term: trend.term,
-          total_pregnant_students: trend.total_pregnant_students || 0,
-          in_school: trend.in_school || 0,
-          out_of_school: trend.out_of_school || 0,
-          returned: trend.returned || 0,
-          reentry_rate: trend.reentry_rate || 0
-        }))
-      : [];
+    // MySQL returns results as [rows, fields] where rows is the first element
+    // Extract the actual data rows from the results
+    const summaryRows = summaryResults[0] || [];
+    const trendRows = trendResults[0] || [];
+    const recentSubmissionsRows = recentSubmissions[0] || [];
 
-    // For recent submissions, map the array to clean objects
-    const submissionsData = Array.isArray(recentSubmissions)
-      ? recentSubmissions.map(submission => ({
-          school_id: submission.school_id,
-          school_name: submission.school_name,
-          district_id: submission.district_id,
-          district_name: submission.district_name,
-          circuit_id: submission.circuit_id,
-          circuit_name: submission.circuit_name,
-          region_id: submission.region_id,
-          region_name: submission.region_name,
-          year: submission.year,
-          term: submission.term,
-          week: submission.week,
-          submission_date: submission.submission_date,
-          total_students: submission.total_students || 0,
-          in_school: submission.in_school || 0,
-          out_of_school: submission.out_of_school || 0,
-          returned: submission.returned || 0
-        }))
-      : [];
+    // Get the first summary row if it exists
+    const summaryData = summaryRows.length > 0 ? summaryRows[0] : {};
 
-    // Format the response with clean data
-    const response = {
-      summary: summaryData,
-      trends: trendsData,
-      recentSubmissions: submissionsData
+    // Convert string values to numbers for numeric fields
+    const processedSummary = {
+      total_pregnant_students: parseInt(summaryData.total_pregnant_students || 0),
+      in_school: parseInt(summaryData.in_school || 0),
+      out_of_school: parseInt(summaryData.out_of_school || 0),
+      returned: parseInt(summaryData.returned || 0),
+      reentry_rate: parseFloat(summaryData.reentry_rate || 0)
     };
 
-    return NextResponse.json(response);
+    // Process trend data
+    const processedTrends = trendRows.map(trend => ({
+      year: trend.year,
+      term: trend.term,
+      total_pregnant_students: parseInt(trend.total_pregnant_students || 0),
+      in_school: parseInt(trend.in_school || 0),
+      out_of_school: parseInt(trend.out_of_school || 0),
+      returned: parseInt(trend.returned || 0),
+      reentry_rate: parseFloat(trend.reentry_rate || 0)
+    }));
+
+    // Process recent submissions
+    const processedSubmissions = recentSubmissionsRows.map(submission => ({
+      school_id: submission.school_id,
+      school_name: submission.school_name,
+      district_id: submission.district_id,
+      district_name: submission.district_name,
+      circuit_id: submission.circuit_id,
+      circuit_name: submission.circuit_name,
+      region_id: submission.region_id,
+      region_name: submission.region_name,
+      year: submission.year,
+      term: submission.term,
+      week: submission.week,
+      submission_date: submission.submission_date,
+      total_students: parseInt(submission.total_students || 0),
+      in_school: parseInt(submission.in_school || 0),
+      out_of_school: parseInt(submission.out_of_school || 0),
+      returned: parseInt(submission.returned || 0)
+    }));
+
+    console.log("Processed response:", {
+      summary: processedSummary,
+      trends: processedTrends,
+      recentSubmissions: processedSubmissions
+    });
+
+    // Return the formatted response
+    return NextResponse.json({
+      summary: processedSummary,
+      trends: processedTrends,
+      recentSubmissions: processedSubmissions
+    });
   } catch (error) {
     console.error('Error fetching national summary:', error);
     return NextResponse.json(
