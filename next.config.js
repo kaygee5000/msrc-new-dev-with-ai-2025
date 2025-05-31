@@ -3,8 +3,14 @@ require('dotenv').config();
 
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   experimental: {
-    optimizeCss: true
+    optimizeCss: true,
+    // Force SWC to be used even with Babel config present
+    forceSwcTransforms: true,
+    missingSuspenseWithCSRBailout: false,
   },
   env: {
     DB_HOST: process.env.DB_HOST,

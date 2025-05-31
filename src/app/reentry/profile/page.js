@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { 
   Container, 
@@ -24,6 +26,7 @@ import { useSession } from "next-auth/react";
 import Link from 'next/link';
 import HomeIcon from '@mui/icons-material/Home';
 import PersonIcon from '@mui/icons-material/Person';
+import { useProgramContext } from "@/context/ProgramContext";
 
 export default function ReentryProfilePage() {
   const { data: session, status } = useSession();

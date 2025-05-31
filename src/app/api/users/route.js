@@ -11,7 +11,7 @@ export async function GET(request) {
     const offset = (page - 1) * limit;
     
     // Parse filter params
-    const query = searchParams.get('query') || '';
+    const query = searchParams.get('query') || searchParams.get('search') || '';
     const type = searchParams.get('type') || '';
     // Removed status parameter as it doesn't exist in the database
     const includeProgramRoles = searchParams.get('includeProgramRoles') === 'true';
@@ -21,8 +21,8 @@ export async function GET(request) {
     const params = [];
     
     if (query) {
-      whereClause += ' AND (name LIKE ? OR email LIKE ? OR id LIKE ?)';
-      params.push(`%${query}%`, `%${query}%`, `%${query}%`);
+      whereClause += ' AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR id LIKE ?)';
+      params.push(`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`);
     }
     
     if (type) {

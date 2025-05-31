@@ -119,7 +119,7 @@ export async function GET(request, { params }) {
           
           // Fetch all circuits in this district
           const [circuitsData] = await db.query(`
-            SELECT c.id, c.name, c.code 
+            SELECT c.id, c.name 
             FROM circuits c
             WHERE c.district_id = ?
             ORDER BY c.name
@@ -137,7 +137,7 @@ export async function GET(request, { params }) {
         
         // Get district with its region
         const [circuitData] = await db.query(`
-          SELECT c.*, r.name as region_name, r.id as region_id
+          SELECT c.*, r.name as region_name, r.id as region_id,
           d.name as district_name, d.id as district_id
           FROM circuits c
           JOIN regions r ON c.region_id = r.id
@@ -145,13 +145,13 @@ export async function GET(request, { params }) {
           WHERE c.id = ?
         `, [user.scope_id]);
         
-        if (districtData && districtData.length > 0) {
+        if (circuitData && circuitData.length > 0) {
           // Store district and region info
-          const district = districtData[0];
+          const district = circuitData[0];
           
           // Fetch all circuits in this district
           const [circuitsData] = await db.query(`
-            SELECT c.id, c.name, c.code 
+            SELECT c.id, c.name 
             FROM circuits c
             WHERE c.district_id = ?
             ORDER BY c.name

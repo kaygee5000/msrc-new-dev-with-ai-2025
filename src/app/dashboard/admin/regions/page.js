@@ -32,6 +32,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import HomeIcon from '@mui/icons-material/Home';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { useAuth } from '@/context/AuthContext';
 
 export default function RegionsAdmin() {
   const router = useRouter();
@@ -52,61 +53,56 @@ export default function RegionsAdmin() {
     message: '',
     severity: 'success'
   });
-  const [user, setUser] = useState(null);
+
+  // Use the auth context instead of localStorage
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   // Check user authentication and admin status
   useEffect(() => {
-    const userData = localStorage.getItem('msrc_auth');
-    if (userData) {
-      console.log('User data found, in region view:', userData);
-      
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      
-      // Redirect if not admin
-      // if (parsedUser.role !== 'admin') {
-      //   router.push('/dashboard');
-      // }
-    } else {
-      console.log('User data not found, in region view:', userData);
-
+    // If auth is still loading, wait
+    if (authLoading) return;
+    
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
       router.push('/login');
+      return;
     }
-  }, [router]);
+    
+   
+    
+    // If authenticated, fetch regions
+    fetchRegions();
+  }, [isAuthenticated, authLoading, router, user]);
 
   // Fetch regions data
-  useEffect(() => {
-    const fetchRegions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/regions');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch regions');
-        }
-        
-        const data = await response.json();
-        console.log(data.regions, 'regions data');	
-        
-        if (Array.isArray(data.regions)) {
-          setRegions(data.regions);
-        } else {
-          setRegions([]);
-        }
-      } catch (err) {
-        setError(err.message);
-        setSnackbar({
-          open: true,
-          message: `Error: ${err.message}`,
-          severity: 'error'
-        });
-      } finally {
-        setLoading(false);
+  const fetchRegions = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/regions');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch regions');
       }
-    };
-    
-    fetchRegions();
-  }, []);
+      
+      const data = await response.json();
+      console.log(data.regions, 'regions data');	
+      
+      if (Array.isArray(data.regions)) {
+        setRegions(data.regions);
+      } else {
+        setRegions([]);
+      }
+    } catch (err) {
+      setError(err.message);
+      setSnackbar({
+        open: true,
+        message: `Error: ${err.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -242,14 +238,14 @@ export default function RegionsAdmin() {
     }));
   };
 
-  if (!user) {
+  if (!isAuthenticated) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <CircularProgress />
     </Box>;
   }
 
   return (
-    <Box sx={{ p: 3, backgroundColor: '#f5f7fa', minHeight: 'calc(100vh - 64px)' }}>
+    <Box sx={{ p: 1, backgroundColor: '#f5f7fa', minHeight: 'calc(100vh - 64px)' }}>
       {/* Breadcrumbs */}
       <Breadcrumbs sx={{ mb: 3 }}>
         <Link 
@@ -264,18 +260,7 @@ export default function RegionsAdmin() {
           <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
           Dashboard
         </Link>
-        <Link
-          color="inherit"
-          href="/dashboard/admin"
-          sx={{ display: 'flex', alignItems: 'center' }}
-          onClick={(e) => {
-            e.preventDefault();
-            router.push('/dashboard/admin');
-          }}
-        >
-          <SettingsIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Admin Panel
-        </Link>
+        
         <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
           <LocationOnIcon sx={{ mr: 0.5 }} fontSize="inherit" />
           Regions

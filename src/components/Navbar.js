@@ -25,10 +25,11 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { usePathname } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ProgramSwitcher from '@/components/ProgramSelector/index';
+import { useAuth } from '@/context/AuthContext';
 
 // Fix the ElevationScroll component
 const ElevationScroll = ({ children }) => {
@@ -56,11 +57,11 @@ export default function Navbar() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState(null);
-  const { data: session, status } = useSession();
-  const user = session?.user;
-  const isAuthenticated = status === "authenticated";
   const pathname = usePathname();
-
+  const { data: session } = useSession();
+  const { user, logout } = useAuth();
+  const isAuthenticated = session !== null;
+  
   // Handle client-side authenticated rendering to avoid hydration issues
   const [isClient, setIsClient] = useState(false);
   
@@ -117,37 +118,20 @@ export default function Navbar() {
     setProfileMenuAnchor(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     handleProfileMenuClose();
     
-    // Clear all localStorage items related to authentication
-    if (typeof window !== 'undefined') {
-      // Clear specific auth-related items
-      localStorage.removeItem('msrc_auth');
-      localStorage.removeItem('msrc_current_program');
+    try {
+      // Use our centralized logout function from AuthContext
+      await logout();
       
-      // Find and clear any other msrc_ prefixed items
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('msrc_')) {
-          localStorage.removeItem(key);
-        }
-      });
+      // Redirect to home page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: redirect anyway
+      window.location.href = '/';
     }
-    
-    // Call the logout API endpoint to clear cookies
-    fetch('/api/auth/logout', { method: 'GET' })
-      .then(() => {
-        // Use signOut with redirect:false to avoid the default behavior
-        signOut({ redirect: false }).then(() => {
-          // Force a complete page reload to the homepage
-          window.location.href = '/';
-        });
-      })
-      .catch(error => {
-        console.error('Error during logout:', error);
-        // Fallback: redirect anyway
-        window.location.href = '/';
-      });
   };
 
   // Determine which nav items to show based on authentication
@@ -445,7 +429,7 @@ export default function Navbar() {
                   </>
                 )}
                 
-                {/* Show static button during SSR to avoid hydration error */}
+                {/* Show static button during SSR to prevent hydration error */}
                 {!isClient && (
                   <Button
                     variant="outlined"

@@ -118,7 +118,7 @@ export async function GET(request) {
     // Always wrap the response in NextResponse.json() with success and data fields
     return NextResponse.json({
       success: true,
-      data: cachedOrFresh
+      ...cachedOrFresh
     });
   } catch (error) {
     console.error('Error fetching circuits:', error);

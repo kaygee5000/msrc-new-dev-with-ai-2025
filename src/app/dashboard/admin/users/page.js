@@ -181,10 +181,13 @@ export default function UsersList() {
     if (!type) return 'default';
     
     const typeMap = {
-      'national_admin': 'primary',
+      'national_admin': 'error',
+      'regional_admin': 'primary',
       'district_admin': 'primary',
       'data_collector': 'success',
-      'rtp_collector': 'warning',
+      'circuit_supervisor': 'success',
+      'head_teacher': 'warning',
+      // 'rtp_collector': 'warning',
       'super_admin': 'error'
     };
     
@@ -232,7 +235,7 @@ export default function UsersList() {
         
         <Box sx={{ mb: 3 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 placeholder="Search by name, email, phone..."
@@ -259,7 +262,7 @@ export default function UsersList() {
               />
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <Button 
                 variant="contained" 
                 onClick={handleSearch}
@@ -269,7 +272,7 @@ export default function UsersList() {
               </Button>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <Button 
                 variant="outlined" 
                 onClick={resetFilters}
@@ -280,7 +283,7 @@ export default function UsersList() {
               </Button>
             </Grid>
             
-            <Grid item xs={12} md={2}>
+            <Grid size={{ xs: 12, md: 2 }}>
               <Button 
                 variant="outlined" 
                 onClick={fetchUsers}
@@ -296,7 +299,7 @@ export default function UsersList() {
         {showFilters && (
           <Box sx={{ mb: 3 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="type-filter-label">User Type</InputLabel>
                   <Select
@@ -308,10 +311,13 @@ export default function UsersList() {
                   >
                     <MenuItem value="">All Types</MenuItem>
                     <MenuItem value="national_admin">National Admin</MenuItem>
+                    <MenuItem value="regional_admin">Regional Admin</MenuItem>
                     <MenuItem value="district_admin">District Admin</MenuItem>
+                    <MenuItem value="circuit_supervisor">SISO</MenuItem>
+                    <MenuItem value="head_teacher">Head Facilitator</MenuItem>
                     <MenuItem value="data_collector">Data Collector</MenuItem>
-                    <MenuItem value="rtp_collector">RTP Collector</MenuItem>
-                    <MenuItem value="super_admin">Super Admin</MenuItem>
+                    {/* <MenuItem value="rtp_collector">RTP Collector</MenuItem> */}
+                    {/* <MenuItem value="super_admin">Super Admin</MenuItem> */}
                   </Select>
                 </FormControl>
               </Grid>

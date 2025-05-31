@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      data: rows[0]
+      district: rows[0]
     });
   } catch (error) {
     console.error('Error fetching district:', error);

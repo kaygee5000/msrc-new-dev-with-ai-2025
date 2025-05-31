@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Toolbar, AppBar, IconButton, Typography, Divider, Box,
-  Collapse, Button, Avatar, Menu, MenuItem
+  Collapse, Button, Avatar, Menu, MenuItem, CircularProgress
 } from '@mui/material';
 import {
   Dashboard, Domain, LocationCity, Business, School, Groups, BarChart, Assessment, ListAlt, Settings, Menu as MenuIcon,
@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useSession, signOut } from "next-auth/react";
+import { useAuth } from '@/context/AuthContext';
 
 const drawerWidth = 240;
 
@@ -47,40 +48,24 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   
-  // Replace useAuth with NextAuth's useSession
-  const { data: session } = useSession();
-  const user = session?.user;
-
-  // Initialize expanded state based on current path
+  // Use our AuthContext for authentication
+  const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
+  
+  // Protect all dashboard routes
   useEffect(() => {
-    const newExpandedState = {};
-    
-    menuItems.forEach(item => {
-      if (item.subItems) {
-        // Check if current path matches this item or any of its subitems
-        const isActive = pathname === item.path || 
-          item.subItems.some(subItem => pathname.startsWith(subItem.path));
-        
-        if (isActive) {
-          newExpandedState[item.text] = true;
-        }
-      }
-    });
-    
-    setExpandedItems(newExpandedState);
-  }, [pathname]);
+    // If authentication check is complete and user is not authenticated
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+  // Handle logout
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
   };
 
-  const handleExpandClick = (itemText) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [itemText]: !prev[itemText]
-    }));
-  };
-
+  // Handle profile menu
   const handleProfileMenuOpen = (event) => {
     setProfileMenuAnchor(event.currentTarget);
   };
@@ -89,105 +74,106 @@ export default function DashboardLayout({ children }) {
     setProfileMenuAnchor(null);
   };
 
-  const handleLogout = () => {
-    handleProfileMenuClose();
-    
-    // Clear all localStorage items related to authentication
-    if (typeof window !== 'undefined') {
-      // Clear specific auth-related items
-      localStorage.removeItem('msrc_auth');
-      localStorage.removeItem('msrc_current_program');
-      
-      // Find and clear any other msrc_ prefixed items
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('msrc_')) {
-          localStorage.removeItem(key);
-        }
-      });
-    }
-    
-    // Call the logout API endpoint to clear cookies
-    fetch('/api/auth/logout', { method: 'GET' })
-      .then(() => {
-        // Use signOut with redirect:false to avoid the default behavior
-        signOut({ redirect: false }).then(() => {
-          // Force a complete page reload to the homepage
-          window.location.href = '/';
-        });
-      })
-      .catch(error => {
-        console.error('Error during logout:', error);
-        // Fallback: redirect anyway
-        window.location.href = '/';
-      });
+  // Handle mobile drawer toggle
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
-  // Get user initials for avatar
-  const getUserInitials = () => {
-    if (!user || !user.name) return "U";
-    return user.first_name.split(' ').map((n) => n[0]).join('').toUpperCase();
+  // Handle sub-menu expansion
+  const handleExpandClick = (item) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [item]: !prev[item]
+    }));
   };
 
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // If not authenticated, don't render dashboard (will redirect in useEffect)
+  if (!isAuthenticated) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Render drawer content
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-          MSRC Admin
+      <Toolbar sx={{ justifyContent: 'center' }}>
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
+          mSRC Admin
         </Typography>
       </Toolbar>
       <Divider />
       <List>
         {menuItems.map((item) => (
-          <Box key={item.text}>
+          <div key={item.text}>
             {item.subItems ? (
               <>
                 <ListItem disablePadding>
                   <ListItemButton 
                     onClick={() => handleExpandClick(item.text)}
-                    selected={pathname === item.path}
-                    component={pathname === item.path ? Link : 'div'}
-                    href={pathname === item.path ? item.path : undefined}
+                    selected={pathname.startsWith(item.path)}
                   >
-                    <ListItemIcon>
-                      {item.icon}
-                    </ListItemIcon>
+                    <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.text} />
                     {expandedItems[item.text] ? <ExpandLess /> : <ExpandMore />}
                   </ListItemButton>
                 </ListItem>
                 <Collapse in={expandedItems[item.text]} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
-                    {item.subItems.map(subItem => (
-                      <Link 
-                        href={subItem.path} 
-                        key={subItem.text} 
-                        style={{ textDecoration: 'none', color: 'inherit' }}
-                      >
+                    {item.subItems.map((subItem) => (
+                      <ListItem key={subItem.text} disablePadding>
                         <ListItemButton 
+                          component={Link}
+                          href={subItem.path}
                           selected={pathname === subItem.path}
                           sx={{ pl: 4 }}
                         >
-                          <ListItemIcon>
-                            {subItem.icon}
-                          </ListItemIcon>
+                          <ListItemIcon>{subItem.icon}</ListItemIcon>
                           <ListItemText primary={subItem.text} />
                         </ListItemButton>
-                      </Link>
+                      </ListItem>
                     ))}
                   </List>
                 </Collapse>
               </>
             ) : (
-              <Link href={item.path} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <ListItemButton selected={pathname === item.path}>
-                  <ListItemIcon>
-                    {item.icon}
-                  </ListItemIcon>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  component={Link}
+                  href={item.path}
+                  selected={pathname === item.path}
+                >
+                  <ListItemIcon>{item.icon}</ListItemIcon>
                   <ListItemText primary={item.text} />
                 </ListItemButton>
-              </Link>
+              </ListItem>
             )}
-          </Box>
+          </div>
         ))}
       </List>
     </div>
@@ -199,48 +185,45 @@ export default function DashboardLayout({ children }) {
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
+          ml: { sm: `${drawerWidth}px` },
         }}
       >
-        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: 'none' } }}
-            >
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" noWrap component="div">
-              Dashboard
-            </Typography>
-          </Box>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            {menuItems.find(item => pathname === item.path)?.text || 
+             menuItems.find(item => item.subItems && item.subItems.some(sub => pathname === sub.path))?.text ||
+             'Dashboard'}
+          </Typography>
           
-          {/* Profile and Logout Buttons */}
+          {/* User profile menu */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Button 
-              color="inherit"
-              startIcon={<Person />}
+              color="inherit" 
               onClick={handleProfileMenuOpen}
               endIcon={<ArrowDropDown />}
+              startIcon={
+                <Avatar 
+                  sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}
+                >
+                  {user?.first_name?.[0] || user?.name?.[0] || 'U'}
+                </Avatar>
+              }
             >
-              Profile
+              {user?.first_name || user?.name || 'User'}
             </Button>
-            
             <Menu
               anchorEl={profileMenuAnchor}
               open={Boolean(profileMenuAnchor)}
               onClose={handleProfileMenuClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
             >
               <MenuItem onClick={() => {
                 handleProfileMenuClose();
@@ -249,74 +232,65 @@ export default function DashboardLayout({ children }) {
                 <ListItemIcon>
                   <Person fontSize="small" />
                 </ListItemIcon>
-                My Profile
+                Profile
               </MenuItem>
               <MenuItem onClick={() => {
                 handleProfileMenuClose();
-                router.push('/dashboard/settings');
+                handleLogout();
               }}>
-                <ListItemIcon>
-                  <Settings fontSize="small" />
-                </ListItemIcon>
-                Settings
-              </MenuItem>
-              <Divider />
-              <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
                   <Logout fontSize="small" />
                 </ListItemIcon>
                 Logout
               </MenuItem>
             </Menu>
-            
-            <Avatar 
-              sx={{ 
-                ml: 1, 
-                bgcolor: 'primary.dark',
-                cursor: 'pointer'
-              }}
-              onClick={handleProfileMenuOpen}
-            >
-              {getUserInitials()}
-            </Avatar>
           </Box>
         </Toolbar>
       </AppBar>
       
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true,
-        }}
-        sx={{
-          display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-        }}
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
       >
-        {drawer}
-      </Drawer>
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: 'none', sm: 'block' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-        }}
-        open
-      >
-        {drawer}
-      </Drawer>
+        {/* Mobile drawer */}
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true, // Better open performance on mobile
+          }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+        >
+          {drawer}
+        </Drawer>
+        
+        {/* Desktop drawer */}
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+      
+      {/* Main content */}
       <Box
         component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
+        sx={{ 
+          flexGrow: 1, 
+          p: 3, 
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
+          marginTop: '5px'
         }}
       >
-        <Toolbar />
         {children}
       </Box>
     </Box>

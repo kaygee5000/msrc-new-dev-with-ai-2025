@@ -236,7 +236,7 @@ export default function RightToPlayPage() {
   // Function to navigate to appropriate form
   const navigateToForm = (formType, itineraryId) => {
     if (formType === 'consolidated-checklist') {
-      router.push(`/rtp/consolidated-checklist/new?itineraryId=${itineraryId}`);
+      router.push(`/rtp/consolidated-checklist/new/${itineraryId}`);
     } else {
       router.push(`/rtp/${formType}/${itineraryId}`);
     }

@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Box, Typography, Paper, Tabs, Tab, CircularProgress } from '@mui/material';
+import { Breadcrumbs, Link,} from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 export default function RegionDetail() {
   const { id } = useParams();
@@ -15,7 +18,10 @@ export default function RegionDetail() {
       setLoading(true);
       const res = await fetch(`/api/regions/${id}`);
       const data = await res.json();
-      setRegion(data);
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+      setRegion(data.region);
       setLoading(false);
     }
     fetchRegion();
@@ -26,6 +32,40 @@ export default function RegionDetail() {
 
   return (
     <Box p={4}>
+
+       {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 3 }}>
+        <Link 
+          color="inherit" 
+          href="/dashboard" 
+          sx={{ display: 'flex', alignItems: 'center' }}
+          onClick={(e) => {
+            e.preventDefault();
+            router.push('/dashboard');
+          }}
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+          Dashboard
+        </Link>
+        
+        <Link 
+          color="inherit" 
+          href="/dashboard/admin/regions"
+          sx={{ display: 'flex', alignItems: 'center' }}
+          onClick={(e) => {
+            e.preventDefault();
+            router.push('/dashboard/admin/regions');
+          }}
+        >
+          <LocationOnIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+          Regions
+        </Link>
+        
+        <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+          {region?.name || 'Region Details'}
+        </Typography>
+      </Breadcrumbs>
+
       <Typography variant="h4" gutterBottom>{region.name}</Typography>
       <Typography variant="subtitle1" gutterBottom>{region.description}</Typography>
       <Paper sx={{ mt: 4 }}>

@@ -742,7 +742,7 @@ export default function RTPOverviewPage() {
                         size="small" 
                         endIcon={<ArrowForwardIcon />}
                         component={Link}
-                        href={activeItinerary ? `/dashboard/admin/rtp/itineraries/${activeItinerary.id}/questions?category=${category.id}` : '#'}
+                        href={activeItinerary ? `/dashboard/admin/rtp/itineraries/${activeItinerary.id}/questions/${category.id}` : '#'}
                         disabled={!activeItinerary}
                       >
                         View Details

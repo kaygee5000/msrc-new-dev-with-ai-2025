@@ -7,7 +7,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '16');
+    const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';
     const id = searchParams.get('id');
 
@@ -57,12 +57,15 @@ export async function GET(request) {
           };
         }
 
-        return { success: true, data: rows, pagination };
+        return { regions: rows, pagination };
       },
       21600
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: true,
+      ...result
+    });
   } catch (error) {
     console.error('Error fetching regions:', error);
     return NextResponse.json(

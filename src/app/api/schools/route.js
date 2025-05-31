@@ -143,6 +143,15 @@ export async function GET(request) {
           id: school.id,
           name: school.name,
           gesCode: school.ges_code,
+          description: school.description,
+          hasShift: school.has_shift,
+          isGalop: school.is_galop,
+          gallopStatusType: school.gallop_status_type,
+          isRightToPlay: school.is_right_to_play,
+          rightToPlayBenefitType: school.right_to_play_benefit_type,
+          isSpecial: school.is_special,
+          position: school.position,
+          isWashBeneficiary: school.isWashBeneficiary,
           regionId: school.region_id,
           districtId: school.district_id,
           circuitId: school.circuit_id,
@@ -177,8 +186,7 @@ export async function GET(request) {
     // Always wrap the response in NextResponse.json() with success and data fields
     return NextResponse.json({
       success: true,
-      data: cachedOrFresh,
-      total: cachedOrFresh.pagination?.total || 0
+      ...cachedOrFresh,
     }, { status: 200 });
   } catch (error) {
     console.error('Error fetching schools:', error);

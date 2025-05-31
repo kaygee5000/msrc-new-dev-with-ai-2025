@@ -1,31 +1,59 @@
-import redisClient from './redis';
+import { getRedisClient } from './redis';
 
 /**
  * A custom NextAuth.js adapter for Redis
  * This implements the minimal required adapter methods for Email Provider
  */
 export function RedisAdapter() {
+  // Helper function to get Redis client with error handling
+  const getClient = async () => {
+    try {
+      const client = await getRedisClient();
+      if (!client) {
+        throw new Error('Redis client not available');
+      }
+      return client;
+    } catch (error) {
+      console.error('Failed to get Redis client:', error);
+      throw new Error('Database connection failed');
+    }
+  };
+
   return {
     // Create a verification token (used for email sign-in)
     async createVerificationToken(token) {
-      const { identifier, token: tokenValue, expires } = token;
-      // Store token with expiry
-      const key = `emailToken:${identifier}:${tokenValue}`;
-      await redisClient.set(key, JSON.stringify(token), 'PX', expires.getTime() - Date.now());
-      return token;
+      try {
+        const { identifier, token: tokenValue, expires } = token;
+        const redis = await getClient();
+        // Store token with expiry (in milliseconds)
+        const key = `emailToken:${identifier}:${tokenValue}`;
+        await redis.set(key, JSON.stringify(token), {
+          PX: expires.getTime() - Date.now()
+        });
+        return token;
+      } catch (error) {
+        console.error('Error in createVerificationToken:', error);
+        throw error;
+      }
     },
 
     // Get a verification token
     async useVerificationToken({ identifier, token }) {
-      const key = `emailToken:${identifier}:${token}`;
-      const result = await redisClient.get(key);
-      
-      if (!result) return null;
-      
-      // Delete the token after use (one-time use)
-      await redisClient.del(key);
-      
-      return JSON.parse(result);
+      try {
+        const redis = await getClient();
+        const key = `emailToken:${identifier}:${token}`;
+        const result = await redis.get(key);
+        
+        if (!result) return null;
+        
+        // Delete the token after use (one-time use)
+        await redis.del(key);
+        
+        return JSON.parse(result);
+      } catch (error) {
+        console.error('Error in useVerificationToken:', error);
+        throw error;
+      }
     },
 
     // Create a user - not actually needed for our implementation

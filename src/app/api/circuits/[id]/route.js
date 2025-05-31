@@ -26,7 +26,10 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json({
+      success: true,
+      circuit: rows[0]
+    });
   } catch (error) {
     console.error('Error fetching circuit:', error);
     return NextResponse.json(

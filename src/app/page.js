@@ -133,7 +133,7 @@ export default function Home() {
 
           <Grid container spacing={4}>
             {/* Feature 1 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Card sx={{ height: '100%', transition: 'all 0.3s', '&:hover': { transform: 'translateY(-8px)' } }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box 
@@ -163,7 +163,7 @@ export default function Home() {
             </Grid>
 
             {/* Feature 2 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Card sx={{ height: '100%', transition: 'all 0.3s', '&:hover': { transform: 'translateY(-8px)' } }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box 
@@ -193,7 +193,7 @@ export default function Home() {
             </Grid>
 
             {/* Feature 3 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Card sx={{ height: '100%', transition: 'all 0.3s', '&:hover': { transform: 'translateY(-8px)' } }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box 
@@ -229,25 +229,25 @@ export default function Home() {
       <Box sx={{ py: 8, bgcolor: 'grey.100' }}>
         <Container maxWidth="lg">
           <Grid container spacing={2} justifyContent="center">
-            <Grid item xs={6} sm={3}>
+            <Grid size={{xs:6, sm:3}}>
               <Paper sx={{ py: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>16</Typography>
                 <Typography variant="body2" color="text.secondary">Regions</Typography>
               </Paper>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{xs:6, sm:3}}>
               <Paper sx={{ py: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>260</Typography>
                 <Typography variant="body2" color="text.secondary">Districts</Typography>
               </Paper>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{xs:6, sm:3}}>
               <Paper sx={{ py: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>38K+</Typography>
                 <Typography variant="body2" color="text.secondary">Schools</Typography>
               </Paper>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid size={{xs:6, sm:3}}>
               <Paper sx={{ py: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>9M+</Typography>
                 <Typography variant="body2" color="text.secondary">Students</Typography>
@@ -271,7 +271,7 @@ export default function Home() {
 
           <Grid container spacing={6}>
             {/* Step 1 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Box sx={{ textAlign: 'center' }}>
                 <Box 
                   sx={{ 
@@ -301,7 +301,7 @@ export default function Home() {
             </Grid>
 
             {/* Step 2 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Box sx={{ textAlign: 'center' }}>
                 <Box 
                   sx={{ 
@@ -331,7 +331,7 @@ export default function Home() {
             </Grid>
 
             {/* Step 3 */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{xs:12, md:4}}>
               <Box sx={{ textAlign: 'center' }}>
                 <Box 
                   sx={{ 

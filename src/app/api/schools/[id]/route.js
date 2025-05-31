@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '@/utils/db';
+import { getSchoolStatsSummary } from '@/services/schoolStatsAggregator';
 
 /**
  * GET handler for retrieving a single school by ID
@@ -9,6 +10,12 @@ export async function GET(request, { params }) {
     const resolvedParams = await params;
     const { id } = resolvedParams;
     const db = await getConnection();
+    
+    // Get URL search params for statistics filtering
+    const { searchParams } = new URL(request.url);
+    const year = searchParams.get('year');
+    const term = searchParams.get('term');
+    const weekNumber = searchParams.get('weekNumber');
     
     // Get school with related data
     const [rows] = await db.query(`
@@ -27,13 +34,21 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json(rows[0]);
+    // Get aggregated statistics for the school
+    const statsResponse = await getSchoolStatsSummary(id, { year, term, weekNumber });
+    
+    return NextResponse.json({
+      success: true, 
+      school: rows[0],
+      statistics: statsResponse.success ? statsResponse.data : null
+    });
   } catch (error) {
     console.error('Error fetching school:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch school' },
-      { status: 500 }
-    );
+      { success: false,
+        error: 'Failed to fetch school',
+        status: 500 
+    });
   }
 }
 

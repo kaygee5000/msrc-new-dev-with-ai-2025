@@ -1,24 +1,53 @@
 import { createClient } from 'redis';
+import redisConfig from '@/config/redis.config';
 
-// Create a Redis client using environment variables
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+let redisClient;
+let isRedisConnected = false;
 
-const redisClient = createClient({
-  url: redisUrl,
-  socket: {
-    reconnectStrategy: (retries) => Math.min(retries * 50, 2000)
-  }
-});
+// Function to initialize Redis connection
+const initRedis = async () => {
+  if (redisClient && isRedisConnected) return redisClient;
 
-redisClient.on('error', (err) => {
-  console.error('Redis Client Error', err);
-});
+  console.log(`Connecting to Redis at ${redisConfig.url}`);
+  
+  try {
+    redisClient = createClient(redisConfig);
 
-// Connect immediately if not already connected
-if (!redisClient.isOpen) {
-  redisClient.connect().catch((err) => {
+    redisClient.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+      isRedisConnected = false;
+    });
+
+    redisClient.on('connect', () => {
+      console.log('Redis connected successfully');
+      isRedisConnected = true;
+    });
+
+    redisClient.on('reconnecting', () => {
+      console.log('Redis reconnecting...');
+      isRedisConnected = false;
+    });
+
+    redisClient.on('ready', () => {
+      console.log('Redis is ready to use');
+      isRedisConnected = true;
+    });
+
+    await redisClient.connect();
+    return redisClient;
+  } catch (err) {
     console.error('Failed to connect to Redis:', err);
-  });
-}
+    throw err; // Re-throw to allow handling in the auth adapter
+  }
+};
 
-export default redisClient;
+// Export a function to get the Redis client
+export const getRedisClient = async () => {
+  if (!redisClient) {
+    return await initRedis();
+  }
+  return redisClient;
+};
+
+// For backward compatibility
+export default getRedisClient;

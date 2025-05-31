@@ -617,7 +617,7 @@ export default function ItineraryDetailPage({ params }) {
                                 <Button 
                                   size="small" 
                                   component={Link}
-                                  href={`/dashboard/admin/rtp/itineraries/${itineraryId}/questions?category=${category.id}`}
+                                  href={`/dashboard/admin/rtp/itineraries/${itineraryId}/questions/${category.id}`}
                                 >
                                   View Questions
                                 </Button>

@@ -1,4 +1,4 @@
-import redisClient from './redis';
+import { getRedisClient } from './redis';
 
 /**
  * Cache utility for handling Redis caching operations
@@ -20,8 +20,18 @@ class CacheService {
       : options;
     
     try {
+      // Get Redis client
+      const redis = await getRedisClient();
+      
+      if (!redis) {
+        // If Redis is not available, fall back to fetcher
+        console.warn('Redis not available, fetching data directly');
+        const freshData = await fetcher();
+        return transform ? transform(freshData) : freshData;
+      }
+      
       // Try to get data from cache
-      const cachedData = await redisClient.get(key);
+      const cachedData = await redis.get(key);
       
       if (cachedData) {
         // Return cached data if available
@@ -36,9 +46,9 @@ class CacheService {
       // Get the raw data to cache (if freshData is the result of a transform, we don't want to store that)
       const dataToCache = freshData;
       
-      // Store in cache (only if data exists and redis is connected)
-      if (dataToCache && redisClient.isOpen) {
-        await redisClient.set(key, JSON.stringify(dataToCache), { EX: ttl });
+      // Store in cache (only if data exists)
+      if (dataToCache) {
+        await redis.set(key, JSON.stringify(dataToCache), { EX: ttl });
       }
       
       return freshData;
@@ -57,15 +67,22 @@ class CacheService {
    */
   static async invalidate(key) {
     try {
+      const redis = await getRedisClient();
+      
+      if (!redis) {
+        console.warn('Redis not available, cannot invalidate cache');
+        return false;
+      }
+      
       if (key.includes('*')) {
         // Handle pattern invalidation
-        const keys = await redisClient.keys(key);
+        const keys = await redis.keys(key);
         if (keys.length > 0) {
-          await redisClient.del(keys);
+          await redis.del(keys);
         }
       } else {
         // Simple key invalidation
-        await redisClient.del(key);
+        await redis.del(key);
       }
       return true;
     } catch (error) {

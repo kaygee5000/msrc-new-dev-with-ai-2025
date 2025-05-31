@@ -1,4 +1,6 @@
 'use client';
+export const dynamic = 'force-dynamic';
+
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -70,7 +72,6 @@ import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import GroupsIcon from '@mui/icons-material/Groups';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import { useSearchParams } from 'next/navigation';
 
 // Question type constants
 const QUESTION_TYPES = [
@@ -92,9 +93,8 @@ const CATEGORIES = [
 
 export default function QuestionsManagementPage({ params }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const itineraryId = params.id;
-  const categoryFilter = searchParams.get('category');
+  const categoryFilter = params.category_id; // Get category from route params
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

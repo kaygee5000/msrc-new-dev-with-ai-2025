@@ -22,6 +22,8 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  Breadcrumbs,
+  Link,
   IconButton,
   Dialog,
   DialogTitle,
@@ -31,6 +33,8 @@ import {
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HomeIcon from '@mui/icons-material/Home';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import FormDialog from '@/components/FormDialog';
 import { useRouter } from 'next/navigation';
 
@@ -61,7 +65,7 @@ export default function Districts() {
   const fetchDistricts = useCallback(async () => {
     setLoadingDistricts(true);
     try {
-      let url = `/api/districts?page=${pagination.page + 1}&limit=${pagination.limit}`;
+      let url = `/api/districts?page=${pagination.page}&limit=${pagination.limit}`;
       if (searchTerm) {
         url += `&search=${searchTerm}`;
       }
@@ -71,12 +75,10 @@ export default function Districts() {
       const response = await fetch(url);
       const data = await response.json();
       
-      if (data.districts) {
-        console.log('Fetched districts:', data.districts);
-        
+            if (data.districts) {
         setDistricts(data.districts);
         setPagination({
-          page: data.pagination.page - 1,
+          page: data.pagination.page,
           limit: data.pagination.limit,
           total: data.pagination.total,
           pages: data.pagination.pages
@@ -95,17 +97,31 @@ export default function Districts() {
     fetchRegions();
   }, []);
 
-  // Fetch districts on mount and pagination change
+  // Fetch districts when pagination or filters change
   useEffect(() => {
-    fetchDistricts();
-  }, [pagination.page, pagination.limit, fetchDistricts]);
+    const fetchData = async () => {
+      await fetchDistricts();
+    };
+    fetchData();
+    // We only want to run this effect when pagination.page or pagination.limit changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, pagination.limit]);
 
-  // Add useEffect to refetch districts when regionFilter or searchTerm changes
+  // Handle filter changes separately to avoid unnecessary API calls
   useEffect(() => {
     // Reset to first page when filters change
-    setPagination(prev => ({ ...prev, page: 0 }));
-    fetchDistricts();
-  }, [regionFilter, searchTerm, fetchDistricts]);
+    setPagination(prev => ({
+      ...prev,
+      page: 0
+    }));
+    
+    const timer = setTimeout(() => {
+      fetchDistricts();
+    }, 300); // Small debounce for search
+    
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, regionFilter]);
 
   // Fetch regions for district form
   const fetchRegions = async () => {
@@ -126,18 +142,29 @@ export default function Districts() {
 
   // Handle page change
   const handlePageChange = (event, newPage) => {
-    setPagination({ ...pagination, page: newPage });
+    setPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
   };
 
   // Handle rows per page change
   const handleRowsPerPageChange = (event) => {
-    setPagination({ ...pagination, limit: parseInt(event.target.value, 10), page: 0 });
+    const newLimit = parseInt(event.target.value, 10);
+    setPagination(prev => ({
+      ...prev,
+      limit: newLimit,
+      page: 0 // Reset to first page when changing rows per page
+    }));
   };
 
   // Handle search
   const handleSearch = (query) => {
     setSearchTerm(query);
-    setPagination({ ...pagination, page: 0 });
+    setPagination(prev => ({
+      ...prev,
+      page: 0 // Reset to first page when searching
+    }));
   };
 
   // Show form for adding new district
@@ -258,7 +285,25 @@ export default function Districts() {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ pt: 4, pb: 2 }}>
+      <Box sx={{ pt: 1, pb: 1 }}>
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
+          <Link
+            color="inherit"
+            href="/dashboard"
+            sx={{ display: 'flex', alignItems: 'center' }}
+            onClick={(e) => {
+              e.preventDefault();
+              router.push('/dashboard');
+            }}
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+            Dashboard
+          </Link>
+          <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+            <LocationOnIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+            Districts
+          </Typography>
+        </Breadcrumbs>
         <Typography variant="h4" gutterBottom>
           District Management
         </Typography>
@@ -266,7 +311,7 @@ export default function Districts() {
           Add, edit, and manage districts across regions
         </Typography>
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Filter by Region</InputLabel>
               <Select
@@ -274,7 +319,10 @@ export default function Districts() {
                 label="Filter by Region"
                 onChange={e => {
                   setRegionFilter(e.target.value);
-                  setPagination({ ...pagination, page: 0 });
+                  setPagination(prev => ({
+                    ...prev,
+                    page: 0
+                  }));
                 }}
               >
                 <MenuItem value="">
@@ -286,7 +334,7 @@ export default function Districts() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               size="small"
@@ -319,28 +367,26 @@ export default function Districts() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {districts
-                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
-                  .map((district) => (
-                    <TableRow 
-                      hover 
-                      key={district.id}
-                      onClick={() => router.push(`/dashboard/admin/districts/${district.id}`)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <TableCell>{district.name}</TableCell>
-                      <TableCell>{district.region_name}</TableCell>
-                      <TableCell>{district.description}</TableCell>
-                      <TableCell align="right">
-                        <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(district); }} size="small">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton color="error" onClick={e => { e.stopPropagation(); handleDeleteClick([district.id]); }} size="small">
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {districts.map((district) => (
+                  <TableRow 
+                    hover 
+                    key={district.id}
+                    onClick={() => router.push(`/dashboard/admin/districts/${district.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <TableCell>{district.name}</TableCell>
+                    <TableCell>{district.region_name}</TableCell>
+                    <TableCell>{district.description}</TableCell>
+                    <TableCell align="right">
+                      <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(district); }} size="small">
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton color="error" onClick={e => { e.stopPropagation(); handleDeleteClick([district.id]); }} size="small">
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
                 {districts.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} align="center">
@@ -374,7 +420,7 @@ export default function Districts() {
         isSubmitting={isSubmitting}
       >
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="name"
               label="District Name"
@@ -385,7 +431,7 @@ export default function Districts() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="code"
               label="District Code"
@@ -396,7 +442,7 @@ export default function Districts() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <FormControl fullWidth margin="normal" required>
               <InputLabel>Region</InputLabel>
               <Select

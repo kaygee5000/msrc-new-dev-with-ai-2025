@@ -13,7 +13,8 @@ import {
   CardActions,
   Button,
   Breadcrumbs,
-  Link
+  Link,
+  CircularProgress
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import SchoolIcon from '@mui/icons-material/School';
@@ -23,163 +24,168 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PeopleIcon from '@mui/icons-material/People';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const { user, isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    // Check if user is logged in and is admin
-    const userData = localStorage.getItem('msrc_auth');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      
-      // Redirect if not admin
-      if (parsedUser.role !== 'admin') {
-        router.push('/dashboard');
-      }
-    } else {
+    // If authentication check is complete and user is not authenticated
+    if (!loading && !isAuthenticated) {
       router.push('/login');
+      return;
     }
-  }, [router]);
+    
+    // Check if user is admin
+    if (!loading && isAuthenticated && user?.role !== 'admin') {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, loading, router, user]);
 
-  // Logout handler
-  const handleLogout = () => {
-    localStorage.removeItem('msrc_auth');
-    setUser(null);
-    router.push('/login');
-  };
+  // Show loading while checking authentication
+  if (loading || !isAuthenticated) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  const adminModules = [
+  const adminCards = [
     {
-      title: 'Regions',
-      description: 'Manage regions in the education system',
-      icon: <LocationOnIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/regions'
+      title: 'Schools',
+      description: 'Manage school information and settings',
+      icon: <SchoolIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/schools',
+      color: '#4caf50'
     },
     {
       title: 'Districts',
-      description: 'Manage educational districts and their configurations',
-      icon: <BusinessIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/districts'
+      description: 'Manage district information and settings',
+      icon: <BusinessIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/districts',
+      color: '#2196f3'
+    },
+    {
+      title: 'Regions',
+      description: 'Manage region information and settings',
+      icon: <LocationOnIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/regions',
+      color: '#ff9800'
     },
     {
       title: 'Circuits',
-      description: 'Manage educational circuits within districts',
-      icon: <AccountBalanceIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/circuits'
-    },
-    {
-      title: 'Schools',
-      description: 'Manage schools, their details and configurations',
-      icon: <SchoolIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/schools'
+      description: 'Manage circuit information and settings',
+      icon: <AccountBalanceIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/circuits',
+      color: '#9c27b0'
     },
     {
       title: 'Users',
-      description: 'Manage system users and their access levels',
-      icon: <PeopleIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/users'
+      description: 'Manage user accounts and permissions',
+      icon: <PeopleIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/users',
+      color: '#f44336'
     },
     {
-      title: 'System Settings',
-      description: 'Configure system-wide settings and parameters',
-      icon: <SettingsIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/settings'
+      title: 'Settings',
+      description: 'Configure system settings and preferences',
+      icon: <SettingsIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/settings',
+      color: '#607d8b'
     },
     {
-      title: 'Pregnancy & Re-entry Dashboard',
-      description: 'Analytics and submissions for pregnancy & re-entry data',
-      icon: <BarChartIcon sx={{ fontSize: 40 }} color="primary" />,
-      path: '/dashboard/admin/reentry'
+      title: 'Reports',
+      description: 'View and generate system reports',
+      icon: <BarChartIcon sx={{ fontSize: 40 }} />,
+      link: '/dashboard/admin/reports',
+      color: '#795548'
     }
   ];
 
-  if (!user) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-      <Typography>Loading...</Typography>
-    </Box>;
-  }
-
   return (
-    <Box sx={{ p: 3, backgroundColor: '#f5f7fa', minHeight: 'calc(100vh - 64px)' }}>
-      {/* Logout Button */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-        <Button variant="outlined" color="error" onClick={handleLogout}>
-          Logout
-        </Button>
-      </Box>
-      {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 3 }}>
-        <Link 
-          color="inherit" 
-          href="/dashboard" 
-          sx={{ display: 'flex', alignItems: 'center' }}
-          onClick={(e) => {
-            e.preventDefault();
-            router.push('/dashboard');
-          }}
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Dashboard
-        </Link>
-        <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
-          <SettingsIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Admin Panel
-        </Typography>
-      </Breadcrumbs>
-
-      {/* Page Title */}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-          Admin Control Panel
+        <Breadcrumbs aria-label="breadcrumb">
+          <Link
+            underline="hover"
+            sx={{ display: 'flex', alignItems: 'center' }}
+            color="inherit"
+            href="/dashboard"
+          >
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+            Dashboard
+          </Link>
+          <Typography
+            sx={{ display: 'flex', alignItems: 'center' }}
+            color="text.primary"
+          >
+            Admin
+          </Typography>
+        </Breadcrumbs>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ mt: 2 }}>
+          Admin Dashboard
         </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Manage all aspects of the MSRC system from this central hub
+        <Typography variant="body1" color="text.secondary" paragraph>
+          Welcome to the administration dashboard. From here, you can manage all aspects of the system.
         </Typography>
       </Box>
 
-      {/* Admin Module Cards */}
       <Grid container spacing={3}>
-        {adminModules.map((module, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+        {adminCards.map((card) => (
+          <Grid item xs={12} sm={6} md={4} key={card.title}>
             <Card 
               sx={{ 
                 height: '100%', 
                 display: 'flex', 
                 flexDirection: 'column',
-                transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+                transition: 'transform 0.3s, box-shadow 0.3s',
                 '&:hover': {
                   transform: 'translateY(-5px)',
-                  boxShadow: 4
+                  boxShadow: 6
                 }
               }}
             >
-              <CardContent sx={{ flexGrow: 1, textAlign: 'center', pt: 4 }}>
-                <Box sx={{ mb: 2 }}>
-                  {module.icon}
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    mb: 2,
+                    p: 2,
+                    borderRadius: '50%',
+                    width: 80,
+                    height: 80,
+                    backgroundColor: `${card.color}20`,
+                    color: card.color,
+                    margin: '0 auto 16px'
+                  }}
+                >
+                  {card.icon}
                 </Box>
-                <Typography gutterBottom variant="h5" component="h2" sx={{ fontWeight: 'medium' }}>
-                  {module.title}
+                <Typography gutterBottom variant="h5" component="h2" align="center">
+                  {card.title}
                 </Typography>
-                <Typography color="text.secondary">
-                  {module.description}
+                <Typography variant="body2" color="text.secondary" align="center">
+                  {card.description}
                 </Typography>
               </CardContent>
-              <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
+              <CardActions>
                 <Button 
-                  size="medium" 
+                  size="small" 
+                  fullWidth 
                   variant="contained" 
-                  onClick={() => router.push(module.path)}
+                  sx={{ backgroundColor: card.color }}
+                  onClick={() => router.push(card.link)}
                 >
-                  Manage {module.title}
+                  Manage
                 </Button>
               </CardActions>
             </Card>
           </Grid>
         ))}
       </Grid>
-    </Box>
+    </Container>
   );
 }

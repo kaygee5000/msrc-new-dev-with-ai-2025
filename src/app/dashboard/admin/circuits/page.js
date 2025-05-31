@@ -25,11 +25,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Breadcrumbs,
+  Link,
   Paper,
   CircularProgress
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HomeIcon from '@mui/icons-material/Home';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import FormDialog from '@/components/FormDialog';
 import { useRouter } from 'next/navigation';
 
@@ -99,7 +103,7 @@ export default function Circuits() {
   // Fetch regions for filters and circuit form
   const fetchRegions = async () => {
     try {
-      const response = await fetch('/api/regions?limit=100');
+      const response = await fetch('/api/regions?limit=20');
       const data = await response.json();
       
       if (data.regions) {
@@ -307,7 +311,27 @@ export default function Circuits() {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ pt: 4, pb: 2 }}>
+      <Box sx={{ pt: 2, pb: 2 }}>
+        {/* Breadcrumbs */}
+             <Breadcrumbs sx={{ mb: 3 }}>
+               <Link 
+                 color="inherit" 
+                 href="/dashboard" 
+                 sx={{ display: 'flex', alignItems: 'center' }}
+                 onClick={(e) => {
+                   e.preventDefault();
+                   router.push('/dashboard');
+                 }}
+               >
+                 <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+                 Dashboard
+               </Link>
+               
+               <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
+                 <LocationOnIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+                 Circuits
+               </Typography>
+             </Breadcrumbs>
         <Typography variant="h4" gutterBottom>
           Circuit Management
         </Typography>
@@ -317,7 +341,7 @@ export default function Circuits() {
         
         {/* Filters */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Filter by Region</InputLabel>
               <Select
@@ -337,7 +361,7 @@ export default function Circuits() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.region_id}>
               <InputLabel>Filter by District</InputLabel>
               <Select
@@ -357,7 +381,7 @@ export default function Circuits() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <TextField
               fullWidth
               size="small"
@@ -392,7 +416,6 @@ export default function Circuits() {
               </TableHead>
               <TableBody>
                 {circuits
-                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
                   .map((circuit) => (
                     <TableRow hover key={circuit.id} onClick={() => router.push(`/dashboard/admin/circuits/${circuit.id}`)} style={{ cursor: 'pointer' }}>
                       <TableCell>{circuit.name}</TableCell>
@@ -442,7 +465,7 @@ export default function Circuits() {
         isSubmitting={isSubmitting}
       >
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="name"
               label="Circuit Name"
@@ -453,7 +476,7 @@ export default function Circuits() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="code"
               label="Circuit Code"
@@ -466,7 +489,7 @@ export default function Circuits() {
           </Grid>
           
           {formMode === 'add' && (
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Region</InputLabel>
                 <Select
@@ -488,7 +511,7 @@ export default function Circuits() {
             </Grid>
           )}
           
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <FormControl fullWidth margin="normal" required>
               <InputLabel>District</InputLabel>
               <Select

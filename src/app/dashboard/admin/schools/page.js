@@ -27,10 +27,14 @@ import {
   DialogContent,
   DialogActions,
   Paper,
+  Breadcrumbs,
+  Link,
   CircularProgress
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HomeIcon from '@mui/icons-material/Home';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import FormDialog from '@/components/FormDialog';
 import { useRouter } from 'next/navigation';
 
@@ -78,16 +82,24 @@ export default function Schools() {
     try {
       let url = `/api/schools?page=${pagination.page + 1}&limit=${pagination.limit}`;
       
+      // Add search term if it exists
       if (searchTerm) {
-        url += `&search=${searchTerm}`;
+        url += `&search=${encodeURIComponent(searchTerm.trim())}`;
       }
       
+      // Add region filter if it exists
+      if (filters.region_id) {
+        url += `&region_id=${filters.region_id}`;
+      }
+      
+      // Add district filter if it exists
+      if (filters.district_id) {
+        url += `&district_id=${filters.district_id}`;
+      }
+      
+      // Add circuit filter if it exists
       if (filters.circuit_id) {
         url += `&circuit_id=${filters.circuit_id}`;
-      } else if (filters.district_id) {
-        url += `&district_id=${filters.district_id}`;
-      } else if (filters.region_id) {
-        url += `&region_id=${filters.region_id}`;
       }
       
       const response = await fetch(url);
@@ -109,7 +121,6 @@ export default function Schools() {
       setLoading(false);
     }
   }, [pagination.page, pagination.limit, searchTerm, filters]);
-
   // Fetch schools on mount and pagination change
   useEffect(() => {
     fetchSchools();
@@ -350,7 +361,16 @@ export default function Schools() {
 
   return (
     <Container maxWidth="lg">
-      <Box sx={{ pt: 4, pb: 2 }}>
+      <Box sx={{ pt: 2, pb: 2 }}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+          <Link color="inherit" href="/dashboard/admin">
+            <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+            Dashboard
+          </Link>
+          
+          <Typography color="text.primary">School Management</Typography>
+        </Breadcrumbs>
         <Typography variant="h4" gutterBottom>
           School Management
         </Typography>
@@ -360,7 +380,7 @@ export default function Schools() {
         
         {/* Filters */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={4} md={4}>
+          <Grid size={{ xs: 12, sm: 12, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }}>
               <InputLabel>Filter by Region</InputLabel>
               <Select
@@ -380,7 +400,7 @@ export default function Schools() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={4} md={4}>
+          <Grid size={{ xs: 12, sm: 12, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.region_id}>
               <InputLabel>Filter by District</InputLabel>
               <Select
@@ -400,7 +420,7 @@ export default function Schools() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={4} md={4}>
+          <Grid size={{ xs: 12, sm: 12, md: 3 }}>
             <FormControl fullWidth size="small" sx={{ minWidth: 240 }} disabled={!filters.district_id}>
               <InputLabel>Filter by Circuit</InputLabel>
               <Select
@@ -420,7 +440,7 @@ export default function Schools() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={12} md={4}>
+          <Grid size={{ xs: 12, sm: 12, md: 3 }}>
             <TextField
               fullWidth
               size="small"
@@ -457,15 +477,14 @@ export default function Schools() {
               </TableHead>
               <TableBody>
                 {schools
-                  .slice(pagination.page * pagination.limit, pagination.page * pagination.limit + pagination.limit)
                   .map((school) => (
                     <TableRow hover key={school.id} onClick={() => router.push(`/dashboard/admin/schools/${school.id}`)} style={{ cursor: 'pointer' }}>
                       <TableCell>{school.name}</TableCell>
                       <TableCell>{school.gesCode}</TableCell>
                       <TableCell>{school.type}</TableCell>
-                      <TableCell>{school.circuit_name}</TableCell>
-                      <TableCell>{school.district_name}</TableCell>
-                      <TableCell>{school.region_name}</TableCell>
+                      <TableCell>{school.circuit.name}</TableCell>
+                      <TableCell>{school.district.name}</TableCell>
+                      <TableCell>{school.region.name}</TableCell>
                       <TableCell align="right">
                         <IconButton color="primary" onClick={e => { e.stopPropagation(); handleEditClick(school); }} size="small">
                           <EditIcon />
@@ -509,7 +528,7 @@ export default function Schools() {
         isSubmitting={isSubmitting}
       >
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="name"
               label="School Name"
@@ -520,7 +539,7 @@ export default function Schools() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               name="code"
               label="School Code"
@@ -531,7 +550,7 @@ export default function Schools() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth margin="normal" required>
               <InputLabel>School Type</InputLabel>
               <Select
@@ -551,7 +570,7 @@ export default function Schools() {
           
           {formMode === 'add' && (
             <>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl fullWidth margin="normal">
                   <InputLabel>Region</InputLabel>
                   <Select
@@ -579,7 +598,7 @@ export default function Schools() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <FormControl 
                   fullWidth 
                   margin="normal"
@@ -613,7 +632,7 @@ export default function Schools() {
             </>
           )}
           
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <FormControl 
               fullWidth 
               margin="normal" 
@@ -635,7 +654,7 @@ export default function Schools() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="address"
               label="School Address"
@@ -647,7 +666,7 @@ export default function Schools() {
               margin="normal"
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               name="contact"
               label="Contact Information"

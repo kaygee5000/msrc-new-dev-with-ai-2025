@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Container, 
   Box, 
@@ -24,12 +24,13 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn } from "next-auth/react";
 import { Visibility, VisibilityOff, Email, Phone } from '@mui/icons-material';
 import ProgramSelectionDialog from '@/components/ProgramSelectionDialog';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { user, loading: authLoading, error: authError, login, isAuthenticated, setSelectedProgram } = useAuth();
 
   // Map NextAuth error codes to user-friendly messages
   const friendlyErrors = {
@@ -69,8 +70,20 @@ export default function LoginPage() {
   
   // Program selection dialog state
   const [showProgramDialog, setShowProgramDialog] = useState(false);
-  const [authenticatedUser, setAuthenticatedUser] = useState(null);
   
+  // Check if user is already authenticated on component mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      // If user has multiple program roles, show program selection
+      if (user.programRoles && user.programRoles.length > 1) {
+        setShowProgramDialog(true);
+      } else {
+        // If single or no program role, redirect to dashboard
+        router.push('/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, router]);
+
   // Handle tab change
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -91,18 +104,6 @@ export default function LoginPage() {
     }));
   };
   
-  // Handle successful authentication
-  const handleSuccessfulAuth = (user) => {
-    // If user has multiple program roles, show the program selection dialog
-    if (user.programRoles && user.programRoles.length > 1) {
-      setAuthenticatedUser(user);
-      setShowProgramDialog(true);
-    } else {
-      // If user has only one program role or none, redirect to dashboard
-      router.push('/dashboard');
-    }
-  };
-  
   // Handle password login submission
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
@@ -110,24 +111,13 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const result = await signIn('credentials', {
-        redirect: false,
+      await login('credentials', {
         email: credentials.email,
         password: credentials.password,
       });
       
-      if (result.error) {
-        throw new Error(result.error || 'Invalid email or password');
-      }
-      
-      // Get user data from the session
-      const response = await fetch('/api/auth/me');
-      if (!response.ok) {
-        throw new Error('Failed to get user data');
-      }
-      
-      const userData = await response.json();
-      handleSuccessfulAuth(userData.user);
+      // If we get here, login was successful
+      // The useEffect will handle redirection based on program roles
     } catch (err) {
       console.error('Login error:', err);
       const message = friendlyErrors[err.message] || err.message || friendlyErrors.default;
@@ -148,20 +138,10 @@ export default function LoginPage() {
         throw new Error('Please enter your email address');
       }
       
-      const result = await signIn('email', {
-        redirect: false,
-        email: email,
-        callbackUrl: `${window.location.origin}/dashboard`,
-      });
-      
-      if (result.error) {
-        throw new Error(result.error || 'Failed to send verification email');
-      }
-      
-      // Show verification sent message
+      await login('email', { email });
       setVerificationSent(true);
     } catch (err) {
-      console.error('Magic link request error:', err);
+      console.error('Magic link error:', err);
       const message = friendlyErrors[err.message] || err.message || friendlyErrors.default;
       setError(message);
     } finally {
@@ -169,7 +149,7 @@ export default function LoginPage() {
     }
   };
   
-  // Handle sending OTP for SMS login
+  // Handle sending OTP
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
@@ -180,34 +160,29 @@ export default function LoginPage() {
         throw new Error('Please enter your phone number');
       }
       
-      // Call the send-otp API to send the verification code
-      const response = await fetch('/api/users/send-otp', {
+      const response = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          recipient: phoneNumber,
-          type: 'phone',
-        }),
+        body: JSON.stringify({ phoneNumber }),
       });
       
-      const data = await response.json();
-      
-      if (!response.ok || !data.success) {
+      if (!response.ok) {
+        const data = await response.json();
         throw new Error(data.message || 'Failed to send verification code');
       }
       
       setOtpSent(true);
     } catch (err) {
-      console.error('OTP request error:', err);
-      setOtpError(err.message || 'Failed to send verification code');
+      console.error('OTP error:', err);
+      setOtpError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
       setOtpLoading(false);
     }
   };
   
-  // Handle OTP verification for SMS login
+  // Handle verifying OTP
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setOtpError('');
@@ -218,26 +193,10 @@ export default function LoginPage() {
         throw new Error('Please enter the verification code');
       }
       
-      // Attempt to sign in with OTP credentials
-      const result = await signIn('otp-login', {
-        redirect: false,
-        phoneOrEmail: phoneNumber,
-        otp: otp,
-        type: 'phone',
-      });
+      await login('otp', { phoneNumber, otp });
       
-      if (result.error) {
-        throw new Error(result.error || 'Invalid verification code');
-      }
-      
-      // Get user data from the session
-      const response = await fetch('/api/auth/me');
-      if (!response.ok) {
-        throw new Error('Failed to get user data');
-      }
-      
-      const userData = await response.json();
-      handleSuccessfulAuth(userData.user);
+      // If we get here, login was successful
+      // The useEffect will handle redirection based on program roles
     } catch (err) {
       console.error('OTP verification error:', err);
       setOtpError(err.message || 'Failed to verify code. Please try again.');
@@ -246,6 +205,16 @@ export default function LoginPage() {
     }
   };
   
+  // Handle program selection
+  const handleProgramSelect = (programId) => {
+    // Update the selected program in the auth context
+    setSelectedProgram(programId);
+    
+    // Close the dialog and redirect to dashboard
+    setShowProgramDialog(false);
+    router.push('/dashboard');
+  };
+
   // Render password login form
   const renderPasswordLogin = () => (
     <Box component="form" onSubmit={handlePasswordLogin} sx={{ mt: 2 }}>
@@ -452,9 +421,9 @@ export default function LoginPage() {
       )}
     </Box>
   );
-  
+
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="sm" sx={{ mt: 8, mb: 4 }}>
       <Box
         sx={{
           marginTop: 8,
@@ -520,8 +489,9 @@ export default function LoginPage() {
       {/* Program Selection Dialog */}
       <ProgramSelectionDialog
         open={showProgramDialog}
-        user={authenticatedUser}
+        user={user}
         onClose={() => setShowProgramDialog(false)}
+        onSelect={handleProgramSelect}
       />
     </Container>
   );

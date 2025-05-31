@@ -9,10 +9,10 @@ import { verifyServerAuth } from '@/utils/serverAuth';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = Math.max(0, parseInt(searchParams.get('page') || '0')); // Ensure page is at least 0, default to 0
+    const page = Math.max(0, parseInt(searchParams.get('page') || '0')); // 0-based page number from frontend
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const regionId = searchParams.get('regionId'); // Match parameter name with client-side
+    const regionId = searchParams.get('region_id'); // Changed from 'regionId' to 'region_id' to match frontend
     const id = searchParams.get('id');
     
     console.log('Districts API called with params:', { page, limit, search, regionId, id });
@@ -52,13 +52,10 @@ export async function GET(request) {
           params.push(regionId);
         }
         
-        console.log('SQL where clause:', whereClause);
-        console.log('SQL params:', params);
-        
         // Query the database for districts with region names
         let queryParams = [...params];
         if (limit !== -1) {
-          // Ensure offset is never negative
+          // Calculate offset based on 0-based page number
           const offset = Math.max(0, page * limit);
           queryParams.push(offset, limit);
         }
@@ -71,9 +68,6 @@ export async function GET(request) {
           ORDER BY d.name
           ${limit !== -1 ? 'LIMIT ?, ?' : ''}
         `;
-        
-        console.log('SQL query:', queryString);
-        console.log('Query params:', queryParams);
         
         const [rows] = await db.query(queryString, queryParams);
         
@@ -93,7 +87,7 @@ export async function GET(request) {
           
           pagination = {
             total,
-            page,
+            page: page, // Keep the 0-based page number for the response
             limit,
             pages: Math.ceil(total / limit)
           };
@@ -111,7 +105,7 @@ export async function GET(request) {
     // Always wrap the response in NextResponse.json() with success and data fields
     return NextResponse.json({
       success: true,
-      data: cachedOrFresh
+      ...cachedOrFresh
     });
   } catch (error) {
     console.error('Error fetching districts:', error);
