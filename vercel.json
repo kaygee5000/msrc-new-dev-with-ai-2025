@@ -1,4 +1,31 @@
 {
-    "buildCommand": "npm install --legacy-peer-deps",
-    "installCommand": "npm install --legacy-peer-deps"
-  }
+  "buildCommand": "NODE_OPTIONS='--max-old-space-size=4096' npm run build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "functions": {
+    "api/**/*": {
+      "memory": 1024
+    }
+  },
+  "builds": [
+    {
+      "src": "next.config.js",
+      "use": "@vercel/next"
+    }
+  ],
+  "build": {
+    "env": {
+      "NODE_OPTIONS": "--max-old-space-size=4096"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, s-maxage=86400"
+        }
+      ]
+    }
+  ]
+}
