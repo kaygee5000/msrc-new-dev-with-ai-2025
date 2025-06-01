@@ -10,8 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch",
-    "postinstall": "npm install --legacy-peer-deps"
+    "test:watch": "jest --watch"
   },
   "jest": {
     "testEnvironment": "jsdom",
