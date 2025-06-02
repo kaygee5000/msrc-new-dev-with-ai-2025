@@ -22,22 +22,22 @@ export default function ResetPasswordPage({ params }) {
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        // Replace with your actual token verification API call
-        // const response = await fetch(`/api/auth/verify-reset-token?token=${token}`);
-        // const data = await response.json();
+        setLoading(true);
+        const response = await fetch(`/api/auth/reset-password?token=${token}`);
+        const data = await response.json();
         
-        // Simulate API call
-        setTimeout(() => {
-          // Set to true for demo purposes - in real app, set based on API response
-          setTokenValid(!!token);
-          if (!token) {
-            setError("Invalid or expired reset token");
-          }
-          setLoading(false);
-        }, 500);
+        if (response.ok && data.success) {
+          setTokenValid(true);
+          setEmail(data.email || '');
+        } else {
+          setError(data.message || "Invalid or expired reset token");
+          setTokenValid(false);
+        }
       } catch (err) {
         console.error("Error verifying token:", err);
         setError("Failed to verify reset token");
+        setTokenValid(false);
+      } finally {
         setLoading(false);
       }
     };
@@ -53,39 +53,53 @@ export default function ResetPasswordPage({ params }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate passwords
+    if (!password) {
+      setError("Please enter a new password");
+      return;
+    }
+    
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
+      return;
+    }
+    
     if (password !== confirm) {
       setError("Passwords do not match");
       return;
     }
-
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
+    
     try {
-      // Replace with your actual password reset API call
-      // const response = await fetch("/api/auth/reset-password", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ token, email, password }),
-      // });
+      setLoading(true);
+      setError("");
       
-      // Simulate API call
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          password
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to reset password");
+      }
+      
+      setSuccess("Your password has been reset successfully");
+      
+      // Redirect to login page after 3 seconds
       setTimeout(() => {
-        // const data = await response.json();
-        // if (!response.ok) throw new Error(data.message || "Failed to reset password");
-        
-        setSuccess("Your password has been reset successfully!");
-        setLoading(false);
-        
-        // Redirect to login after successful password reset
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
-      }, 1000);
+        router.push('/login');
+      }, 3000);
     } catch (err) {
       console.error("Error resetting password:", err);
-      setError(err.message || "Failed to reset password. Please try again.");
+      setError(err.message || "Failed to reset password");
+    } finally {
       setLoading(false);
     }
   };

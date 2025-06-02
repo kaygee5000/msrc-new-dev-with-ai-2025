@@ -4,7 +4,7 @@
  */
 
 // Import the database connection
-import pool from '@/lib/db';
+import pool from '@/utils/db';
 
 // Helper function to make API requests
 async function fetchFromEndpoint(endpoint, params = {}) {

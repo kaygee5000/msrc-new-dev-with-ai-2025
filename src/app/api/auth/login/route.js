@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { generateToken, comparePassword } from '@/utils/hash';
+import { generateToken, verifyPassword } from '@/utils/password';
 import { getConnection } from '@/utils/db';
 
 export async function POST(request) {
@@ -32,8 +32,8 @@ export async function POST(request) {
     
     const user = users[0];
     
-    // Verify password using bcrypt
-    const isValidPassword = await comparePassword(password, user.password);
+    // Verify password using our consolidated password utility
+    const isValidPassword = await verifyPassword(password, user.password);
     if (!isValidPassword) {
       return NextResponse.json(
         { success: false, message: 'Invalid credentials' },

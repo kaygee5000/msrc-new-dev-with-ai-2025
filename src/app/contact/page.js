@@ -26,6 +26,9 @@ import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 
+// Mark this page as statically generated
+export const dynamic = 'force-static';
+
 export default function ContactPage() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,7 +87,7 @@ export default function ContactPage() {
         <Container maxWidth="lg">
           <Grid container spacing={4}>
             {/* Contact Information */}
-            <Grid item xs={12} lg={4}>
+            <Grid size={{ xs: 12, lg: 4 }}>
               <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 4, color: 'text.primary' }}>
                 Get In Touch
               </Typography>
@@ -245,7 +248,7 @@ export default function ContactPage() {
             </Grid>
             
             {/* Contact Form */}
-            <Grid item xs={12} lg={8}>
+            <Grid size={{ xs: 12, lg: 8 }}>
               <Card elevation={3}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2, color: 'text.primary' }}>
@@ -262,7 +265,7 @@ export default function ContactPage() {
                   ) : (
                     <form onSubmit={handleSubmit}>
                       <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                           <TextField
                             label="First Name"
                             fullWidth
@@ -272,7 +275,7 @@ export default function ContactPage() {
                             required
                           />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                           <TextField
                             label="Last Name"
                             fullWidth
@@ -282,7 +285,7 @@ export default function ContactPage() {
                             required
                           />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                           <TextField
                             label="Email Address"
                             fullWidth
@@ -293,7 +296,7 @@ export default function ContactPage() {
                             required
                           />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                           <TextField
                             label="Phone Number"
                             fullWidth
@@ -302,7 +305,7 @@ export default function ContactPage() {
                             onChange={handleChange}
                           />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                           <TextField
                             label="Subject"
                             fullWidth
@@ -312,7 +315,7 @@ export default function ContactPage() {
                             required
                           />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                           <TextField
                             label="Your Message"
                             fullWidth
@@ -324,7 +327,7 @@ export default function ContactPage() {
                             required
                           />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                           <Button 
                             type="submit" 
                             variant="contained" 

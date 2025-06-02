@@ -264,7 +264,7 @@ export default function Navbar() {
                       marginRight: '8px' 
                     }} 
                   />
-                  <Typography
+                  {/* <Typography
                     variant="h6"
                     component="div"
                     sx={{ 
@@ -274,7 +274,7 @@ export default function Navbar() {
                     }}
                   >
                     mSRC
-                  </Typography>
+                  </Typography> */}
                 </Box>
               </Link>
               

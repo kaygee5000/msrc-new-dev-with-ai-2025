@@ -1,10 +1,6 @@
 import nodemailer from 'nodemailer';
 import axios from 'axios';
-import { render } from '@react-email/render';
-import welcomeEmail from '@/templates/welcomeEmail';
-import resetPasswordEmail from '@/templates/resetPasswordEmail';
-import OTPEmail from '@/templates/otpEmail';
-import batchUserCreationEmail from '@/templates/batchUserCreationEmail';
+import EmailService from './emailService';
 
 // Configure email transport
 const createTransport = () => {
@@ -36,7 +32,7 @@ const createTransport = () => {
 /**
  * EmailSMSNotifier - Utility for sending emails and SMS notifications
  */
-export class EmailSMSNotifier {
+class EmailSMSNotifier {
   /**
    * Send an email using nodemailer
    * @param {Object} options - Email options
@@ -49,15 +45,6 @@ export class EmailSMSNotifier {
   static async sendEmail({ to, subject, html, text }) {
     try {
       const transport = createTransport();
-
-      // Ensure html is a string
-      if (typeof html !== 'string') {
-        try {
-          html = String(html);
-        } catch {
-          html = '';
-        }
-      }
 
       const info = await transport.sendMail({
         from: `"mSRC Ghana" <${process.env.EMAIL_FROM || 'noreply@msrcghana.org'}>`,
@@ -85,37 +72,21 @@ export class EmailSMSNotifier {
   static async sendWelcomeEmail(user) {
     const { email, name, tempPassword } = user;
     
-    // Make sure the render is properly awaited if it's returning a Promise
-    let htmlContent;
-    try {
-      htmlContent = render(welcomeEmail({
-        name,
-        tempPassword,
-        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
-      }));
-      
-      if (htmlContent instanceof Promise) {
-        htmlContent = await htmlContent;
-      }
-    } catch (error) {
-      console.error('Error rendering welcome email:', error);
-      // Fallback to a simple HTML template if rendering fails
-      htmlContent = `
-        <div>
-          <h1>Welcome to MSRC Ghana</h1>
-          <p>Hello ${name},</p>
-          <p>Your account has been created successfully.</p>
-          ${tempPassword ? `<p>Your temporary password is: <strong>${tempPassword}</strong></p>` : ''}
-          <p>You can login at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">${process.env.NEXT_PUBLIC_APP_URL}/login</a></p>
-        </div>
-      `;
-    }
+    // Use EmailService to generate the email content
+    const emailData = {
+      email,
+      name,
+      password: tempPassword
+    };
+    
+    // Get the template from EmailService
+    const template = EmailService.getTemplate('WELCOME', emailData);
     
     return this.sendEmail({
       to: email,
-      subject: 'Welcome to MSRC Ghana',
-      html: htmlContent,
-      text: `Hello ${name}, welcome to MSRC Ghana. ${tempPassword ? `Your temporary password is: ${tempPassword}.` : ''} You can login at: ${process.env.NEXT_PUBLIC_APP_URL}/login`
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
   }
 
@@ -129,58 +100,24 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendPasswordResetEmail({ email, name, resetToken, isMagicLink = false }) {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${isMagicLink ? 'api/auth/callback/email?token=' : 'reset-password?token='}${resetToken}`;
     
-    // For NextAuth magic links, the resetToken is already a full URL
-    const finalResetUrl = resetToken.startsWith('http') ? resetToken : resetUrl;
+    // Use EmailService to generate the email content
+    const emailData = {
+      email,
+      name,
+      resetUrl
+    };
     
-    // Customize email subject and heading based on whether it's a magic link or password reset
-    const subject = isMagicLink ? 'Sign in to mSRC Ghana' : 'Reset Your mSRC Ghana Password';
-    const heading = isMagicLink ? 'Sign in Link' : 'Password Reset';
-    const buttonText = isMagicLink ? 'Sign in to mSRC Ghana' : 'Reset Your Password';
-    const messageIntro = isMagicLink 
-      ? 'You requested a sign in link for your mSRC Ghana account. Click the button below to sign in:'
-      : 'We received a request to reset your password for your MSRC Ghana account. If you did not make this request, you can safely ignore this email.';
-    const messageAction = isMagicLink
-      ? 'To sign in to your account, click the button below:'
-      : 'To reset your password, click the button below:';
-    
-    // Make sure the render is properly awaited if it's returning a Promise
-    let htmlContent;
-    try {
-      htmlContent = render(resetPasswordEmail({
-        name,
-        resetUrl: finalResetUrl,
-        expiryTime: '1 hour',
-        heading,
-        buttonText,
-        messageIntro,
-        messageAction,
-        isMagicLink
-      }));
-      
-      if (htmlContent instanceof Promise) {
-        htmlContent = await htmlContent;
-      }
-    } catch (error) {
-      // Fallback to a simple HTML template if rendering fails
-      htmlContent = `
-        <div>
-          <h1>${heading}</h1>
-          <p>Hello ${name},</p>
-          <p>${messageIntro}</p>
-          <p>${messageAction}</p>
-          <p><a href="${finalResetUrl}">${buttonText}</a></p>
-          <p>This link will expire in 1 hour.</p>
-        </div>
-      `;
-    }
+    // Get the template from EmailService
+    const templateName = isMagicLink ? 'MAGIC_LINK' : 'PASSWORD_RESET';
+    const template = EmailService.getTemplate(templateName, emailData);
     
     return this.sendEmail({
       to: email,
-      subject,
-      html: htmlContent,
-      text: `Hello ${name}, ${messageIntro} ${finalResetUrl} (expires in 1 hour)`
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
   }
 
@@ -193,36 +130,21 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendOTPEmail({ email, name, code }) {
-    // Make sure the render is properly awaited if it's returning a Promise
-    let htmlContent;
-    try {
-      htmlContent = render(<OTPEmail
-        name={name}
-        code={code}
-        expiryMinutes={15}
-      />);
-      
-      if (htmlContent instanceof Promise) {
-        htmlContent = await htmlContent;
-      }
-    } catch (error) {
-      console.error('Error rendering OTP email:', error);
-      // Fallback to a simple HTML template if rendering fails
-      htmlContent = `
-        <div>
-          <h1>Your Authentication Code</h1>
-          <p>Hello ${name},</p>
-          <p>Your authentication code is: <strong>${code}</strong></p>
-          <p>This code will expire in 15 minutes.</p>
-        </div>
-      `;
-    }
+    // Use EmailService to generate the email content
+    const emailData = {
+      email,
+      name,
+      code
+    };
+    
+    // Get the template from EmailService
+    const template = EmailService.getTemplate('OTP', emailData);
     
     return this.sendEmail({
       to: email,
-      subject: 'Your mSRC Ghana Authentication Code',
-      html: htmlContent,
-      text: `Hello ${name}, your mSRC Ghana authentication code is: ${code}. This code will expire in 15 minutes.`
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
   }
 
@@ -302,45 +224,23 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendBatchUserCreationEmail({ email, name, password, role, programName }) {
-    // Make sure the render is properly awaited if it's returning a Promise
-    let htmlContent;
-    try {
-      htmlContent = render(batchUserCreationEmail({
-        name,
-        email,
-        password,
-        role: role || 'Data Collector',
-        programName: programName || 'mSRC Ghana',
-        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`
-      }));
-      
-      if (htmlContent instanceof Promise) {
-        htmlContent = await htmlContent;
-      }
-    } catch (error) {
-      console.error('Error rendering batch user creation email:', error);
-      // Fallback to a simple HTML template if rendering fails
-      htmlContent = `
-        <div>
-          <h1>Your MSRC Ghana Account</h1>
-          <p>Hello ${name},</p>
-          <p>Your account has been created with the following details:</p>
-          <ul>
-            <li>Email: ${email}</li>
-            <li>Password: ${password}</li>
-            <li>Role: ${role || 'Data Collector'}</li>
-            <li>Program: ${programName || 'MSRC Ghana'}</li>
-          </ul>
-          <p>You can login at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login">${process.env.NEXT_PUBLIC_APP_URL}/login</a></p>
-        </div>
-      `;
-    }
+    // Use EmailService to generate the email content
+    const emailData = {
+      email,
+      name,
+      password,
+      role,
+      programName
+    };
+    
+    // Get the template from EmailService
+    const template = EmailService.getTemplate('BATCH_USER_CREATION', emailData);
     
     return this.sendEmail({
       to: email,
-      subject: 'Your mSRC Ghana Account Information',
-      html: htmlContent,
-      text: `Hello ${name}, your MSRC Ghana account has been created. Email: ${email}, Password: ${password}, Role: ${role || 'Data Collector'}, Program: ${programName || 'MSRC Ghana'}. Login at: ${process.env.NEXT_PUBLIC_APP_URL}/login`
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
   }
 
@@ -367,18 +267,17 @@ export class EmailSMSNotifier {
       try {
         // Send email if enabled and email is available
         if (sendEmail && user.email) {
-          const htmlContent = `
-            <div>
-              <h1>${subject}</h1>
-              <p>Hello ${user.first_name + ' ' + user.last_name || user.name || 'User'},</p>
-              <div>${message}</div>
-            </div>
-          `;
-          
+          const emailData = {
+            email: user.email,
+            subject,
+            message
+          };
+          const template = EmailService.getTemplate('BULK_NOTIFICATION', emailData);
           const emailResult = await this.sendEmail({
             to: user.email,
-            subject,
-            html: htmlContent
+            subject: template.subject,
+            html: template.html,
+            text: template.text
           });
           
           results.push({ 
@@ -436,25 +335,18 @@ export class EmailSMSNotifier {
    * @returns {Promise<any>} - Email sending result
    */
   static async sendTestEmail() {
-    const htmlContent = `
-      <div>
-        <h1>MSRC Ghana Email System Test</h1>
-        <p>This is a test email to verify that your SMTP configuration is working correctly.</p>
-        <p>If you received this email, your email system is properly configured.</p>
-        <p>Configuration details:</p>
-        <ul>
-          <li>Host: ${process.env.EMAIL_HOST || 'Not configured'}</li>
-          <li>Port: ${process.env.EMAIL_PORT || '587'}</li>
-          <li>Sender: ${process.env.EMAIL_FROM || 'noreply@msrcghana.org'}</li>
-          <li>Secure: ${process.env.EMAIL_SECURE === 'true' ? 'Yes' : 'No'}</li>
-        </ul>
-      </div>
-    `;
+    const emailData = {
+      email: process.env.EMAIL_TEST_RECIPIENT || process.env.EMAIL_USER,
+      subject: 'MSRC Ghana Email System Test',
+      message: 'This is a test email to verify that your SMTP configuration is working correctly.'
+    };
+    const template = EmailService.getTemplate('TEST_EMAIL', emailData);
     
     return this.sendEmail({
-      to: process.env.EMAIL_TEST_RECIPIENT || process.env.EMAIL_USER,
-      subject: 'mSRC Ghana Email System Test',
-      html: htmlContent
+      to: emailData.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
     });
   }
 }

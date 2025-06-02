@@ -1,124 +1,121 @@
 import { NextResponse } from 'next/server';
-import { getUserById } from '@/utils/db';
-import jwt from 'jsonwebtoken';
-import redisClient from '@/utils/redis'; // Use Redis for OTP storage
 import pool from '@/utils/db';
+import TokenService from '@/utils/tokenService';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 /**
- * Verify a one-time password and authenticate user
+ * Verify OTP code
  */
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const { recipient, type, code } = await req.json();
-
-    if (!recipient || !code) {
+    const { phoneOrEmail, otp } = await request.json();
+    
+    if (!phoneOrEmail || !otp) {
       return NextResponse.json(
-        { success: false, message: 'Recipient and code are required' }, 
+        { success: false, message: 'Contact information and OTP code are required' },
         { status: 400 }
       );
     }
-    // Get stored OTP data from Redis
-    const otpDataRaw = await redisClient.get(`otp:${recipient}`);
-    if (!otpDataRaw) {
+    
+    // Check if it's an email or phone number
+    const isEmail = phoneOrEmail.includes('@');
+    
+    // Get OTP data from TokenService
+    const tokenData = await TokenService.verifyToken('OTP', phoneOrEmail);
+    
+    if (!tokenData) {
       return NextResponse.json(
-        { success: false, message: 'No verification code found. Please request a new code.' }, 
+        { success: false, message: 'No OTP found or it has expired' },
         { status: 400 }
       );
     }
-    const storedData = JSON.parse(otpDataRaw);
-    // Check if OTP is expired
-    if (Date.now() > storedData.expiresAt) {
-      await redisClient.del(`otp:${recipient}`);
-      return NextResponse.json(
-        { success: false, message: 'Verification code has expired. Please request a new code.' }, 
-        { status: 400 }
-      );
-    }
+    
     // Increment attempts
-    storedData.attempts = (storedData.attempts || 0) + 1;
+    const attempts = (tokenData.attempts || 0) + 1;
+    
     // Check if max attempts reached (5 attempts)
-    if (storedData.attempts > 5) {
-      await redisClient.del(`otp:${recipient}`);
+    if (attempts >= 5) {
+      await TokenService.invalidateToken('OTP', phoneOrEmail);
       return NextResponse.json(
-        { success: false, message: 'Too many failed attempts. Please request a new code.' }, 
+        { success: false, message: 'Too many failed attempts. Please request a new OTP.' },
         { status: 400 }
       );
     }
+    
+    // Update attempts in cache
+    await TokenService.createToken(
+      'OTP',
+      phoneOrEmail,
+      {
+        ...tokenData,
+        attempts
+      },
+      Math.floor((tokenData.expiresAt - Date.now()) / 1000) // Remaining TTL in seconds
+    );
+    
     // Verify OTP
-    if (storedData.otp !== code) {
-      // Update attempts in Redis
-      await redisClient.set(`otp:${recipient}`,
-        JSON.stringify(storedData),
-        'PX', storedData.expiresAt - Date.now()
-      );
+    if (tokenData.otp !== otp) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Invalid verification code',
-          attemptsLeft: 5 - storedData.attempts
-        }, 
+        { success: false, message: 'Invalid OTP code' },
         { status: 400 }
       );
     }
-    // OTP is valid, get the user
-    const user = await getUserById(storedData.userId);
-    if (!user) {
+    
+    // Get user from database
+    const [users] = await pool.query(
+      isEmail 
+        ? 'SELECT * FROM users WHERE email = ? LIMIT 1' 
+        : 'SELECT * FROM users WHERE phone_number LIKE ? LIMIT 1',
+      [isEmail ? phoneOrEmail : `%${phoneOrEmail}%`]
+    );
+    
+    if (!users.length) {
       return NextResponse.json(
-        { success: false, message: 'User not found' }, 
+        { success: false, message: 'User not found' },
         { status: 404 }
       );
     }
-
-    // Remove password from user object
-    const { password: _pw, ...userInfo } = user;
-
-    // Clean up used OTP
-    await redisClient.del(`otp:${recipient}`);
     
-    // Construct full name from first_name and last_name
-    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    const user = users[0];
     
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        id: user.id,
-        email: user.email,
-        name: fullName || user.name, // Keep name for backward compatibility
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role || 'user',
-        type: user.type || 'standard'
-      },
-      process.env.JWT_SECRET || 'msrc-development-secret',
-      { expiresIn: '24h' }
+    // Invalidate OTP after successful verification
+    await TokenService.invalidateToken('OTP', phoneOrEmail);
+    
+    // Format user for response (remove sensitive data)
+    const { password, ...userWithoutPassword } = user;
+    
+    // Get user's program roles
+    const [programRoles] = await pool.query(`
+      SELECT upr.*, p.name as program_name, p.code as program_code 
+      FROM user_program_roles upr
+      JOIN programs p ON upr.program_id = p.id
+      WHERE upr.user_id = ?
+    `, [user.id]);
+    
+    // Update last login timestamp
+    await pool.query(
+      'UPDATE users SET updated_at = NOW() WHERE id = ?',
+      [user.id]
     );
     
-    // Update last login timestamp in the database
-      // Update last login timestamp. use the birth date column for this purpose
-        await pool.query(
-          'UPDATE users SET birth_date = NOW() WHERE id = ?',
-          [user.id]
-        );
+    // Create session with NextAuth
+    const session = await getServerSession(authOptions);
     
-    // Return user info with proper name fields
     return NextResponse.json({
       success: true,
-      message: 'Authentication successful',
-      token,
+      message: 'OTP verified successfully',
       user: {
-        id: user.id,
-        name: fullName || user.name, // Keep name for backward compatibility
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        role: user.role,
-        type: user.type
-      }
+        ...userWithoutPassword,
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || user.email,
+        programRoles: programRoles || []
+      },
+      session
     });
   } catch (error) {
     console.error('Error verifying OTP:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to verify code' }, 
+      { success: false, message: 'Failed to verify OTP' },
       { status: 500 }
     );
   }

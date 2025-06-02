@@ -1,21 +1,17 @@
-import { getRedisClient } from './redis';
+import CacheService from './cache';
 
 /**
- * A custom NextAuth.js adapter for Redis
+ * A custom NextAuth.js adapter for Redis using CacheService
  * This implements the minimal required adapter methods for Email Provider
  */
 export function RedisAdapter() {
-  // Helper function to get Redis client with error handling
-  const getClient = async () => {
+  // Helper function to get CacheService with error handling
+  const getService = async () => {
     try {
-      const client = await getRedisClient();
-      if (!client) {
-        throw new Error('Redis client not available');
-      }
-      return client;
+      return CacheService;
     } catch (error) {
-      console.error('Failed to get Redis client:', error);
-      throw new Error('Database connection failed');
+      console.error('Failed to get CacheService:', error);
+      throw new Error('CacheService connection failed');
     }
   };
 
@@ -24,12 +20,13 @@ export function RedisAdapter() {
     async createVerificationToken(token) {
       try {
         const { identifier, token: tokenValue, expires } = token;
-        const redis = await getClient();
-        // Store token with expiry (in milliseconds)
+        // Store token with expiry
         const key = `emailToken:${identifier}:${tokenValue}`;
-        await redis.set(key, JSON.stringify(token), {
-          PX: expires.getTime() - Date.now()
-        });
+        await getService().set(
+          key, 
+          token, 
+          Math.ceil((expires.getTime() - Date.now()) / 1000) // Convert ms to seconds
+        );
         return token;
       } catch (error) {
         console.error('Error in createVerificationToken:', error);
@@ -40,19 +37,21 @@ export function RedisAdapter() {
     // Get a verification token
     async useVerificationToken({ identifier, token }) {
       try {
-        const redis = await getClient();
         const key = `emailToken:${identifier}:${token}`;
-        const result = await redis.get(key);
+        const result = await getService().get(key);
         
         if (!result) return null;
         
         // Delete the token after use (one-time use)
-        await redis.del(key);
+        await getService().invalidate(key);
         
-        return JSON.parse(result);
+        return {
+          ...result,
+          expires: new Date(result.expires)
+        };
       } catch (error) {
         console.error('Error in useVerificationToken:', error);
-        throw error;
+        return null;
       }
     },
 
@@ -92,8 +91,19 @@ export function RedisAdapter() {
     },
     
     async createSession(session) {
-      // Sessions are JWT-based, so we don't need this
-      return session;
+      try {
+        const { sessionToken, userId, expires } = session;
+        const key = `session:${sessionToken}`;
+        await getService().set(
+          key, 
+          { ...session, userId: String(userId) }, 
+          Math.ceil((expires.getTime() - Date.now()) / 1000) // Convert ms to seconds
+        );
+        return session;
+      } catch (error) {
+        console.error('Error in createSession:', error);
+        throw error;
+      }
     },
     
     async getSessionAndUser(sessionToken) {
@@ -101,14 +111,64 @@ export function RedisAdapter() {
       return null;
     },
     
+    async getSession(sessionToken) {
+      try {
+        const key = `session:${sessionToken}`;
+        const session = await getService().get(key);
+        
+        if (!session) return null;
+        
+        // Check if session has expired
+        if (new Date(session.expires) < new Date()) {
+          await getService().invalidate(key);
+          return null;
+        }
+        
+        return {
+          ...session,
+          expires: new Date(session.expires)
+        };
+      } catch (error) {
+        console.error('Error in getSession:', error);
+        return null;
+      }
+    },
+    
     async updateSession(session) {
-      // Sessions are JWT-based, so we don't need this
-      return session;
+      try {
+        const { sessionToken } = session;
+        const key = `session:${sessionToken}`;
+        
+        // Get existing session
+        const existingSession = await getService().get(key);
+        if (!existingSession) return null;
+        
+        // Update session
+        const updatedSession = {
+          ...existingSession,
+          ...session
+        };
+        
+        await getService().set(
+          key, 
+          updatedSession, 
+          Math.ceil((new Date(updatedSession.expires).getTime() - Date.now()) / 1000)
+        );
+        
+        return updatedSession;
+      } catch (error) {
+        console.error('Error in updateSession:', error);
+        throw error;
+      }
     },
     
     async deleteSession(sessionToken) {
-      // Sessions are JWT-based, so we don't need this
-      return null;
+      try {
+        await getService().invalidate(`session:${sessionToken}`);
+      } catch (error) {
+        console.error('Error in deleteSession:', error);
+        throw error;
+      }
     }
   };
 }

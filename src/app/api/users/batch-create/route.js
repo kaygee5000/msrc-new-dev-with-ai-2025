@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { parse } from 'papaparse';
 import * as XLSX from 'xlsx';
-import { hash } from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
-import { generatePassword } from '@/utils/generate-hash';
-import { getConnection } from '@/utils/db';
-import { EmailSMSNotifier } from '@/utils/emailSmsNotifier';
+import pool from '@/utils/db';
+import { hashPassword, generatePassword } from '@/utils/password';
+import EmailService from '@/utils/emailService';
+import SMSService from '@/utils/smsService';
 
 export const POST = async (req) => {
   try {
@@ -53,9 +53,9 @@ export const POST = async (req) => {
       // Normalize headers to lowercase
       records = data.map(row => {
         const normalizedRow = {};
-        Object.keys(row).forEach(key => {
+        for (const key in row) {
           normalizedRow[key.trim().toLowerCase()] = row[key];
-        });
+        }
         return normalizedRow;
       });
     } else {
@@ -67,127 +67,145 @@ export const POST = async (req) => {
     
     if (records.length === 0) {
       return NextResponse.json(
-        { message: 'No user records found in the file' },
+        { message: 'No records found in the file' },
         { status: 400 }
       );
     }
     
-    // Validate and create users
-    const results = {
-      total: records.length,
-      created: 0,
-      failed: 0,
-      users: [],
-      errors: []
-    };
+    // Validate required fields
+    const requiredFields = ['email'];
+    const missingFields = requiredFields.filter(field => 
+      !records.every(record => record[field])
+    );
     
-    // Required fields
-    const requiredFields = ['name', 'email', 'type'];
-    
-    // Get database connection
-    const db = await getConnection();
-    
-    // Process each user record
-    for (const record of records) {
-      try {
-        // Validate required fields
-        const missingFields = requiredFields.filter(field => !record[field]);
-        
-        if (missingFields.length > 0) {
-          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-        }
-        
-        // Check if user with this email already exists
-        const [existingUsers] = await db.execute(
-          'SELECT id FROM users WHERE email = ?',
-          [record.email]
-        );
-        
-        if (existingUsers.length > 0) {
-          throw new Error('A user with this email already exists');
-        }
-        
-        // Generate temporary password
-        const tempPassword = generatePassword();
-        const hashedPassword = await hash(tempPassword, 10);
-        
-        // Create the user
-        const [result] = await db.execute(
-          `INSERT INTO users (
-            name, email, phone, type, role, title, password, 
-            region_id, district_id, circuit_id, status, first_login
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            record.name,
-            record.email,
-            record.phone || null,
-            record.type.toLowerCase(),
-            record.role || 'user',
-            record.title || null,
-            hashedPassword,
-            record.region_id ? parseInt(record.region_id, 10) : null,
-            record.district_id ? parseInt(record.district_id, 10) : null,
-            record.circuit_id ? parseInt(record.circuit_id, 10) : null,
-            'active',
-            1 // first_login = true
-          ]
-        );
-        
-        const newUserId = result.insertId;
-        
-        // Send welcome notifications if enabled
-        if (sendNotifications) {
-          // Send email
-          try {
-            await EmailSMSNotifier.sendWelcomeEmail({
-              name: record.name,
-              email: record.email,
-              tempPassword: tempPassword
-            });
-          } catch (emailError) {
-            console.error(`Failed to send welcome email to ${record.email}:`, emailError);
-          }
-          
-          // Send SMS if phone number exists
-          if (record.phone) {
-            try {
-              await EmailSMSNotifier.sendCredentialsSMS({
-                name: record.name,
-                phoneNumber: record.phone,
-                email: record.email,
-                password: tempPassword
-              });
-            } catch (smsError) {
-              console.error(`Failed to send welcome SMS to ${record.phone}:`, smsError);
-            }
-          }
-        }
-        
-        // Add to successful users
-        results.users.push({
-          id: newUserId,
-          name: record.name,
-          email: record.email,
-          type: record.type
-        });
-        
-        results.created++;
-      } catch (error) {
-        // Add to failed users
-        results.errors.push({
-          email: record.email || `Row ${results.failed + results.created + 1}`,
-          error: error.message
-        });
-        
-        results.failed++;
-      }
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { message: `Missing required fields: ${missingFields.join(', ')}` },
+        { status: 400 }
+      );
     }
     
-    return NextResponse.json(results);
+    // Process user records
+    const results = {
+      success: [],
+      failed: []
+    };
+    
+    // Create connection for transaction
+    const conn = await pool.getConnection();
+    
+    try {
+      await conn.beginTransaction();
+      
+      for (const record of records) {
+        try {
+          // Generate password if not provided
+          const password = record.password || generatePassword(10);
+          
+          // Hash password using our utility
+          const hashedPassword = await hashPassword(password);
+          
+          // Prepare user data
+          const userData = {
+            id: record.id || uuidv4(),
+            first_name: record.first_name || '',
+            last_name: record.last_name || '',
+            email: record.email,
+            phone_number: record.phone_number || '',
+            password: hashedPassword,
+            type: record.type || 'standard',
+            role: record.role || 'user',
+            gender: record.gender || null,
+            other_names: record.other_names || null,
+            identification_number: record.identification_number || null,
+            birth_date: record.birth_date || null,
+            avatar: record.avatar || null,
+            status: record.status || 'active'
+          };
+          
+          // Check if user already exists
+          const [existingUsers] = await conn.query(
+            'SELECT id FROM users WHERE email = ?',
+            [userData.email]
+          );
+          
+          if (existingUsers.length > 0) {
+            results.failed.push({
+              email: userData.email,
+              error: 'User with this email already exists'
+            });
+            continue;
+          }
+          
+          // Insert user
+          const [result] = await conn.query(
+            `INSERT INTO users (
+              id, first_name, last_name, email, password, phone_number,
+              type, role, gender, other_names, identification_number,
+              birth_date, avatar, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              userData.id, userData.first_name, userData.last_name,
+              userData.email, userData.password, userData.phone_number,
+              userData.type, userData.role, userData.gender,
+              userData.other_names, userData.identification_number,
+              userData.birth_date, userData.avatar, userData.status
+            ]
+          );
+          
+          // Send notifications if enabled
+          if (sendNotifications) {
+            const userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email;
+            
+            // Send email notification
+            if (userData.email) {
+              await EmailService.sendWelcomeEmail({
+                email: userData.email,
+                name: userName,
+                password: password // Send the unhashed password
+              });
+            }
+            
+            // Send SMS notification if phone number is provided
+            if (userData.phone_number) {
+              await SMSService.sendWelcomeSMS({
+                phoneNumber: userData.phone_number,
+                email: userData.email,
+                password: password // Send the unhashed password
+              });
+            }
+          }
+          
+          results.success.push({
+            id: userData.id,
+            email: userData.email,
+            password: sendNotifications ? password : undefined // Only include password if notifications were sent
+          });
+        } catch (error) {
+          console.error(`Error creating user ${record.email}:`, error);
+          results.failed.push({
+            email: record.email,
+            error: error.message
+          });
+        }
+      }
+      
+      await conn.commit();
+      
+      return NextResponse.json({
+        message: `Processed ${records.length} records. ${results.success.length} succeeded, ${results.failed.length} failed.`,
+        results
+      });
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
   } catch (error) {
     console.error('Batch user creation error:', error);
     return NextResponse.json(
-      { message: 'Failed to process batch user creation', error: error.message },
+      { message: 'Failed to process user batch', error: error.message },
       { status: 500 }
     );
   }
@@ -196,6 +214,7 @@ export const POST = async (req) => {
 // Increase body size limit for file uploads
 export const config = {
   api: {
-    bodyParser: false
-  }
+    bodyParser: false,
+    responseLimit: '8mb',
+  },
 };

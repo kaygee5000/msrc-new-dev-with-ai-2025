@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/utils/db';
+import { hashPassword, generatePassword } from '@/utils/password';
 
 export async function GET(request) {
   try {
@@ -99,47 +100,52 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const userData = await request.json();
-    const { 
-      first_name, 
-      last_name, 
-      email, 
-      password, 
-      phone_number,
-      gender, 
+    
+    // Validate required fields
+    if (!userData.email) {
+      return NextResponse.json(
+        { success: false, message: 'Email is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Check if email already exists
+    const [existingUsers] = await pool.query(
+      'SELECT id FROM users WHERE email = ?',
+      [userData.email]
+    );
+    
+    if (existingUsers.length > 0) {
+      return NextResponse.json(
+        { success: false, message: 'User with this email already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Generate password if not provided
+    let password = userData.password;
+    if (!password) {
+      password = generatePassword(10);
+    }
+    
+    // Hash password using our utility
+    const hashedPassword = await hashPassword(password);
+    
+    // Prepare user data for insertion
+    const {
+      first_name = '',
+      last_name = '',
+      email,
+      phone_number = '',
+      type = 'standard',
+      gender,
       other_names,
-      type, 
       identification_number,
       birth_date,
       avatar,
       scope_id,
       scope
     } = userData;
-    
-    // Validate required fields
-    if (!first_name || !last_name || !email || !password || !type || !phone_number) {
-      return NextResponse.json(
-        { success: false, message: 'First name, last name, email, password, phone number and type are required' },
-        { status: 400 }
-      );
-    }
-    
-    // Check if email already exists
-    const [existingEmailUsers] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (existingEmailUsers.length > 0) {
-      return NextResponse.json(
-        { success: false, message: 'A user with this email already exists' },
-        { status: 409 }
-      );
-    }
-    
-    // Check if phone number already exists
-    const [existingPhoneUsers] = await pool.query('SELECT * FROM users WHERE phone_number = ?', [phone_number]);
-    if (existingPhoneUsers.length > 0) {
-      return NextResponse.json(
-        { success: false, message: 'A user with this phone number already exists' },
-        { status: 409 }
-      );
-    }
     
     // Insert new user
     const [result] = await pool.query(
@@ -164,7 +170,7 @@ export async function POST(request) {
         first_name, 
         last_name,
         email, 
-        password, 
+        hashedPassword, 
         phone_number, 
         type,
         gender || null,

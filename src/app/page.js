@@ -18,6 +18,9 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import GroupsIcon from '@mui/icons-material/Groups';
 
+// Mark this page as statically generated
+export const dynamic = 'force-static';
+
 export default function Home() {
   return (
     <>
@@ -34,15 +37,15 @@ export default function Home() {
       >
         <Container maxWidth="lg">
           <Grid container spacing={4} alignItems="center">
-            <Grid item xs={12} md={6}>
+            <Grid size={{xs:12, md:6}}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                <Image
+                {/* <Image
                   src="/assets/msrc-logo.70a4620a.png"
                   width={80}
                   height={80}
                   alt="MSRC Logo"
                   style={{ marginRight: '16px' }}
-                />
+                /> */}
                 <Typography variant="h1" gutterBottom>
                   Mobile School Report Card
                 </Typography>
@@ -78,7 +81,7 @@ export default function Home() {
                 </Link>
               </Stack>
             </Grid>
-            <Grid item xs={12} md={6} sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Grid size={{xs:12, md:6}} sx={{ display: 'flex', justifyContent: 'center' }}>
               <Box sx={{ position: 'relative', height: 400, width: '100%' }}>
                 <Image
                   src="/assets/msrc-image.698282c4.jpg"

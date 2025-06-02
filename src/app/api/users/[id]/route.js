@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { hashPassword, verifyPassword } from '@/utils/password';
 import { getConnection } from '@/utils/db';
 
 /**
@@ -13,32 +13,6 @@ function generatePassword(length = 10) {
     password += charset[randomIndex];
   }
   return password;
-}
-
-/**
- * Hash password using Node.js crypto instead of bcrypt
- * @param {string} password - The password to hash
- * @returns {string} - The hashed password
- */
-function hashPassword(password) {
-  // Generate a random salt
-  const salt = crypto.randomBytes(16).toString('hex');
-  // Hash the password using the salt
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  // Return the salt + hash combination
-  return `${salt}:${hash}`;
-}
-
-/**
- * Verify password using Node.js crypto
- * @param {string} password - The password to verify
- * @param {string} hashedPassword - The stored hashed password
- * @returns {boolean} - Whether the password matches
- */
-function verifyPassword(password, hashedPassword) {
-  const [salt, storedHash] = hashedPassword.split(':');
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  return storedHash === hash;
 }
 
 /**

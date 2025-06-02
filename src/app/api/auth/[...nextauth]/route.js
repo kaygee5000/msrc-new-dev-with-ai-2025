@@ -1,34 +1,11 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import EmailProvider from 'next-auth/providers/email';
-import crypto from 'crypto';
 import pool from '@/utils/db';
-import { sendPasswordResetEmail } from '@/utils/emailSmsNotifier';
-import redisClient from '@/utils/redis';
 import { RedisAdapter } from '@/utils/authAdapter';
-
-/**
- * Verify password using crypto
- * @param {string} password - The password to verify
- * @param {string} hashedPassword - The stored hashed password
- * @returns {Promise<boolean>} - Whether the password matches
- */
-async function verifyPassword(password, hashedPassword) {
-  try {
-    // Check if the password is hashed using our custom format (salt:hash)
-    if (hashedPassword.includes(':')) {
-      const [salt, storedHash] = hashedPassword.split(':');
-      const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-      return storedHash === hash;
-    } 
-    
-    // For backwards compatibility or other hashing methods
-    return false;
-  } catch (error) {
-    console.error('Password verification error:', error);
-    return false;
-  }
-}
+import { verifyPassword } from '@/utils/password';
+import EmailService from '@/utils/emailService';
+import CacheService from '@/utils/cache';
 
 /**
  * Normalize a phone number to a standard format for comparison
@@ -125,14 +102,14 @@ export const authOptions = {
           
           const user = users[0];
           
-          // Verify password
+          // Verify password using our utility
           const isPasswordValid = await verifyPassword(credentials.password, user.password);
           
           if (!isPasswordValid) return null;
           
           // Update last login timestamp
           await pool.query(
-            'UPDATE users SET birth_date = NOW() WHERE id = ?',
+            'UPDATE users SET updated_at = NOW() WHERE id = ?',
             [user.id]
           );
           
@@ -148,38 +125,41 @@ export const authOptions = {
     // Email provider for passwordless login with magic links
     EmailProvider({
       server: {
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT) || 587,
+        host: process.env.EMAIL_SERVER_HOST,
+        port: process.env.EMAIL_SERVER_PORT,
         auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD,
-        },
-        secure: process.env.EMAIL_SECURE === 'true',
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD
+        }
       },
-      from: process.env.EMAIL_FROM || 'noreply@msrcghana.org',
-      sendVerificationRequest: async ({ identifier, url, provider }) => {
+      from: process.env.EMAIL_FROM,
+      maxAge: 10 * 60, // Magic links are valid for 10 min
+      
+      // Custom function to send the email
+      async sendVerificationRequest({ identifier, url, provider }) {
         try {
-          // Get user to customize the email
           const [users] = await pool.query(
-            'SELECT * FROM users WHERE email = ? LIMIT 1',
+            'SELECT first_name, last_name, name FROM users WHERE email = ? LIMIT 1',
             [identifier]
           );
           
-          const user = users.length > 0 ? users[0] : { name: 'User' };
-          const name = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || 'User';
+          // Get user name for personalized email
+          const user = users.length ? users[0] : null;
+          const name = user 
+            ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name 
+            : 'mSRC User';
           
-          // Use existing reset password email functionality but mark it as a magic link
-          const emailResult = await sendPasswordResetEmail({
+          // Use our EmailService for consistent email templates
+          await EmailService.sendMagicLinkEmail({
             email: identifier,
-            name: name,
-            resetToken: url, // Use the entire URL as the token/link
-            isMagicLink: true // This is a magic link, not a password reset
+            name,
+            magicLink: url
           });
           
-          return emailResult;
+          console.log(`Magic link sent to ${identifier}`);
         } catch (error) {
-          console.error('Error in sendVerificationRequest:', error);
-          throw error;
+          console.error('Error sending verification email', error);
+          throw new Error('Failed to send verification email');
         }
       }
     }),
@@ -199,9 +179,9 @@ export const authOptions = {
             return null;
           }
           
-          // Get the OTP data from Redis
+          // Get the OTP data from CacheService
           const otpKey = `otp:${credentials.phoneOrEmail}`;
-          const otpDataString = await redisClient.get(otpKey);
+          const otpDataString = await CacheService.get(otpKey);
           
           if (!otpDataString) {
             throw new Error("Verification code expired or not found");
@@ -216,18 +196,18 @@ export const authOptions = {
             
             // If too many failed attempts, invalidate the OTP
             if (otpData.attempts >= 5) {
-              await redisClient.del(otpKey);
+              await CacheService.del(otpKey);
               throw new Error("Too many failed attempts. Please request a new code.");
             }
             
             // Save updated attempts
-            await redisClient.set(otpKey, JSON.stringify(otpData), 'KEEPTTL');
+            await CacheService.set(otpKey, JSON.stringify(otpData), 'KEEPTTL');
             throw new Error("Invalid verification code");
           }
           
           // Check expiration
           if (Date.now() > otpData.expiresAt) {
-            await redisClient.del(otpKey);
+            await CacheService.del(otpKey);
             throw new Error("Verification code has expired");
           }
           
@@ -257,11 +237,11 @@ export const authOptions = {
           }
           
           // Delete the OTP after successful verification
-          await redisClient.del(otpKey);
+          await CacheService.del(otpKey);
           
           // Update last login timestamp
           await pool.query(
-            'UPDATE users SET birth_date = NOW() WHERE id = ?',
+            'UPDATE users SET updated_at = NOW() WHERE id = ?',
             [user.id]
           );
           

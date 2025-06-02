@@ -1,12 +1,20 @@
 import mysql from 'mysql2/promise';
 
+/**
+ * Centralized MySQL database connection and utilities
+ * This file consolidates all database connection functionality
+ */
+
 // Create a centralized MySQL connection pool using environment variables
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || 'field.msrcghana.org',
+  user: process.env.DB_USER || process.env.DB_USERNAME || 'forge',
+  password: process.env.DB_PASSWORD || 'qv0NqfPLRLPEtMHm4snH',
+  database: process.env.DB_NAME || process.env.DB_DATABASE || 'field_msrcghana_db',
   port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USERNAME || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_DATABASE || 'msrc',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 /**
@@ -19,15 +27,15 @@ export async function getConnection() {
 
 /**
  * Get connection configuration
- * @returns {Object} Connection configuration
+ * @returns {Object} Database connection configuration
  */
 export function getConnectionConfig() {
   return {
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USERNAME || 'root',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_DATABASE || 'msrc',
+    host: process.env.DB_HOST || 'field.msrcghana.org',
+    user: process.env.DB_USER || process.env.DB_USERNAME || 'forge',
+    password: process.env.DB_PASSWORD || 'qv0NqfPLRLPEtMHm4snH',
+    database: process.env.DB_NAME || process.env.DB_DATABASE || 'field_msrcghana_db',
+    port: process.env.DB_PORT || 3306
   };
 }
 
@@ -38,10 +46,7 @@ export function getConnectionConfig() {
  */
 export async function getUserById(id) {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM users WHERE id = ? LIMIT 1',
-      [id]
-    );
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
     console.error('Error fetching user by ID:', error);
@@ -56,10 +61,7 @@ export async function getUserById(id) {
  */
 export async function getUserByEmail(email) {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM users WHERE email = ? LIMIT 1',
-      [email]
-    );
+    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
     console.error('Error fetching user by email:', error);
@@ -73,19 +75,24 @@ export async function getUserByEmail(email) {
  * @param {string} phone
  * @returns {string}
  */
-function normalizePhone(phone) {
+export function normalizePhone(phone) {
+  if (!phone) return '';
+  
   // Remove all non-digit characters
-  let digits = phone.replace(/\D/g, '');
-  // Remove leading country code '233' if present
-  if (digits.startsWith('233')) {
-    digits = digits.slice(3);
+  let normalized = phone.replace(/\D/g, '');
+  
+  // Remove country code if present (Ghana is +233)
+  if (normalized.startsWith('233')) {
+    normalized = normalized.substring(3);
   }
+  
   // Remove leading zero if present
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
+  if (normalized.startsWith('0')) {
+    normalized = normalized.substring(1);
   }
-  // Only keep the last 9 digits (Ghanaian numbers)
-  return digits.slice(-9);
+  
+  // Return the last 9 digits (standard Ghanaian number length)
+  return normalized.slice(-9);
 }
 
 /**
@@ -95,12 +102,14 @@ function normalizePhone(phone) {
  */
 export async function getUserByPhone(phone) {
   try {
-    const normalizedInput = normalizePhone(phone);
-    // Use SQL LIKE to match any phone ending with the normalized 9 digits
+    const normalizedPhone = normalizePhone(phone);
+    
+    // Use LIKE to match phone numbers regardless of format
     const [rows] = await pool.query(
-      "SELECT * FROM users WHERE REPLACE(REPLACE(REPLACE(REPLACE(phone_number, ' ', ''), '-', ''), '+', ''), '_', '') LIKE ? LIMIT 1",
-      [`%${normalizedInput}`]
+      'SELECT * FROM users WHERE phone_number LIKE ? LIMIT 1',
+      [`%${normalizedPhone}%`]
     );
+    
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
     console.error('Error fetching user by phone:', error);
@@ -108,4 +117,5 @@ export async function getUserByPhone(phone) {
   }
 }
 
+// Export the pool as the default export for backward compatibility
 export default pool;

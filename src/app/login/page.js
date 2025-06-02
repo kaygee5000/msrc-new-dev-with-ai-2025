@@ -28,6 +28,9 @@ import { Visibility, VisibilityOff, Email, Phone } from '@mui/icons-material';
 import ProgramSelectionDialog from '@/components/ProgramSelectionDialog';
 import { useAuth } from '@/context/AuthContext';
 
+// Mark this page as statically generated
+export const dynamic = 'force-static';
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading: authLoading, error: authError, login, isAuthenticated, setSelectedProgram } = useAuth();
@@ -160,12 +163,12 @@ export default function LoginPage() {
         throw new Error('Please enter your phone number');
       }
       
-      const response = await fetch('/api/auth/send-otp', {
+      const response = await fetch('/api/users/send-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phoneNumber }),
+        body: JSON.stringify({ recipient: phoneNumber, type: 'phone' }),
       });
       
       if (!response.ok) {
@@ -479,7 +482,7 @@ export default function LoginPage() {
           </Box>
           
           <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <MuiLink component={Link} href="/reset-password" variant="body2">
+            <MuiLink component={Link} href="/forgot-password" variant="body2">
               Forgot password?
             </MuiLink>
           </Box>

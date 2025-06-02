@@ -107,6 +107,59 @@ class CacheService {
       return false;
     }
   }
+  
+  /**
+   * Set a value in the cache directly
+   * @param {string} key - The cache key
+   * @param {any} value - The value to store (will be JSON stringified)
+   * @param {number} ttl - Time to live in seconds
+   * @returns {Promise<boolean>} - Success status
+   */
+  static async set(key, value, ttl = 3600) {
+    try {
+      const redis = await getRedisClient();
+      
+      if (!redis) {
+        console.warn('Redis not available, cannot set cache');
+        return false;
+      }
+      
+      await redis.set(key, typeof value === 'string' ? value : JSON.stringify(value), { EX: ttl });
+      return true;
+    } catch (error) {
+      console.error(`Cache set error for ${key}:`, error);
+      return false;
+    }
+  }
+  
+  /**
+   * Get a value from the cache
+   * @param {string} key - The cache key
+   * @returns {Promise<any>} - The cached value or null if not found
+   */
+  static async get(key) {
+    try {
+      const redis = await getRedisClient();
+      
+      if (!redis) {
+        console.warn('Redis not available, cannot get from cache');
+        return null;
+      }
+      
+      const cachedData = await redis.get(key);
+      if (!cachedData) return null;
+      
+      try {
+        return JSON.parse(cachedData);
+      } catch (e) {
+        // If not valid JSON, return as is
+        return cachedData;
+      }
+    } catch (error) {
+      console.error(`Cache get error for ${key}:`, error);
+      return null;
+    }
+  }
 }
 
 export default CacheService;

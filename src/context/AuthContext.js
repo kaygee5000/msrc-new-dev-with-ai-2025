@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn, signOut } from 'next-auth/react';
 
 // Create the auth context
 const AuthContext = createContext();
@@ -62,7 +63,7 @@ export function AuthProvider({ children }) {
         });
       } else if (method === 'otp') {
         // Handle OTP login
-        const response = await fetch('/api/auth/verify-otp', {
+        const response = await fetch('/api/users/verify-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(credentials)
@@ -96,15 +97,23 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       setLoading(true);
+      
+      // First call NextAuth's signOut function
+      await signOut({ redirect: false });
+      
+      // Then call our custom logout endpoint
       const response = await fetch('/api/auth/logout', {
-        method: 'POST'
+        method: 'GET'  // Changed from POST to GET to match the API implementation
       });
       
       if (response.ok) {
         setUser(null);
         router.push('/login');
       } else {
-        throw new Error('Logout failed');
+        console.error('Custom logout API failed, but NextAuth logout completed');
+        // Don't throw error since NextAuth logout already succeeded
+        setUser(null);
+        router.push('/login');
       }
     } catch (err) {
       console.error('Logout failed:', err);

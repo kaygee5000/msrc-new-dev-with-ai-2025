@@ -11,6 +11,9 @@ import {
 } from '@mui/material';
 import Image from 'next/image';
 
+// Mark this page as statically generated
+export const dynamic = 'force-static';
+
 export default function About() {
   return (
     <>
@@ -38,7 +41,7 @@ export default function About() {
       <Box sx={{ py: 10, bgcolor: 'background.paper' }}>
         <Container maxWidth="lg">
           <Grid container spacing={8}>
-            <Grid item xs={12} lg={6}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 4, color: 'text.primary' }}>
                 Our Mission
               </Typography>
@@ -54,7 +57,7 @@ export default function About() {
                 education system.
               </Typography>
             </Grid>
-            <Grid item xs={12} lg={6}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 4, color: 'text.primary' }}>
                 Our Vision
               </Typography>
@@ -83,7 +86,7 @@ export default function About() {
           </Box>
           
           <Grid container spacing={6} alignItems="center">
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Box sx={{ position: 'relative', height: 450, width: '100%' }}>
                 <Image
                   src="/globe.svg"
@@ -93,7 +96,7 @@ export default function About() {
                 />
               </Box>
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography sx={{ mb: 3, fontSize: '1.1rem', color: 'text.secondary' }}>
                 MSRC was born out of a collaboration between the Ghana Education Service and 
                 education technology experts who identified a critical gap in data collection 
@@ -128,7 +131,7 @@ export default function About() {
           </Box>
           
           <Grid container spacing={4}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ height: '100%', bgcolor: 'grey.50' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
@@ -144,7 +147,7 @@ export default function About() {
               </Card>
             </Grid>
             
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ height: '100%', bgcolor: 'grey.50' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
@@ -160,7 +163,7 @@ export default function About() {
               </Card>
             </Grid>
             
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card sx={{ height: '100%', bgcolor: 'grey.50' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
@@ -192,7 +195,7 @@ export default function About() {
           </Box>
           
           <Grid container spacing={4} alignItems="center">
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Paper sx={{ p: 4, display: 'flex', justifyContent: 'center', height: 100, alignItems: 'center' }}>
                 <Box sx={{ position: 'relative', height: 60, width: '100%' }}>
                   <Image
@@ -204,7 +207,7 @@ export default function About() {
                 </Box>
               </Paper>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Paper sx={{ p: 4, display: 'flex', justifyContent: 'center', height: 100, alignItems: 'center' }}>
                 <Box sx={{ position: 'relative', height: 60, width: '100%' }}>
                   <Image
@@ -216,7 +219,7 @@ export default function About() {
                 </Box>
               </Paper>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Paper sx={{ p: 4, display: 'flex', justifyContent: 'center', height: 100, alignItems: 'center' }}>
                 <Box sx={{ position: 'relative', height: 60, width: '100%' }}>
                   <Image
@@ -228,7 +231,7 @@ export default function About() {
                 </Box>
               </Paper>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Paper sx={{ p: 4, display: 'flex', justifyContent: 'center', height: 100, alignItems: 'center' }}>
                 <Box sx={{ position: 'relative', height: 60, width: '100%' }}>
                   <Image
