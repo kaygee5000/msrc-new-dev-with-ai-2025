@@ -1,361 +1,188 @@
-import nodemailer from 'nodemailer';
-import axios from 'axios';
-import EmailService from './emailService';
+/**
+ * DEPRECATED: This file is maintained for backward compatibility only.
+ * New code should use EmailService and SMSService directly.
+ */
 
-// Configure email transport
-const createTransport = () => {
-  // In development, use a test SMTP service like Ethereal
-  if (process.env.NODE_ENV === 'development' && !process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.ETHEREAL_EMAIL,
-        pass: process.env.ETHEREAL_PASSWORD
-      }
-    });
-  }
+import EmailService from './emailService';
+import SMSService from './smsService';
+
+// Legacy support - these functions are kept for backward compatibility
+// All functions forward to the appropriate service
+
+/**
+ * Send an email
+ * @deprecated Use EmailService.sendEmail directly
+ */
+export const sendEmail = async ({ to, subject, html, text }) => {
+  console.warn('Warning: emailSmsNotifier.sendEmail is deprecated. Use EmailService.sendEmail directly.');
   
-  // In production, use configured SMTP server
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
+  // Create a custom template for this email
+  const templateData = {
+    email: to,
+    name: '',
+  };
+  
+  const options = { subject };
+  
+  return EmailService.sendEmail('CUSTOM', templateData, {
+    ...options,
+    customHtml: html,
+    customText: text
   });
 };
 
 /**
- * EmailSMSNotifier - Utility for sending emails and SMS notifications
+ * Send a welcome email
+ * @deprecated Use EmailService.sendWelcomeEmail directly
  */
-class EmailSMSNotifier {
-  /**
-   * Send an email using nodemailer
-   * @param {Object} options - Email options
-   * @param {string} options.to - Recipient email
-   * @param {string} options.subject - Email subject
-   * @param {string} options.html - Email HTML content
-   * @param {string} [options.text] - Plain text version of email
-   * @returns {Promise<any>} - Nodemailer response
-   */
-  static async sendEmail({ to, subject, html, text }) {
-    try {
-      const transport = createTransport();
+export const sendWelcomeEmail = async (user) => {
+  console.warn('Warning: emailSmsNotifier.sendWelcomeEmail is deprecated. Use EmailService.sendWelcomeEmail directly.');
+  
+  return EmailService.sendWelcomeEmail({
+    email: user.email,
+    name: user.name,
+    password: user.tempPassword
+  });
+};
 
-      const info = await transport.sendMail({
-        from: `"mSRC Ghana" <${process.env.EMAIL_FROM || 'noreply@msrcghana.org'}>`,
-        to,
-        subject,
-        html,
-        text: text || html // Strip HTML if no text version provided
-      });
-      
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('Error sending email:', error);
-      throw new Error(`Failed to send email: ${error.message}`);
-    }
-  }
+/**
+ * Send a password reset email
+ * @deprecated Use EmailService.sendPasswordResetEmail directly
+ */
+export const sendPasswordResetEmail = async ({ email, name, resetToken, isMagicLink = false }) => {
+  console.warn('Warning: emailSmsNotifier.sendPasswordResetEmail is deprecated. Use EmailService.sendPasswordResetEmail directly.');
+  
+  return EmailService.sendPasswordResetEmail({
+    email,
+    name,
+    resetUrl: `${process.env.NEXT_PUBLIC_APP_URL}/${isMagicLink ? 'api/auth/callback/email?token=' : 'reset-password?token='}${resetToken}`
+  });
+};
 
-  /**
-   * Send a welcome email to a new user
-   * @param {Object} user - User object
-   * @param {string} user.email - User's email address
-   * @param {string} user.name - User's full name
-   * @param {string} [user.tempPassword] - Temporary password for first login
-   * @returns {Promise<any>} - Email sending result
-   */
-  static async sendWelcomeEmail(user) {
-    const { email, name, tempPassword } = user;
-    
-    // Use EmailService to generate the email content
-    const emailData = {
-      email,
-      name,
-      password: tempPassword
-    };
-    
-    // Get the template from EmailService
-    const template = EmailService.getTemplate('WELCOME', emailData);
-    
-    return this.sendEmail({
-      to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
-  }
+/**
+ * Send an OTP email
+ * @deprecated Use EmailService.sendOTPEmail directly
+ */
+export const sendOTPEmail = async ({ email, name, code }) => {
+  console.warn('Warning: emailSmsNotifier.sendOTPEmail is deprecated. Use EmailService.sendOTPEmail directly.');
+  
+  return EmailService.sendOTPEmail({
+    email,
+    name,
+    code
+  });
+};
 
-  /**
-   * Send a password reset email
-   * @param {Object} params - Parameters
-   * @param {string} params.email - User's email address
-   * @param {string} params.name - User's full name
-   * @param {string} params.resetToken - Password reset token
-   * @param {boolean} [params.isMagicLink] - Whether this is a magic link (sign in) email
-   * @returns {Promise<any>} - Email sending result
-   */
-  static async sendPasswordResetEmail({ email, name, resetToken, isMagicLink = false }) {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/${isMagicLink ? 'api/auth/callback/email?token=' : 'reset-password?token='}${resetToken}`;
-    
-    // Use EmailService to generate the email content
-    const emailData = {
-      email,
-      name,
-      resetUrl
-    };
-    
-    // Get the template from EmailService
-    const templateName = isMagicLink ? 'MAGIC_LINK' : 'PASSWORD_RESET';
-    const template = EmailService.getTemplate(templateName, emailData);
-    
-    return this.sendEmail({
-      to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
-  }
-
-  /**
-   * Send a one-time authentication code via email
-   * @param {Object} params - Parameters
-   * @param {string} params.email - User's email address
-   * @param {string} params.name - User's full name
-   * @param {string} params.code - The one-time authentication code
-   * @returns {Promise<any>} - Email sending result
-   */
-  static async sendOTPEmail({ email, name, code }) {
-    // Use EmailService to generate the email content
-    const emailData = {
-      email,
-      name,
-      code
-    };
-    
-    // Get the template from EmailService
-    const template = EmailService.getTemplate('OTP', emailData);
-    
-    return this.sendEmail({
-      to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
-  }
-
-  /**
-   * Send an SMS using Nsano SMS API
-   * @param {Object} params - Parameters
-   * @param {string} params.phoneNumber - Recipient phone number
-   * @param {string} params.message - SMS message content
-   * @param {string} [params.sender] - Sender ID (optional, defaults to MSRCGHANA)
-   * @returns {Promise<any>} - Nsano API response
-   */
-  static async sendSMS({ phoneNumber, message, sender = 'MSRCGHANA' }) {
-    try {
-      // Format the phone number if needed
-      const formattedNumber = phoneNumber.startsWith('+') 
-        ? phoneNumber.substring(1) // Remove the '+' if present
-        : phoneNumber;
-      
-      const response = await axios.post(
-        `${process.env.NSANO_SMS_ENDPOINT}/single`,
-        {
-          sender,
-          recipient: formattedNumber,
-          message,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-SMS-Apikey': process.env.NSANO_SMS_KEY,
-          },
-        }
-      );
-      
-      console.log('SMS sent:', response.data);
-      return { success: true, messageId: response.data.id || response.data.requestId || 'unknown' };
-    } catch (error) {
-      console.error('Error sending SMS:', error.response?.data || error.message);
-      throw new Error(`Failed to send SMS: ${error.response?.data?.message || error.message}`);
-    }
-  }
-
-  /**
-   * Send OTP via SMS
-   * @param {Object} params - Parameters
-   * @param {string} params.phoneNumber - User's phone number
-   * @param {string} params.name - User's name
-   * @param {string} params.code - The one-time authentication code
-   * @returns {Promise<any>} - SMS sending result
-   */
-  static async sendOTPSMS({ phoneNumber, name, code }) {
-    const message = `Hello ${name}, your MSRC Ghana authentication code is: ${code}. This code will expire in 15 minutes.`;
-    return this.sendSMS({ phoneNumber, message });
-  }
-
-  /**
-   * Send new user credentials via SMS
-   * @param {Object} params - Parameters
-   * @param {string} params.phoneNumber - User's phone number
-   * @param {string} params.name - User's name
-   * @param {string} params.email - User's email
-   * @param {string} params.password - User's temporary password
-   * @returns {Promise<any>} - SMS sending result
-   */
-  static async sendCredentialsSMS({ phoneNumber, name, email, password }) {
-    const message = `Hello ${name}, your mSRC Ghana account has been created. \n\nEmail: ${email} \nPassword: ${password}. \n\nPlease log in and change your password.`;
-    return this.sendSMS({ phoneNumber, message });
-  }
-
-  /**
-   * Send batch user creation email with credentials
-   * @param {Object} params - Parameters
-   * @param {string} params.email - User's email address
-   * @param {string} params.name - User's full name
-   * @param {string} params.password - User's temporary password
-   * @param {string} [params.role] - User's role
-   * @param {string} [params.programName] - Program name if applicable
-   * @returns {Promise<any>} - Email sending result
-   */
-  static async sendBatchUserCreationEmail({ email, name, password, role, programName }) {
-    // Use EmailService to generate the email content
-    const emailData = {
-      email,
-      name,
-      password,
-      role,
-      programName
-    };
-    
-    // Get the template from EmailService
-    const template = EmailService.getTemplate('BATCH_USER_CREATION', emailData);
-    
-    return this.sendEmail({
-      to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
-  }
-
-  /**
-   * Send notification to multiple users
-   * @param {Object} params - Parameters
-   * @param {Array<Object>} params.users - Array of user objects with email and/or phone
-   * @param {string} params.subject - Email subject
-   * @param {string} params.message - Notification message
-   * @param {boolean} [params.sendEmail=true] - Whether to send email notifications
-   * @param {boolean} [params.sendSMS=false] - Whether to send SMS notifications
-   * @returns {Promise<Array>} - Array of results
-   */
-  static async sendBulkNotification({ 
-    users, 
-    subject, 
+/**
+ * Send an SMS
+ * @deprecated Use SMSService.sendRawSMS directly
+ */
+export const sendSMS = async ({ phoneNumber, message, sender = 'MSRCGHANA' }) => {
+  console.warn('Warning: emailSmsNotifier.sendSMS is deprecated. Use SMSService.sendRawSMS directly.');
+  
+  return SMSService.sendRawSMS({
+    phoneNumber,
     message,
-    sendEmail = true,
-    sendSMS = false
-  }) {
-    const results = [];
-    
-    for (const user of users) {
-      try {
-        // Send email if enabled and email is available
-        if (sendEmail && user.email) {
-          const emailData = {
-            email: user.email,
-            subject,
-            message
-          };
-          const template = EmailService.getTemplate('BULK_NOTIFICATION', emailData);
-          const emailResult = await this.sendEmail({
-            to: user.email,
-            subject: template.subject,
-            html: template.html,
-            text: template.text
-          });
-          
-          results.push({ 
-            user: user.id || user.email, 
-            type: 'email', 
-            success: true,
-            messageId: emailResult.messageId 
-          });
-        }
+    sender
+  });
+};
+
+/**
+ * Send an OTP via SMS
+ * @deprecated Use SMSService.sendOTPSMS directly
+ */
+export const sendOTPSMS = async ({ phoneNumber, name, code }) => {
+  console.warn('Warning: emailSmsNotifier.sendOTPSMS is deprecated. Use SMSService.sendOTPSMS directly.');
+  
+  return SMSService.sendOTPSMS({
+    phoneNumber,
+    code
+  });
+};
+
+/**
+ * Send bulk notifications
+ * @deprecated Use EmailService and SMSService directly
+ */
+export const sendBulkNotification = async ({ users, subject, message, sendEmail = true, sendSMS = false }) => {
+  console.warn('Warning: emailSmsNotifier.sendBulkNotification is deprecated. Use EmailService and SMSService directly.');
+  
+  const results = [];
+  
+  for (const user of users) {
+    try {
+      // Send email if enabled and email is available
+      if (sendEmail && user.email) {
+        const emailResult = await EmailService.sendEmail('CUSTOM', {
+          email: user.email,
+          name: user.name || ''
+        }, {
+          subject,
+          customHtml: `<h1>${subject}</h1><p>${message}</p>`,
+          customText: `${subject}\n\n${message}`
+        });
         
-        // Send SMS if enabled and phone is available
-        if (sendSMS && user.phone_number) {
-          const smsMessage = `mSRC Ghana: ${subject}\n\n${message}`;
-          const smsResult = await this.sendSMS({ 
-            phoneNumber: user.phone_number, 
-            message: smsMessage 
-          });
-          
-          results.push({ 
-            user: user.id || user.phone_number, 
-            type: 'sms', 
-            success: true,
-            messageId: smsResult.messageId 
-          });
-        }
-      } catch (error) {
         results.push({ 
-          user: user.id || user.email || user.phone_number, 
-          type: 'unknown', 
-          success: false,
-          error: error.message 
+          type: 'email', 
+          to: user.email, 
+          success: true 
         });
       }
+      
+      // Send SMS if enabled and phone is available
+      if (sendSMS && user.phone_number) {
+        const smsResult = await SMSService.sendRawSMS({ 
+          phoneNumber: user.phone_number, 
+          message: `${subject}\n\n${message}` 
+        });
+        
+        results.push({ 
+          type: 'sms', 
+          to: user.phone_number, 
+          success: true 
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to send notification to user:`, user, error);
+      results.push({ 
+        type: sendEmail ? 'email' : 'sms', 
+        to: sendEmail ? user.email : user.phone_number, 
+        success: false, 
+        error: error.message 
+      });
     }
-    
-    return results;
   }
   
-  /**
-   * Send a test SMS to verify Nsano SMS API configuration
-   * @param {string} phoneNumber - Phone number to send test SMS to
-   * @returns {Promise<any>} - SMS sending result
-   */
-  static async sendTestSMS(phoneNumber) {
-    const message = 'This is a test SMS from MSRC Ghana. If you received this, your SMS system is properly configured.';
-    return this.sendSMS({ 
-      phoneNumber, 
-      message,
-      sender: 'mSRC TEST'
-    });
+  return results;
+};
+
+// Export a compatibility class for any code that might be using it directly
+export class EmailSMSNotifier {
+  static async sendEmail(options) {
+    return sendEmail(options);
   }
   
-  /**
-   * Send a test email to verify SMTP configuration
-   * @returns {Promise<any>} - Email sending result
-   */
-  static async sendTestEmail() {
-    const emailData = {
-      email: process.env.EMAIL_TEST_RECIPIENT || process.env.EMAIL_USER,
-      subject: 'MSRC Ghana Email System Test',
-      message: 'This is a test email to verify that your SMTP configuration is working correctly.'
-    };
-    const template = EmailService.getTemplate('TEST_EMAIL', emailData);
-    
-    return this.sendEmail({
-      to: emailData.email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
+  static async sendWelcomeEmail(user) {
+    return sendWelcomeEmail(user);
+  }
+  
+  static async sendPasswordResetEmail(options) {
+    return sendPasswordResetEmail(options);
+  }
+  
+  static async sendOTPEmail(options) {
+    return sendOTPEmail(options);
+  }
+  
+  static async sendSMS(options) {
+    return sendSMS(options);
+  }
+  
+  static async sendOTPSMS(options) {
+    return sendOTPSMS(options);
+  }
+  
+  static async sendBulkNotification(options) {
+    return sendBulkNotification(options);
   }
 }
-
-// Legacy support - these functions are kept for backward compatibility
-export const sendEmail = EmailSMSNotifier.sendEmail.bind(EmailSMSNotifier);
-export const sendWelcomeEmail = EmailSMSNotifier.sendWelcomeEmail.bind(EmailSMSNotifier);
-export const sendPasswordResetEmail = EmailSMSNotifier.sendPasswordResetEmail.bind(EmailSMSNotifier);
-export const sendOTPEmail = EmailSMSNotifier.sendOTPEmail.bind(EmailSMSNotifier);
-export const sendSMS = EmailSMSNotifier.sendSMS.bind(EmailSMSNotifier);
-export const sendOTPSMS = EmailSMSNotifier.sendOTPSMS.bind(EmailSMSNotifier);
-export const sendBulkNotification = EmailSMSNotifier.sendBulkNotification.bind(EmailSMSNotifier);

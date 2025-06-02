@@ -1,9 +1,8 @@
 /**
  * SMS Service for consistent SMS handling across the application
- * Uses EmailSMSNotifier for sending SMS
  */
 
-import { EmailSMSNotifier } from './emailSmsNotifier';
+import axios from 'axios';
 
 // SMS templates with default messages
 const SMS_TEMPLATES = {
@@ -46,12 +45,51 @@ class SMSService {
       throw new Error('Recipient phone number is required');
     }
     
-    const notifier = new EmailSMSNotifier();
+    const message = template.generateMessage(data);
     
-    return await notifier.sendSMS({
-      to: data.phoneNumber,
-      message: template.generateMessage(data)
+    return await this.sendRawSMS({
+      phoneNumber: data.phoneNumber,
+      message,
+      sender: options.sender || 'MSRCGHANA'
     });
+  }
+  
+  /**
+   * Send a raw SMS directly to the SMS provider
+   * @param {Object} params - Parameters
+   * @param {string} params.phoneNumber - Recipient phone number
+   * @param {string} params.message - SMS message content
+   * @param {string} [params.sender] - Sender ID (optional, defaults to MSRCGHANA)
+   * @returns {Promise<any>} - SMS provider API response
+   */
+  static async sendRawSMS({ phoneNumber, message, sender = 'MSRCGHANA' }) {
+    try {
+      // Format phone number (remove leading 0 and add country code if needed)
+      const formattedPhone = phoneNumber.startsWith('0') 
+        ? `233${phoneNumber.substring(1)}` 
+        : phoneNumber;
+      
+      // Send SMS using Nsano SMS API
+      const response = await axios.post(
+        'https://api.nsano.com/api/sms/send',
+        {
+          sender,
+          recipient: formattedPhone,
+          message
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.NSANO_API_KEY}`
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('SMS sending error:', error);
+      throw new Error(`Failed to send SMS: ${error.message}`);
+    }
   }
   
   /**
@@ -95,7 +133,29 @@ class SMSService {
    * @returns {Promise<Object>} - SMS send result
    */
   static async sendNotificationSMS(data) {
-    return await this.sendSMS('NOTIFICATION', data);
+    return this.sendSMS('NOTIFICATION', {
+      phoneNumber: data.phoneNumber,
+      message: data.message
+    });
+  }
+  
+  /**
+   * Send a test SMS to verify configuration
+   * @param {string} phoneNumber - Phone number to send test SMS to
+   * @returns {Promise<Object>} - SMS send result
+   */
+  static async sendTestSMS(phoneNumber) {
+    if (!phoneNumber) {
+      throw new Error('Phone number is required for test SMS');
+    }
+    
+    console.log(`Sending test SMS to ${phoneNumber}`);
+    
+    return this.sendRawSMS({
+      phoneNumber,
+      message: 'This is a test message from mSRC Ghana. Your SMS configuration is working correctly.',
+      sender: 'mSRC TEST'
+    });
   }
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserByEmail } from '@/utils/db';
 import TokenService from '@/utils/tokenService';
+import EmailService from '@/utils/emailService';
 
 /**
  * Handle forgot password request
@@ -39,8 +40,7 @@ export async function POST(req) {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password/${token}`;
     
     // Send email with reset link
-    const { sendPasswordResetEmail } = await import('@/utils/emailSmsNotifier');
-    await sendPasswordResetEmail({
+    await EmailService.sendPasswordResetEmail({
       name: `${user.first_name} ${user.last_name}`.trim(),
       email: user.email,
       resetUrl

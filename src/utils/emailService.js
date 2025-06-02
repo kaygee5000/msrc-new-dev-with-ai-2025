@@ -1,9 +1,35 @@
 /**
  * Email Service for consistent email handling across the application
- * Uses EmailSMSNotifier for sending emails
  */
 
-import { EmailSMSNotifier } from './emailSmsNotifier';
+import * as nodemailer from 'nodemailer';
+
+// Configure email transport
+const createTransport = () => {
+  // In development, use a test SMTP service like Ethereal
+  if (process.env.NODE_ENV === 'development' && !process.env.EMAIL_HOST) {
+    return nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.ETHEREAL_EMAIL,
+        pass: process.env.ETHEREAL_PASSWORD
+      }
+    });
+  }
+  
+  // In production, use configured SMTP server
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+};
 
 // Email templates with default subjects
 const EMAIL_TEMPLATES = {
@@ -197,6 +223,43 @@ const EMAIL_TEMPLATES = {
       Best regards,
       The mSRC Team
     `
+  },
+  
+  TEST_EMAIL: {
+    subject: 'MSRC Ghana Email System Test',
+    generateHtml: (data) => `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>MSRC Ghana Email System Test</h2>
+        <p>This is a test email to verify that your SMTP configuration is working correctly.</p>
+        <p>If you received this email, your email system is properly configured.</p>
+        <p>Time sent: ${new Date().toISOString()}</p>
+      </div>
+    `,
+    generateText: (data) => `
+      MSRC Ghana Email System Test
+      
+      This is a test email to verify that your SMTP configuration is working correctly.
+      If you received this email, your email system is properly configured.
+      Time sent: ${new Date().toISOString()}
+    `
+  },
+  
+  CUSTOM: {
+    subject: 'Notification from MSRC Ghana',
+    generateHtml: (data) => data.customHtml || `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Notification from MSRC Ghana</h2>
+        <p>Hello ${data.name || ''},</p>
+        <p>${data.message || 'This is a notification from MSRC Ghana.'}</p>
+      </div>
+    `,
+    generateText: (data) => data.customText || `
+      Notification from MSRC Ghana
+      
+      Hello ${data.name || ''},
+      
+      ${data.message || 'This is a notification from MSRC Ghana.'}
+    `
   }
 };
 
@@ -205,6 +268,26 @@ const EMAIL_TEMPLATES = {
  */
 class EmailService {
   /**
+   * Get a template with rendered content
+   * @param {string} templateName - Template name from EMAIL_TEMPLATES
+   * @param {Object} data - Data for the template
+   * @param {Object} options - Additional options
+   * @returns {Object} - Template with rendered content
+   */
+  static getTemplate(templateName, data, options = {}) {
+    const template = EMAIL_TEMPLATES[templateName];
+    if (!template) {
+      throw new Error(`Invalid email template: ${templateName}`);
+    }
+    
+    return {
+      subject: options.subject || template.subject,
+      html: options.customHtml || template.generateHtml(data),
+      text: options.customText || template.generateText(data)
+    };
+  }
+
+  /**
    * Send an email using a template
    * @param {string} templateName - Template name from EMAIL_TEMPLATES
    * @param {Object} data - Data for the template
@@ -212,6 +295,8 @@ class EmailService {
    * @param {string} data.name - Recipient name
    * @param {Object} options - Additional options
    * @param {string} options.subject - Custom subject (optional)
+   * @param {string} options.customHtml - Custom HTML content (optional)
+   * @param {string} options.customText - Custom text content (optional)
    * @returns {Promise<Object>} - Email send result
    */
   static async sendEmail(templateName, data, options = {}) {
@@ -224,13 +309,17 @@ class EmailService {
       throw new Error('Recipient email is required');
     }
     
-    const notifier = new EmailSMSNotifier();
+    const transport = createTransport();
     
-    return await notifier.sendEmail({
+    const html = options.customHtml || template.generateHtml(data);
+    const text = options.customText || template.generateText(data);
+    
+    return await transport.sendMail({
       to: data.email,
       subject: options.subject || template.subject,
-      text: template.generateText(data),
-      html: template.generateHtml(data)
+      text: text,
+      html: html,
+      from: process.env.EMAIL_FROM || 'noreply@msrcghana.org'
     });
   }
   
