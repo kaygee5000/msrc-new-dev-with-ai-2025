@@ -2,7 +2,7 @@ import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import EmailProvider from 'next-auth/providers/email';
 import pool from '@/utils/db';
-import { RedisAdapter } from '@/utils/authAdapter';
+import { AuthAdapter } from '@/utils/authAdapter';
 import { verifyPassword } from '@/utils/password';
 import EmailService from '@/utils/emailService';
 import CacheService from '@/utils/cache';
@@ -68,14 +68,14 @@ async function formatUserForToken(user) {
   
   return {
     ...userWithoutPassword,
-    name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || user.email,
+    name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
     programRoles
   };
 }
 
 // Configure NextAuth
 export const authOptions = {
-  adapter: RedisAdapter(),  // Using our custom Redis adapter
+  adapter: AuthAdapter(),  // Using our custom authentication adapter
   providers: [
     // Credentials provider for username/password authentication
     CredentialsProvider({
@@ -109,7 +109,7 @@ export const authOptions = {
           
           // Update last login timestamp
           await pool.query(
-            'UPDATE users SET updated_at = NOW() WHERE id = ?',
+            'UPDATE users SET birth_date = NOW() WHERE id = ?',
             [user.id]
           );
           
@@ -125,11 +125,11 @@ export const authOptions = {
     // Email provider for passwordless login with magic links
     EmailProvider({
       server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: process.env.EMAIL_SERVER_PORT,
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
         auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
         }
       },
       from: process.env.EMAIL_FROM,
@@ -139,15 +139,14 @@ export const authOptions = {
       async sendVerificationRequest({ identifier, url, provider }) {
         try {
           const [users] = await pool.query(
-            'SELECT first_name, last_name, name FROM users WHERE email = ? LIMIT 1',
+            'SELECT first_name, last_name, email FROM users WHERE email = ? LIMIT 1',
             [identifier]
           );
           
           // Get user name for personalized email
           const user = users.length ? users[0] : null;
           const name = user 
-            ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name 
-            : 'mSRC User';
+            ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'mSRC User';
           
           // Use our EmailService for consistent email templates
           await EmailService.sendMagicLinkEmail({
@@ -241,7 +240,7 @@ export const authOptions = {
           
           // Update last login timestamp
           await pool.query(
-            'UPDATE users SET updated_at = NOW() WHERE id = ?',
+            'UPDATE users SET birth_date = NOW() WHERE id = ?',
             [user.id]
           );
           

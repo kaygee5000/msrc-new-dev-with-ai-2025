@@ -5,117 +5,78 @@ import mysql from 'mysql2/promise';
  * This file consolidates all database connection functionality
  */
 
-// Create a centralized MySQL connection pool using environment variables
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'field.msrcghana.org',
-  user: process.env.DB_USER || process.env.DB_USERNAME || 'forge',
-  password: process.env.DB_PASSWORD || 'qv0NqfPLRLPEtMHm4snH',
-  database: process.env.DB_NAME || process.env.DB_DATABASE || 'field_msrcghana_db',
-  port: process.env.DB_PORT || 3306,
+// Define connection config with environment variables
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_DATABASE,
+  port: parseInt(process.env.DB_PORT || '3306', 10),
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
-});
+  queueLimit: 0,
+  // Enable SSL if required
+  ssl: process.env.DB_SSL === 'true' ? {
+    rejectUnauthorized: false // For self-signed certificates
+  } : undefined,
+  // Add timeouts
+  connectTimeout: 10000, // 10 seconds
+  // Enable keep-alive
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000 // 10 seconds
+};
+
+// Create connection pool with retry logic
+const createPoolWithRetry = async (retries = 3, delay = 2000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const pool = mysql.createPool(dbConfig);
+      // Test the connection
+      const conn = await pool.getConnection();
+      await conn.ping();
+      conn.release();
+      console.log('Successfully connected to the database');
+      return pool;
+    } catch (error) {
+      if (i === retries - 1) {
+        console.error('Failed to connect to database after retries:', error);
+        throw error;
+      }
+      console.warn(`Database connection failed (attempt ${i + 1}/${retries}), retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
+// Initialize the pool
+let pool;
+try {
+  pool = await createPoolWithRetry();
+} catch (error) {
+  console.error('Fatal: Could not connect to database:', error);
+  // In a real app, you might want to exit the process here
+  // process.exit(1);
+}
 
 /**
  * Get a connection from the pool
  * @returns {Promise<Object>} MySQL connection
  */
 export async function getConnection() {
+  if (!pool) {
+    throw new Error('Database connection not initialized');
+  }
   return pool;
 }
 
-/**
- * Get connection configuration
- * @returns {Object} Database connection configuration
- */
-export function getConnectionConfig() {
-  return {
-    host: process.env.DB_HOST || 'field.msrcghana.org',
-    user: process.env.DB_USER || process.env.DB_USERNAME || 'forge',
-    password: process.env.DB_PASSWORD || 'qv0NqfPLRLPEtMHm4snH',
-    database: process.env.DB_NAME || process.env.DB_DATABASE || 'field_msrcghana_db',
-    port: process.env.DB_PORT || 3306
-  };
-}
-
-/**
- * Get a user by ID
- * @param {string|number} id - User's ID
- * @returns {Promise<Object|null>} User object or null if not found
- */
-export async function getUserById(id) {
-  try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    console.error('Error fetching user by ID:', error);
-    return null;
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  if (pool) {
+    await pool.end();
+    console.log('Database connection pool closed');
   }
-}
-
-/**
- * Get a user by email
- * @param {string} email - User's email address
- * @returns {Promise<Object|null>} User object or null if not found
- */
-export async function getUserByEmail(email) {
-  try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    console.error('Error fetching user by email:', error);
-    return null;
-  }
-}
-
-/**
- * Normalize a Ghanaian phone number for comparison.
- * Removes spaces, leading zeros, and country code, leaving only the last 9 digits.
- * @param {string} phone
- * @returns {string}
- */
-export function normalizePhone(phone) {
-  if (!phone) return '';
-  
-  // Remove all non-digit characters
-  let normalized = phone.replace(/\D/g, '');
-  
-  // Remove country code if present (Ghana is +233)
-  if (normalized.startsWith('233')) {
-    normalized = normalized.substring(3);
-  }
-  
-  // Remove leading zero if present
-  if (normalized.startsWith('0')) {
-    normalized = normalized.substring(1);
-  }
-  
-  // Return the last 9 digits (standard Ghanaian number length)
-  return normalized.slice(-9);
-}
-
-/**
- * Get a user by phone number, matching various formats.
- * @param {string} phone - User's phone number
- * @returns {Promise<Object|null>} User object or null if not found
- */
-export async function getUserByPhone(phone) {
-  try {
-    const normalizedPhone = normalizePhone(phone);
-    
-    // Use LIKE to match phone numbers regardless of format
-    const [rows] = await pool.query(
-      'SELECT * FROM users WHERE phone_number LIKE ? LIMIT 1',
-      [`%${normalizedPhone}%`]
-    );
-    
-    return rows.length > 0 ? rows[0] : null;
-  } catch (error) {
-    console.error('Error fetching user by phone:', error);
-    return null;
-  }
-}
+  process.exit(0);
+});
 
 // Export the pool as the default export for backward compatibility
 export default pool;

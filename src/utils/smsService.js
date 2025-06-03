@@ -71,7 +71,7 @@ class SMSService {
       
       // Send SMS using Nsano SMS API
       const response = await axios.post(
-        'https://api.nsano.com/api/sms/send',
+        `${process.env.NSANO_SMS_ENDPOINT}/single`,
         {
           sender,
           recipient: formattedPhone,
@@ -80,7 +80,7 @@ class SMSService {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.NSANO_API_KEY}`
+            'X-SMS-Apikey': process.env.NSANO_SMS_KEY
           }
         }
       );
@@ -89,6 +89,48 @@ class SMSService {
     } catch (error) {
       console.error('SMS sending error:', error);
       throw new Error(`Failed to send SMS: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Send bulk SMS messages to multiple recipients
+   * @param {Object} params - Parameters
+   * @param {Array<string>} params.phoneNumbers - Array of recipient phone numbers
+   * @param {string} params.message - SMS message content
+   * @param {string} [params.sender] - Sender ID (optional, defaults to MSRCGHANA)
+   * @returns {Promise<any>} - SMS provider API response
+   */
+  static async sendBulkSMS({ phoneNumbers, message, sender = 'MSRCGHANA' }) {
+    try {
+      if (!Array.isArray(phoneNumbers) || phoneNumbers.length === 0) {
+        throw new Error('phoneNumbers must be a non-empty array');
+      }
+      
+      // Format phone numbers (remove leading 0 and add country code if needed)
+      const formattedPhones = phoneNumbers.map(phone => 
+        phone.startsWith('0') ? `233${phone.substring(1)}` : phone
+      );
+      
+      // Send bulk SMS using Nsano SMS API
+      const response = await axios.post(
+        `${process.env.NSANO_SMS_ENDPOINT}/bulk`,
+        {
+          sender,
+          recipients: formattedPhones,
+          message
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-SMS-Apikey': process.env.NSANO_SMS_KEY
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error('Bulk SMS sending error:', error);
+      throw new Error(`Failed to send bulk SMS: ${error.message}`);
     }
   }
   

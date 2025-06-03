@@ -59,9 +59,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   
   // State for SMS OTP login
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneOrEmail, setPhoneOrEmail] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
+  const [otpSuccess, setOtpSuccess] = useState('');
   const [otpError, setOtpError] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -159,8 +160,8 @@ export default function LoginPage() {
     setOtpLoading(true);
     
     try {
-      if (!phoneNumber) {
-        throw new Error('Please enter your phone number');
+      if (!phoneOrEmail) {
+        throw new Error('Please enter your phone number or email');
       }
       
       const response = await fetch('/api/users/send-otp', {
@@ -168,15 +169,19 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ recipient: phoneNumber, type: 'phone' }),
+        body: JSON.stringify({ phoneOrEmail }),
       });
       
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || 'Failed to send verification code');
       }
-      
+      const data = await response.json();
+      setOtpSuccess(data.message || 'Verification code sent successfully');
       setOtpSent(true);
+      
+      // Clear any previous errors
+      setOtpError('');
     } catch (err) {
       console.error('OTP error:', err);
       setOtpError(err.message || 'Failed to send verification code. Please try again.');
@@ -196,13 +201,14 @@ export default function LoginPage() {
         throw new Error('Please enter the verification code');
       }
       
-      await login('otp', { phoneNumber, otp });
+      await login('otp', { phoneOrEmail, otp });
       
       // If we get here, login was successful
       // The useEffect will handle redirection based on program roles
     } catch (err) {
-      console.error('OTP verification error:', err);
-      setOtpError(err.message || 'Failed to verify code. Please try again.');
+      console.error('Verification error:', err);
+      const message = friendlyErrors[err.message] || err.message || friendlyErrors.default;
+      setOtpError(message);
     } finally {
       setVerifyLoading(false);
     }
@@ -328,99 +334,59 @@ export default function LoginPage() {
   // Render SMS OTP login form
   const renderSmsOtpLogin = () => (
     <Box component="form" onSubmit={otpSent ? handleVerifyOtp : handleSendOtp} sx={{ mt: 2 }}>
-      {!otpSent ? (
-        <>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Enter your phone number to receive a verification code.
-          </Typography>
-          
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="phone"
-            label="Phone Number"
-            name="phone"
-            autoComplete="tel"
-            placeholder="+233201234567"
-            autoFocus
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            disabled={otpLoading}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Phone fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={otpLoading}
-            startIcon={otpLoading ? <CircularProgress size={20} color="inherit" /> : null}
-          >
-            {otpLoading ? 'Sending...' : 'Send Verification Code'}
-          </Button>
-        </>
-      ) : (
-        <>
-          <Alert severity="success" sx={{ mt: 2, mb: 2 }}>
-            <Typography variant="body2">
-              A verification code has been sent to {phoneNumber}.
-            </Typography>
-          </Alert>
-          
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="otp"
-            label="Verification Code"
-            name="otp"
-            autoComplete="one-time-code"
-            autoFocus
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            disabled={verifyLoading}
-          />
-          
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-            disabled={verifyLoading}
-            startIcon={verifyLoading ? <CircularProgress size={20} color="inherit" /> : null}
-          >
-            {verifyLoading ? 'Verifying...' : 'Verify Code'}
-          </Button>
-          
-          <Box sx={{ textAlign: 'center', mt: 1 }}>
-            <Button
-              variant="text"
-              color="primary"
-              size="small"
-              onClick={() => {
-                setOtpSent(false);
-                setOtp('');
-              }}
-              disabled={otpLoading || verifyLoading}
-            >
-              Use a different phone number
-            </Button>
-          </Box>
-        </>
-      )}
+      <TextField
+        fullWidth
+        variant="outlined"
+        margin="normal"
+        label={otpSent ? "Verification Code" : "Phone number or email"}
+        value={otpSent ? otp : phoneOrEmail}
+        onChange={(e) => otpSent ? setOtp(e.target.value) : setPhoneOrEmail(e.target.value)}
+        disabled={loading || (otpSent ? verifyLoading : otpLoading)}
+        InputProps={!otpSent ? {
+          startAdornment: (
+            <InputAdornment position="start">
+              {phoneOrEmail.includes('@') ? <Email /> : <Phone />}
+            </InputAdornment>
+          ),
+        } : {}}
+        placeholder={otpSent ? "Enter 6-digit code" : "e.g. 0244123456 or user@example.com"}
+        autoComplete={otpSent ? "one-time-code" : (phoneOrEmail.includes('@') ? "email" : "tel")}
+        type={otpSent ? "number" : (phoneOrEmail.includes('@') ? "email" : "tel")}
+      />
       
       {otpError && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {otpError}
-        </Alert>
+        <Alert severity="error" sx={{ mt: 2 }}>{otpError}</Alert>
+      )}
+      {otpSuccess && (
+        <Alert severity="success" sx={{ mt: 2 }}>{otpSuccess}</Alert>
+      )}
+      
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        sx={{ mt: 3, mb: 2 }}
+        disabled={loading || (otpSent ? verifyLoading : otpLoading) || !(otpSent ? otp : phoneOrEmail)}
+      >
+        {otpSent 
+          ? (verifyLoading ? 'Verifying...' : 'Verify Code') 
+          : (otpLoading ? 'Sending...' : 'Send Verification Code')}
+      </Button>
+      
+      {otpSent && (
+        <Button
+          fullWidth
+          variant="outlined"
+          onClick={() => {
+            setOtpSent(false);
+            setOtp('');
+            setOtpError('');
+          }}
+          disabled={verifyLoading}
+          sx={{ mt: 1 }}
+        >
+          Use a different {phoneOrEmail.includes('@') ? 'email' : 'number'}
+        </Button>
       )}
     </Box>
   );
@@ -460,7 +426,7 @@ export default function LoginPage() {
           >
             <Tab label="Password" id="login-tab-0" />
             <Tab label="Magic Link" id="login-tab-1" />
-            <Tab label="SMS Code" id="login-tab-2" />
+            <Tab label="OTP Code" id="login-tab-2" />
           </Tabs>
           
           {error && (

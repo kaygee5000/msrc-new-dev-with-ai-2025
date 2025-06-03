@@ -1,20 +1,10 @@
 import CacheService from './cache';
 
 /**
- * A custom NextAuth.js adapter for Redis using CacheService
+ * A custom NextAuth.js adapter for authentication using CacheService
  * This implements the minimal required adapter methods for Email Provider
  */
-export function RedisAdapter() {
-  // Helper function to get CacheService with error handling
-  const getService = async () => {
-    try {
-      return CacheService;
-    } catch (error) {
-      console.error('Failed to get CacheService:', error);
-      throw new Error('CacheService connection failed');
-    }
-  };
-
+export function AuthAdapter() {
   return {
     // Create a verification token (used for email sign-in)
     async createVerificationToken(token) {
@@ -22,7 +12,7 @@ export function RedisAdapter() {
         const { identifier, token: tokenValue, expires } = token;
         // Store token with expiry
         const key = `emailToken:${identifier}:${tokenValue}`;
-        await getService().set(
+        await CacheService.set(
           key, 
           token, 
           Math.ceil((expires.getTime() - Date.now()) / 1000) // Convert ms to seconds
@@ -38,12 +28,12 @@ export function RedisAdapter() {
     async useVerificationToken({ identifier, token }) {
       try {
         const key = `emailToken:${identifier}:${token}`;
-        const result = await getService().get(key);
+        const result = await CacheService.get(key);
         
         if (!result) return null;
         
         // Delete the token after use (one-time use)
-        await getService().invalidate(key);
+        await CacheService.invalidate(key);
         
         return {
           ...result,
@@ -94,7 +84,7 @@ export function RedisAdapter() {
       try {
         const { sessionToken, userId, expires } = session;
         const key = `session:${sessionToken}`;
-        await getService().set(
+        await CacheService.set(
           key, 
           { ...session, userId: String(userId) }, 
           Math.ceil((expires.getTime() - Date.now()) / 1000) // Convert ms to seconds
@@ -114,13 +104,13 @@ export function RedisAdapter() {
     async getSession(sessionToken) {
       try {
         const key = `session:${sessionToken}`;
-        const session = await getService().get(key);
+        const session = await CacheService.get(key);
         
         if (!session) return null;
         
         // Check if session has expired
         if (new Date(session.expires) < new Date()) {
-          await getService().invalidate(key);
+          await CacheService.invalidate(key);
           return null;
         }
         
@@ -140,7 +130,7 @@ export function RedisAdapter() {
         const key = `session:${sessionToken}`;
         
         // Get existing session
-        const existingSession = await getService().get(key);
+        const existingSession = await CacheService.get(key);
         if (!existingSession) return null;
         
         // Update session
@@ -149,7 +139,7 @@ export function RedisAdapter() {
           ...session
         };
         
-        await getService().set(
+        await CacheService.set(
           key, 
           updatedSession, 
           Math.ceil((new Date(updatedSession.expires).getTime() - Date.now()) / 1000)
@@ -164,7 +154,7 @@ export function RedisAdapter() {
     
     async deleteSession(sessionToken) {
       try {
-        await getService().invalidate(`session:${sessionToken}`);
+        await CacheService.invalidate(`session:${sessionToken}`);
       } catch (error) {
         console.error('Error in deleteSession:', error);
         throw error;

@@ -95,7 +95,7 @@ export async function POST(request) {
     
     // Update last login timestamp
     await pool.query(
-      'UPDATE users SET updated_at = NOW() WHERE id = ?',
+      'UPDATE users SET birth_date = NOW() WHERE id = ?',
       [user.id]
     );
     
