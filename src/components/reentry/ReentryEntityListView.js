@@ -59,6 +59,8 @@ import { useRouter } from 'next/navigation';
  * @param {Object} props.parentEntity - Parent entity if applicable (e.g., district for schools list)
  * @param {Function} props.fetchEntities - Function to fetch entities
  * @param {Function} props.fetchSummary - Function to fetch summary data
+ * @param {string} props.initialSearchTerm - Initial search term from URL
+ * @param {Object} props.initialFilters - Initial filters from URL
  */
 export default function ReentryEntityListView({
   entityType,
@@ -66,7 +68,9 @@ export default function ReentryEntityListView({
   description,
   parentEntity = null,
   fetchEntities,
-  fetchSummary
+  fetchSummary,
+  initialSearchTerm = '',
+  initialFilters = {}
 }) {
   // State for data
   const [entities, setEntities] = useState([]);
@@ -80,11 +84,12 @@ export default function ReentryEntityListView({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
   // State for filtering and sorting
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm || '');
   const [filterOptions, setFilterOptions] = useState({
     status: 'all',
     metric: 'all',
-    threshold: 'all'
+    threshold: 'all',
+    ...initialFilters
   });
   const [sortConfig, setSortConfig] = useState({
     key: 'name',
@@ -123,13 +128,9 @@ export default function ReentryEntityListView({
     setPage(0);
   };
   
-  // Handle search
+  // Handle search input change
   const handleSearchChange = (event) => {
-    const query = event.target.value;
-    setSearchQuery(query);
-    
-    // Apply filters and search
-    applyFiltersAndSearch(entities, query, filterOptions);
+    setSearchTerm(event.target.value);
   };
   
   // Handle filter changes
@@ -142,7 +143,7 @@ export default function ReentryEntityListView({
     setFilterOptions(newFilterOptions);
     
     // Apply filters and search
-    applyFiltersAndSearch(entities, searchQuery, newFilterOptions);
+    applyFiltersAndSearch(entities, searchTerm, newFilterOptions);
   };
 
   // Summary card component
@@ -192,6 +193,7 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
       return 0;
     });
     
+    console.log("sortedEntities", sortedEntities);
     setFilteredEntities(sortedEntities);
   };
   
@@ -258,17 +260,40 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
     const loadData = async () => {
       setLoading(true);
       try {
-        // If real API functions are provided, use them
-        const entitiesData = fetchEntities ? 
-          await fetchEntities(entityType, parentEntity) : 
-          await mockFetchEntities(entityType, parentEntity);
+        // Use the provided fetch functions
+        const entitiesData = await fetchEntities(entityType, parentEntity);
+        const summaryData = await fetchSummary(entityType, parentEntity);
         
-        const summaryData = fetchSummary ? 
-          await fetchSummary(entityType, parentEntity) : 
-          await mockFetchSummary(entityType, parentEntity);
+        console.log("entitiesData in ReentryEntityListView", entitiesData);
+        console.log("summaryData in ReentryEntityListView", summaryData);
         
-        setEntities(entitiesData);
-        setFilteredEntities(entitiesData);
+        // Handle the entities data structure from the API
+        const formattedEntities = entitiesData.entities ? entitiesData.entities.map(entity => ({
+          id: entity.id.toString(),
+          name: entity.name,
+          location: entity.location || entity.district_name,
+          stats: {
+            pregnantInSchool: {
+              value: entity.in_school || 0,
+              trend: 'stable' // API doesn't provide trend data yet
+            },
+            pregnantOutOfSchool: {
+              value: entity.out_of_school || 0,
+              trend: 'stable'
+            },
+            reentryCount: {
+              value: entity.returned || 0,
+              trend: 'stable'
+            },
+            reentryRate: {
+              value: entity.reentry_rate || 0,
+              trend: 'stable'
+            }
+          }
+        })) : [];
+        
+        setEntities(formattedEntities);
+        setFilteredEntities(formattedEntities);
         setSummary(summaryData);
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -394,7 +419,7 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
             <Grid size={{xs: 12, sm: 6, md: 3}} sx={{ display: 'flex' }}>
               <SummaryCard
                 title="Total Entities"
-                value={summary.totalEntities}
+                value={summary.overview.totalSchools || 0}
                 subtitle={`Total number of ${entityType}`}
                 icon={entityDetails.icon}
                 color="#4CAF50"
@@ -403,28 +428,28 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
             <Grid size={{xs: 12, sm: 6, md: 3}} sx={{ display: 'flex' }}>
               <SummaryCard
                 title="Pregnant In School"
-                value={summary.totalPregnantInSchool}
-                subtitle="Total across all entities"
-                icon={<SchoolIcon sx={{ color: 'white' }} />}
-                color="#2196F3"
+                value={summary.overview.pregnantInSchool || 0}
+                subtitle="Current students who are pregnant"
+                icon={<PersonIcon sx={{ color: 'white' }} />}
+                color="#FF9800"
               />
             </Grid>
             <Grid size={{xs: 12, sm: 6, md: 3}} sx={{ display: 'flex' }}>
               <SummaryCard
-                title="Pregnant Out of School"
-                value={summary.totalPregnantOutOfSchool}
-                subtitle="Total across all entities"
-                icon={<PersonIcon sx={{ color: 'white' }} />}
+                title="Dropped Out"
+                value={summary.overview.droppedOut || 0}
+                subtitle="Students who dropped out due to pregnancy"
+                icon={<TrendingDownIcon sx={{ color: 'white' }} />}
                 color="#F44336"
               />
             </Grid>
             <Grid size={{xs: 12, sm: 6, md: 3}} sx={{ display: 'flex' }}>
               <SummaryCard
-                title="Average Re-entry Rate"
-                value={`${summary.averageReentryRate}%`}
-                subtitle="Average across all entities"
+                title="Re-entry Rate"
+                value={`${summary.overview.reentryRate || 0}%`}
+                subtitle={`${summary.overview.returnedToSchool || 0} students returned to school`}
                 icon={<ReturnIcon sx={{ color: 'white' }} />}
-                color="#FF9800"
+                color="#2196F3"
               />
             </Grid>
           </Grid>
@@ -504,95 +529,84 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
           </Grid>
         )}
 
-        {/* Filters and Search */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid size={{xs: 12, sm: 4}}>
-              <TextField
-                fullWidth
-                placeholder={`Search ${entityType}...`}
-                value={searchQuery}
-                onChange={handleSearchChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                size="small"
-              />
-            </Grid>
-            <Grid size={{xs: 12, sm: 2}}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={filterOptions.status}
-                  label="Status"
-                  onChange={handleFilterChange}
-                >
-                  <MenuItem value="all">All Statuses</MenuItem>
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
-                  <MenuItem value="pending">Pending</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{xs: 12, sm: 2}}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Metric</InputLabel>
-                <Select
-                  name="metric"
-                  value={filterOptions.metric}
-                  label="Metric"
-                  onChange={handleFilterChange}
-                >
-                  <MenuItem value="all">All Metrics</MenuItem>
-                  <MenuItem value="pregnantInSchool">Pregnant In School</MenuItem>
-                  <MenuItem value="pregnantOutOfSchool">Pregnant Out of School</MenuItem>
-                  <MenuItem value="reentryCount">Re-entry Count</MenuItem>
-                  <MenuItem value="reentryRate">Re-entry Rate</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{xs: 12, sm: 2}}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Threshold</InputLabel>
-                <Select
-                  name="threshold"
-                  value={filterOptions.threshold}
-                  label="Threshold"
-                  onChange={handleFilterChange}
-                  disabled={filterOptions.metric === 'all'}
-                >
-                  <MenuItem value="all">No Threshold</MenuItem>
-                  <MenuItem value="above">Above</MenuItem>
-                  <MenuItem value="below">Below</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{xs: 12, sm: 2}}>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleExportClick}
-                fullWidth
-              >
-                Export
-              </Button>
-              <Menu
-                anchorEl={exportAnchorEl}
-                open={Boolean(exportAnchorEl)}
-                onClose={handleExportClose}
-              >
-                <MenuItem onClick={() => handleExport('csv')}>CSV</MenuItem>
-                <MenuItem onClick={() => handleExport('excel')}>Excel</MenuItem>
-                <MenuItem onClick={() => handleExport('pdf')}>PDF</MenuItem>
-              </Menu>
-            </Grid>
-          </Grid>
-        </Paper>
+        {/* Search and filter bar */}
+        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+          <TextField
+            label="Search"
+            variant="outlined"
+            size="small"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            sx={{ mr: 2, flexGrow: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>Status</InputLabel>
+            <Select
+              name="status"
+              value={filterOptions.status}
+              label="Status"
+              onChange={handleFilterChange}
+            >
+              <MenuItem value="all">All Statuses</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Metric</InputLabel>
+            <Select
+              name="metric"
+              value={filterOptions.metric}
+              label="Metric"
+              onChange={handleFilterChange}
+            >
+              <MenuItem value="all">All Metrics</MenuItem>
+              <MenuItem value="pregnantInSchool">Pregnant In School</MenuItem>
+              <MenuItem value="pregnantOutOfSchool">Pregnant Out of School</MenuItem>
+              <MenuItem value="reentryCount">Re-entry Count</MenuItem>
+              <MenuItem value="reentryRate">Re-entry Rate</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Threshold</InputLabel>
+            <Select
+              name="threshold"
+              value={filterOptions.threshold}
+              label="Threshold"
+              onChange={handleFilterChange}
+              disabled={filterOptions.metric === 'all'}
+            >
+              <MenuItem value="all">No Threshold</MenuItem>
+              <MenuItem value="above">Above</MenuItem>
+              <MenuItem value="below">Below</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportClick}
+            fullWidth
+          >
+            Export
+          </Button>
+          <Menu
+            anchorEl={exportAnchorEl}
+            open={Boolean(exportAnchorEl)}
+            onClose={handleExportClose}
+          >
+            <MenuItem onClick={() => handleExport('csv')}>CSV</MenuItem>
+            <MenuItem onClick={() => handleExport('excel')}>Excel</MenuItem>
+            <MenuItem onClick={() => handleExport('pdf')}>PDF</MenuItem>
+          </Menu>
+        </Box>
 
         {/* Entities Table */}
         <Paper sx={{ width: '100%', mb: 2 }}>
@@ -641,8 +655,6 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
                       </IconButton>
                     </Box>
                   </TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Last Updated</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -655,11 +667,11 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
                         <TableCell component="th" scope="row">
                           {entity.name}
                         </TableCell>
-                        <TableCell>{entity.location}</TableCell>
+                        <TableCell>{entity.location || entity.district_name}</TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {entity.metrics.pregnantInSchool.value}
-                            {entity.metrics.pregnantInSchool.trend === 'up' ? (
+                            {entity.stats?.pregnantInSchool?.value}
+                            {entity.stats?.pregnantInSchool?.trend === 'up' ? (
                               <TrendingUpIcon color="success" fontSize="small" sx={{ ml: 1 }} />
                             ) : (
                               <TrendingDownIcon color="error" fontSize="small" sx={{ ml: 1 }} />
@@ -668,8 +680,8 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {entity.metrics.pregnantOutOfSchool.value}
-                            {entity.metrics.pregnantOutOfSchool.trend === 'up' ? (
+                            {entity.stats?.pregnantOutOfSchool?.value}
+                            {entity.stats?.pregnantOutOfSchool?.trend === 'up' ? (
                               <TrendingUpIcon color="error" fontSize="small" sx={{ ml: 1 }} />
                             ) : (
                               <TrendingDownIcon color="success" fontSize="small" sx={{ ml: 1 }} />
@@ -678,8 +690,8 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {entity.metrics.reentryCount.value}
-                            {entity.metrics.reentryCount.trend === 'up' ? (
+                            {entity.stats?.reentryCount?.value}
+                            {entity.stats?.reentryCount?.trend === 'up' ? (
                               <TrendingUpIcon color="success" fontSize="small" sx={{ ml: 1 }} />
                             ) : (
                               <TrendingDownIcon color="error" fontSize="small" sx={{ ml: 1 }} />
@@ -688,26 +700,14 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {entity.metrics.reentryRate.value}%
-                            {entity.metrics.reentryRate.trend === 'up' ? (
+                            {entity.stats?.reentryRate?.value}%
+                            {entity.stats?.reentryRate?.trend === 'up' ? (
                               <TrendingUpIcon color="success" fontSize="small" sx={{ ml: 1 }} />
                             ) : (
                               <TrendingDownIcon color="error" fontSize="small" sx={{ ml: 1 }} />
                             )}
                           </Box>
                         </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={entity.status}
-                            color={
-                              entity.status === 'active' ? 'success' :
-                              entity.status === 'inactive' ? 'error' :
-                              'warning'
-                            }
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{new Date(entity.lastUpdated).toLocaleDateString()}</TableCell>
                         <TableCell align="right">
                           <Tooltip title="View Details">
                             <IconButton
@@ -746,118 +746,4 @@ function SummaryCard({ title, value, subtitle, icon, color }) {
       </Box>
     </Container>
   );
-}
-
-// Mock data functions (to be replaced with actual API calls)
-async function mockFetchEntities(entityType, parentEntity) {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  // Generate mock entities based on entity type
-  const count = 25; // Number of entities to generate
-  const entities = [];
-  
-  for (let i = 1; i <= count; i++) {
-    let name, location, status;
-    
-    // Generate appropriate names and locations based on entity type
-    switch (entityType) {
-      case 'schools':
-        name = `School ${i}`;
-        location = parentEntity ? parentEntity.name : `District ${Math.ceil(i / 5)}`;
-        break;
-      case 'circuits':
-        name = `Circuit ${i}`;
-        location = parentEntity ? parentEntity.name : `District ${Math.ceil(i / 5)}`;
-        break;
-      case 'districts':
-        name = `District ${i}`;
-        location = parentEntity ? parentEntity.name : `Region ${Math.ceil(i / 5)}`;
-        break;
-      case 'regions':
-        name = `Region ${i}`;
-        location = 'Ghana';
-        break;
-      default:
-        name = `Entity ${i}`;
-        location = 'Unknown';
-    }
-    
-    // Randomly assign status
-    const statuses = ['active', 'inactive', 'pending'];
-    status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    // Generate random metrics
-    const pregnantInSchool = Math.floor(Math.random() * 50) + 10;
-    const pregnantOutOfSchool = Math.floor(Math.random() * 30) + 5;
-    const reentryCount = Math.floor(Math.random() * pregnantOutOfSchool);
-    const reentryRate = Math.floor((reentryCount / pregnantOutOfSchool) * 100);
-    
-    // Add entity to list
-    entities.push({
-      id: i.toString(),
-      name,
-      location,
-      status,
-      lastUpdated: new Date(2025, 0, Math.floor(Math.random() * 150) + 1).toISOString(),
-      metrics: {
-        pregnantInSchool: {
-          value: pregnantInSchool,
-          trend: Math.random() > 0.5 ? 'up' : 'down'
-        },
-        pregnantOutOfSchool: {
-          value: pregnantOutOfSchool,
-          trend: Math.random() > 0.5 ? 'up' : 'down'
-        },
-        reentryCount: {
-          value: reentryCount,
-          trend: Math.random() > 0.5 ? 'up' : 'down'
-        },
-        reentryRate: {
-          value: reentryRate,
-          trend: Math.random() > 0.5 ? 'up' : 'down'
-        }
-      }
-    });
-  }
-  
-  return entities;
-}
-
-async function mockFetchSummary(entityType, parentEntity) {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // Generate mock summary data
-  const totalEntities = 25;
-  const totalPregnantInSchool = 750;
-  const totalPregnantOutOfSchool = 450;
-  const totalReentries = 320;
-  const averageReentryRate = 71;
-  
-  // Generate mock chart data
-  const topEntitiesByReentryRate = {
-    categories: ['Entity A', 'Entity B', 'Entity C', 'Entity D', 'Entity E'],
-    series: [{
-      name: 'Re-entry Rate',
-      data: [95, 92, 88, 85, 82]
-    }]
-  };
-  
-  const statusDistribution = {
-    labels: ['Active', 'Inactive', 'Pending'],
-    series: [18, 5, 2]
-  };
-  
-  return {
-    totalEntities,
-    totalPregnantInSchool,
-    totalPregnantOutOfSchool,
-    totalReentries,
-    averageReentryRate,
-    charts: {
-      topEntitiesByReentryRate,
-      statusDistribution
-    }
-  };
 }

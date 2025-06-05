@@ -121,9 +121,12 @@ SELECT
   SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
   SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS returned,
   ROUND(
-    (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
-     SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
-    NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0), 
+    LEAST(
+      (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
+       SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
+      NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0),
+      100
+    ), 
     1
   ) AS reentry_rate
 FROM pregnancy_tracker_responses ptr
@@ -162,9 +165,12 @@ ${whereClause ? 'AND ' + whereClause.replace('WHERE ', '') : ''}
         SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
         SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) AS returned,
         ROUND(
-          (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
-           SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
-          NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0), 
+          LEAST(
+            (SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END) +
+             SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END)) * 100.0 / 
+            NULLIF(SUM(CASE WHEN ptr.question_id = ? THEN ptr.numeric_response ELSE 0 END), 0),
+            100
+          ), 
           1
         ) AS reentry_rate
       FROM pregnancy_tracker_responses ptr

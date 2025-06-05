@@ -42,25 +42,12 @@ export default function Footer() {
           {/* Brand Column */}
           <Grid size={{ xs: 12, md: 3 }}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-              MSRC
+              mSRC
             </Typography>
             <Typography variant="body2" sx={{ mb: 3 }}>
               Mobile School Report Card: Enhancing education monitoring and data-driven decision making across Ghana.
             </Typography>
-            <Stack direction="row" spacing={1}>
-              <IconButton sx={{ color: '#1877F2', bgcolor: 'white', '&:hover': { bgcolor: 'grey.200' } }}>
-                <FacebookIcon />
-              </IconButton>
-              <IconButton sx={{ color: '#1DA1F2', bgcolor: 'white', '&:hover': { bgcolor: 'grey.200' } }}>
-                <TwitterIcon />
-              </IconButton>
-              <IconButton sx={{ color: '#E4405F', bgcolor: 'white', '&:hover': { bgcolor: 'grey.200' } }}>
-                <InstagramIcon />
-              </IconButton>
-              <IconButton sx={{ color: '#FF0000', bgcolor: 'white', '&:hover': { bgcolor: 'grey.200' } }}>
-                <YouTubeIcon />
-              </IconButton>
-            </Stack>
+          
           </Grid>
 
           {/* Quick Links */}
@@ -91,9 +78,9 @@ export default function Footer() {
                 </Link>
               </ListItem>
               <ListItem disableGutters>
-                <Link href="/login" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link href="/dashboard" passHref style={{ textDecoration: 'none', color: 'inherit' }}>
                   <Typography variant="body2" sx={{ '&:hover': { color: theme.palette.primary.light } }}>
-                    Log In
+                    Dashboard
                   </Typography>
                 </Link>
               </ListItem>
@@ -163,11 +150,7 @@ export default function Footer() {
                   Email: info@msrcghana.org
                 </Typography>
               </ListItem>
-              <ListItem disableGutters>
-                <Typography variant="body2">
-                  Phone: +233 (0) 30 298 2000
-                </Typography>
-              </ListItem>
+              
             </List>
           </Grid>
         </Grid>
