@@ -729,7 +729,7 @@ export default function ReentryDashboard() {
     fetchBreakdownData();
   }, [fetchBreakdownData, breakdownOpen, breakdownGroupBy]);
 
-  console.log('ReentryDashboard RENDER. trendData:', JSON.stringify(trendData)); // Re-enable this log
+  // console.log('ReentryDashboard RENDER. trendData:', JSON.stringify(trendData)); // Re-enable this log
   // console.log('timeRange:', JSON.stringify(timeRange));
   // console.log('trendViewBy:', trendViewBy);
   // console.log('selectedTrendMetricKey:', selectedTrendMetricKey);

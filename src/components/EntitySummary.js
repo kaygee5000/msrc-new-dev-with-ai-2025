@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Grid, 
@@ -24,7 +24,8 @@ const EntitySummary = ({
   entityType = 'school', 
   entityId, 
   showPeriodSelector = true,
-  defaultPeriod = {}
+  selectedPeriod: controlledSelectedPeriod, // Renamed to avoid conflict
+  onPeriodChange
 }) => {
   const [stats, setStats] = useState({
     enrolment: null,
@@ -34,11 +35,8 @@ const EntitySummary = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [periods, setPeriods] = useState([]);
-  const [selectedPeriod, setSelectedPeriod] = useState({
-    year: defaultPeriod.year || '',
-    term: defaultPeriod.term || '',
-    week: defaultPeriod.week || ''
-  });
+  const initialPeriodSuggested = useRef(false);
+  // selectedPeriod is now controlled by props: controlledSelectedPeriod and onPeriodChange
 
   // Map entity types to API endpoints
   const endpoints = {
@@ -60,43 +58,69 @@ const EntitySummary = ({
     }
   };
 
-  // Fetch available periods
+  // Reset suggestion flag if entityType changes, allowing new suggestion for new type
+  useEffect(() => {
+    initialPeriodSuggested.current = false;
+  }, [entityType]);
+
+  // Fetch available periods - only depends on entityType and showPeriodSelector
   useEffect(() => {
     if (!showPeriodSelector) return;
     
-    const fetchPeriods = async () => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const fetchPeriodsData = async () => {
       try {
-        const res = await fetch(endpoints[entityType].periods);
-        const data = await res.json();
+        const res = await fetch(endpoints[entityType].periods, {
+          signal: controller.signal,
+          cache: 'force-cache' // Cache the response to prevent refetches
+        });
         
+        if (!res.ok) throw new Error('Failed to fetch periods');
+        
+        const data = await res.json();
+
+        if (!isMounted) return;
+
         if (data.success && data.periods?.length > 0) {
           setPeriods(data.periods);
           
-          // Set default period if not already set
-          if (!selectedPeriod.year) {
-            const mostRecentYear = data.periods[0];
-            const mostRecentTerm = mostRecentYear.terms[0];
-            const mostRecentWeek = mostRecentTerm.weeks[mostRecentTerm.weeks.length - 1];
-            
-            setSelectedPeriod({
-              year: mostRecentYear.year,
-              term: mostRecentTerm.term,
-              week: mostRecentWeek
-            });
+          // Only suggest initial period if we don't have one yet
+          if (!controlledSelectedPeriod?.year && onPeriodChange) {
+            const mostRecentYearData = data.periods[0];
+            if (mostRecentYearData?.terms?.length) {
+              const mostRecentTermData = mostRecentYearData.terms[0];
+              const mostRecentWeekData = mostRecentTermData.weeks[mostRecentTermData.weeks.length - 1];
+              
+              onPeriodChange({
+                year: mostRecentYearData.year,
+                term: mostRecentTermData.term,
+                week: mostRecentWeekData
+              });
+            }
           }
         }
-      } catch (error) {
-        console.error('Error fetching periods:', error);
-        setError('Failed to load reporting periods');
+      } catch (err) {
+        if (err.name !== 'AbortError' && isMounted) {
+          console.error('Error fetching periods:', err);
+          setError('Failed to load reporting periods');
+        }
       }
     };
-    
-    fetchPeriods();
-  }, [entityType, showPeriodSelector, selectedPeriod.year]);
+
+    fetchPeriodsData();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [entityType, showPeriodSelector]); // Removed onPeriodChange and controlledSelectedPeriod from deps
 
   // Fetch statistics when entityId or period changes
   useEffect(() => {
-    if (!entityId) return;
+    // Only fetch stats if we have an entity ID and a selected year
+    if (!entityId || !controlledSelectedPeriod?.year) return;
     
     const fetchStats = async () => {
       setLoading(true);
@@ -106,27 +130,27 @@ const EntitySummary = ({
         // Fetch statistics from the appropriate endpoint
         const params = {};
         
-        if (selectedPeriod.year) {
-          params.year = selectedPeriod.year;
-          if (selectedPeriod.term) params.term = selectedPeriod.term;
-          if (selectedPeriod.week) params.week = selectedPeriod.week;
+        if (controlledSelectedPeriod.year) {
+          params.year = controlledSelectedPeriod.year;
+          if (controlledSelectedPeriod.term) params.term = controlledSelectedPeriod.term;
+          if (controlledSelectedPeriod.week) params.week = controlledSelectedPeriod.week;
         }
         
         const response = await fetch(endpoints[entityType].stats(entityId, params));
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch ${entityType} summary`);
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
           setStats({
             enrolment: data.enrolment || null,
             studentAttendance: data.studentAttendance || null,
             teacherAttendance: data.teacherAttendance || null
           });
-          console.log("ENtity Data: ", data);
+          console.log("Entity Data: ", data);
         } else {
           throw new Error(data.message || 'Failed to load summary data');
         }
@@ -139,30 +163,33 @@ const EntitySummary = ({
     };
     
     fetchStats();
-  }, [entityId, selectedPeriod, entityType]);
+  }, [entityId, controlledSelectedPeriod.year, controlledSelectedPeriod.term, controlledSelectedPeriod.week, entityType]);
 
-  const handlePeriodChange = (field, value) => {
-    setSelectedPeriod(prev => {
-      const newPeriod = { ...prev, [field]: value };
-      
-      // Reset dependent fields when parent field changes
-      if (field === 'year') {
-        const yearData = periods.find(p => p.year === value);
-        if (yearData?.terms?.length > 0) {
-          newPeriod.term = yearData.terms[0].term;
-          newPeriod.week = yearData.terms[0].weeks[0];
-        } else {
-          newPeriod.term = '';
-          newPeriod.week = '';
-        }
-      } else if (field === 'term') {
-        const yearData = periods.find(p => p.year === prev.year);
-        const termData = yearData?.terms.find(t => t.term === value);
-        newPeriod.week = termData?.weeks?.[0] || '';
+  const handlePeriodChange = (field, value, isInitialSetup = false) => {
+    if (!onPeriodChange) return;
+
+    let newPeriod = { ...controlledSelectedPeriod, [field]: value };
+
+    if (field === 'year') {
+      const yearData = periods.find(p => p.year === value);
+      if (yearData?.terms?.length > 0) {
+        newPeriod.term = yearData.terms[0].term;
+        newPeriod.week = yearData.terms[0].weeks[yearData.terms[0].weeks.length - 1]; // Default to last week of first term
+      } else {
+        newPeriod.term = '';
+        newPeriod.week = '';
       }
-      
-      return newPeriod;
-    });
+    } else if (field === 'term') {
+      const yearData = periods.find(p => p.year === controlledSelectedPeriod.year);
+      const termData = yearData?.terms.find(t => t.term === value);
+      newPeriod.week = termData?.weeks?.[termData.weeks.length -1] || ''; // Default to last week of selected term
+    }
+    // If it's an initial setup call triggered by fetching periods, only update if parent hasn't set a year
+    if (isInitialSetup && controlledSelectedPeriod.year) {
+      return; 
+    }
+
+    onPeriodChange(newPeriod); // Pass the whole new period object
   };
 
   const formatPercentage = (value) => {
@@ -299,9 +326,10 @@ const EntitySummary = ({
               <FormControl fullWidth>
                 <InputLabel>Academic Year</InputLabel>
                 <Select
-                  value={selectedPeriod.year}
+                  value={controlledSelectedPeriod.year || ''}
                   label="Academic Year"
                   onChange={(e) => handlePeriodChange('year', e.target.value)}
+                  disabled={!onPeriodChange}
                 >
                   {periods.map((period) => (
                     <MenuItem key={period.year} value={period.year}>
@@ -314,14 +342,14 @@ const EntitySummary = ({
               <FormControl fullWidth>
                 <InputLabel>Term</InputLabel>
                 <Select
-                  value={selectedPeriod.term}
+                  value={controlledSelectedPeriod.term || ''}
                   label="Term"
                   onChange={(e) => handlePeriodChange('term', e.target.value)}
-                  disabled={!selectedPeriod.year}
+                  disabled={!onPeriodChange || !controlledSelectedPeriod.year || !periods.find(p => p.year === controlledSelectedPeriod.year)?.terms?.length}
                 >
-                  {selectedPeriod.year && 
+                  {controlledSelectedPeriod.year && 
                     periods
-                      .find(p => p.year === selectedPeriod.year)
+                      .find(p => p.year === controlledSelectedPeriod.year)
                       ?.terms.map((term) => (
                         <MenuItem key={term.term} value={term.term}>
                           Term {term.term}
@@ -333,15 +361,15 @@ const EntitySummary = ({
               <FormControl fullWidth>
                 <InputLabel>Week</InputLabel>
                 <Select
-                  value={selectedPeriod.week}
+                  value={controlledSelectedPeriod.week || ''}
                   label="Week"
                   onChange={(e) => handlePeriodChange('week', e.target.value)}
-                  disabled={!selectedPeriod.term}
+                  disabled={!onPeriodChange || !controlledSelectedPeriod.term || !periods.find(p => p.year === controlledSelectedPeriod.year)?.terms.find(t => t.term === controlledSelectedPeriod.term)?.weeks?.length}
                 >
-                  {selectedPeriod.year && selectedPeriod.term && 
+                  {controlledSelectedPeriod.year && controlledSelectedPeriod.term && 
                     periods
-                      .find(p => p.year === selectedPeriod.year)
-                      ?.terms.find(t => t.term === selectedPeriod.term)
+                      .find(p => p.year === controlledSelectedPeriod.year)
+                      ?.terms.find(t => t.term === controlledSelectedPeriod.term)
                       ?.weeks.map((week) => (
                         <MenuItem key={week} value={week}>
                           Week {week}

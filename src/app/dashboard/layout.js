@@ -35,10 +35,10 @@ const menuItems = [
       { text: 'RTP Configuration', icon: <Tune />, path: '/dashboard/admin/rtp/settings' }
     ]
   },
-  { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
-  { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
-  { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
-  { text: 'Settings', icon: <Settings />, path: '/dashboard/settings' },
+  // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
+  // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
+  // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
+  // { text: 'Settings', icon: <Settings />, path: '/dashboard/settings' },
 ];
 
 export default function DashboardLayout({ children }) {

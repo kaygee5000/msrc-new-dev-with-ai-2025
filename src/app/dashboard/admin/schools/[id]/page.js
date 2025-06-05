@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Box, 
@@ -31,6 +31,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SchoolIcon from '@mui/icons-material/School';
 import EntitySummary from '@/components/EntitySummary';
+import SchoolReportContainer from '@/components/SchoolReportContainer';
 
 export default function SchoolDetail() {
   const { id } = useParams();
@@ -38,8 +39,38 @@ export default function SchoolDetail() {
   const [school, setSchool] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState(0);
-
+  // Initialize with null values - we'll detect when they're first set
+  const [selectedPeriod, setSelectedPeriod] = useState({
+    year: null,
+    term: null,
+    week: null
+  });
+  
+  // Track if we've initialized the period
+  const hasInitializedPeriod = useRef(false);
+  
+  // Memoize the period change handler
+  const handlePeriodChange = useCallback((newPeriod) => {
+    setSelectedPeriod(prev => {
+      // Only update if something actually changed
+      if (
+        prev.year === newPeriod.year &&
+        prev.term === newPeriod.term &&
+        prev.week === newPeriod.week
+      ) {
+        return prev;
+      }
+      return { ...newPeriod };
+    });
+  }, []);
+  
+  // Create memoized filter params that only update when period values change
+  const filterParams = useMemo(() => ({
+    school_id: id,
+    ...(selectedPeriod.year && { year: selectedPeriod.year }),
+    ...(selectedPeriod.term != null ? { term: selectedPeriod.term } : {}),
+    ...(selectedPeriod.week != null ? { week: selectedPeriod.week } : {})
+  }), [id, selectedPeriod.year, selectedPeriod.term, selectedPeriod.week]);
   // Fetch school data
   useEffect(() => {
     async function fetchSchool() {
@@ -206,72 +237,14 @@ export default function SchoolDetail() {
       {/* School Statistics */}
       <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>School Statistics</Typography>
       <EntitySummary 
-        entityType="school"
-        entityId={id}
+        entityType="school" 
+        entityId={id} 
+        selectedPeriod={selectedPeriod}
+        onPeriodChange={handlePeriodChange}
       />
-      
-      {/* Tabs for additional information */}
-      <Paper sx={{ mt: 4 }}>
-        <Tabs
-          value={tab}
-          onChange={(e, newValue) => setTab(newValue)}
-          indicatorColor="primary"
-          textColor="primary"
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="school details tabs"
-        >
-          <Tab label="Details" />
-          <Tab label="Staff" />
-          <Tab label="Infrastructure" />
-          <Tab label="Performance" />
-        </Tabs>
-        
-        <Divider />
-        
-        <Box p={3}>
-          {tab === 0 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>School Details</Typography>
-              <Grid container spacing={3}>
-                <Grid size={{xs:12, md:6}}>
-                  <Typography><strong>School Type:</strong> {getSchoolTypeDisplay(school.type)}</Typography>
-                  <Typography><strong>GES Code:</strong> {school.ges_code || 'N/A'}</Typography>
-                  <Typography><strong>EMIS Code:</strong> {school.emis_code || 'N/A'}</Typography>
-                  <Typography><strong>Established:</strong> {school.year_established || 'N/A'}</Typography>
-                </Grid>
-                <Grid size={{xs:12, md:6}}>
-                  <Typography><strong>Head Teacher:</strong> {school.head_teacher || 'N/A'}</Typography>
-                  <Typography><strong>Contact Email:</strong> {school.email || 'N/A'}</Typography>
-                  <Typography><strong>Contact Phone:</strong> {school.phone || 'N/A'}</Typography>
-                  <Typography><strong>Status:</strong> {school.status || 'Active'}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-          
-          {tab === 1 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>Staff Information</Typography>
-              <Typography>Staff information will be displayed here.</Typography>
-            </Box>
-          )}
-          
-          {tab === 2 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>Infrastructure</Typography>
-              <Typography>Infrastructure details will be displayed here.</Typography>
-            </Box>
-          )}
-          
-          {tab === 3 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>Performance</Typography>
-              <Typography>Performance metrics will be displayed here.</Typography>
-            </Box>
-          )}
-        </Box>
-      </Paper>
+
+      {/* School Report Card Section */}
+      <SchoolReportContainer filterParams={filterParams} />
     </Box>
   );
 }
