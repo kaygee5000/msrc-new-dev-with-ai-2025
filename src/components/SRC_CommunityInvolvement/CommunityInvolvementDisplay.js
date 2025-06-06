@@ -84,7 +84,6 @@ export default function CommunityInvolvementDisplay({ filterParams }) {
         if (filterParams.school_id) query.append('school_id', filterParams.school_id);
         if (filterParams.year) query.append('year', filterParams.year);
         if (filterParams.term) query.append('term', filterParams.term);
-        if (filterParams.week) query.append('week', filterParams.week);
 
         try {
             const res = await fetch(`/api/school-report/community-involvement/community-involvement?${query.toString()}`);

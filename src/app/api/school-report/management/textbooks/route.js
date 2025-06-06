@@ -5,7 +5,6 @@ import db from '@/utils/db'; // Relative path from textbooks/route.js to src/uti
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const filters = {
-        week: searchParams.get('week'),
         term: searchParams.get('term'),
         year: searchParams.get('year'),
         school_id: searchParams.get('school_id'),
@@ -14,16 +13,12 @@ export async function GET(request) {
         circuit_id: searchParams.get('circuit_id'),
     };
 
-    const tableName = 'text_books';
+    const tableName = 'school_textbooks';
     let query = `SELECT T.* FROM ${tableName} T`;
     const queryParams = [];
     let conditions = [];
 
     // Direct filters on the target table
-    if (filters.week) {
-        conditions.push('T.week = ?');
-        queryParams.push(filters.week);
-    }
     if (filters.term) {
         conditions.push('T.term = ?');
         queryParams.push(filters.term);
@@ -97,7 +92,7 @@ export async function GET(request) {
 export async function DELETE(request) {
     const { searchParams } = new URL(request.url);
     const submissionId = searchParams.get('submission_id');
-    const tableName = 'text_books';
+    const tableName = 'school_textbooks';
 
     if (!submissionId) {
         return NextResponse.json({ message: 'Submission ID is required' }, { status: 400 });

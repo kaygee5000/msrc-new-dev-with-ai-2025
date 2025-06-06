@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '@/utils/db';
-import { getSchoolStatsSummary } from '@/services/schoolStatsAggregator';
+import { aggregateEnrollment, aggregateStudentAttendance, aggregateTeacherAttendance } from '@/utils/statisticsHelpers';
 
 /**
  * GET handler for retrieving a single school by ID
@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
     const term = searchParams.get('term');
-    const weekNumber = searchParams.get('weekNumber');
+    const weekNumber = searchParams.get('weekNumber') ||  searchParams.get('week');
     
     // Get school with related data
     const [rows] = await db.query(`
@@ -34,13 +34,36 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Get aggregated statistics for the school
-    const statsResponse = await getSchoolStatsSummary(id, { year, term, weekNumber });
+    // Fetch statistics from dedicated endpoints
+    const baseUrl = new URL(request.url).origin;
+    const queryParams = new URLSearchParams({ schoolId: id, year, term });
+    queryParams.append('aggregate', 'true');
+    if (weekNumber) queryParams.append('weekNumber', weekNumber);
+    const statsEndpoints = [
+      'enrolment',
+      'student-attendance',
+      'teacher-attendance'
+    ];
+    const statsPromises = statsEndpoints.map(ep =>
+      fetch(`${baseUrl}/api/statistics/${ep}?${queryParams}`)
+        .then(r => r.json().then(j => j.data).catch(() => null))
+        .catch(() => null)
+    );
+    const [enrolment, studentAttendance, teacherAttendance] = await Promise.all(statsPromises);
     
+    // transform and aggregate stats using helpers
+    const enrolmentAgg = Array.isArray(enrolment) ? aggregateEnrollment(enrolment) : enrolment;
+    const studentAgg = Array.isArray(studentAttendance) ? aggregateStudentAttendance(studentAttendance) : studentAttendance;
+    const teacherAgg = Array.isArray(teacherAttendance) ? aggregateTeacherAttendance(teacherAttendance) : teacherAttendance;
+
     return NextResponse.json({
-      success: true, 
+      success: true,
       school: rows[0],
-      statistics: statsResponse.success ? statsResponse.data : null
+      statistics: {
+        enrolment: enrolmentAgg,
+        studentAttendance: studentAgg,
+        teacherAttendance: teacherAgg
+      }
     });
   } catch (error) {
     console.error('Error fetching school:', error);

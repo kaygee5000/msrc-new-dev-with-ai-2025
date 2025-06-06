@@ -5,7 +5,6 @@ import db from '@/utils/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const filters = {
-        week: searchParams.get('week'),
         term: searchParams.get('term'),
         year: searchParams.get('year'),
         school_id: searchParams.get('school_id'),
@@ -20,10 +19,6 @@ export async function GET(request) {
     let conditions = [];
 
     // Direct filters on the target table
-    if (filters.week) {
-        conditions.push('T.week = ?');
-        queryParams.push(filters.week);
-    }
     if (filters.term) {
         conditions.push('T.term = ?');
         queryParams.push(filters.term);

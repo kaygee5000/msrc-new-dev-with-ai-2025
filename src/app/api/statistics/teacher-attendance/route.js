@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/utils/db';
+import { aggregateTeacherAttendance } from '@/utils/statisticsHelpers';
 
 /**
  * GET handler for teacher attendance statistics
@@ -15,9 +16,10 @@ export async function GET(request) {
     const year = searchParams.get('year') || '2024/2025';
     const term = searchParams.get('term') || '1';
     const weekNumber = searchParams.get('weekNumber');
+    const aggregate = searchParams.get('aggregate') === 'true';
     
     console.log('Teacher Attendance API called with params:', { 
-      schoolId, circuitId, districtId, regionId, year, term, weekNumber 
+      schoolId, circuitId, districtId, regionId, year, term, weekNumber, aggregate 
     });
 
     let query = `
@@ -62,7 +64,7 @@ export async function GET(request) {
     
     console.log(`Teacher attendance query returned ${rows.length} rows`);
     
-    if (rows.length === 0) {
+    if (!aggregate && rows.length === 0) {
       console.log('No teacher attendance data found for the specified parameters');
       return NextResponse.json({
         success: true,
@@ -118,13 +120,12 @@ export async function GET(request) {
       }
     });
     
-    return NextResponse.json({
-      success: true,
-      data: {
-        summary,
-        details: rows
-      }
-    });
+    if (!aggregate) {
+      return NextResponse.json({ success: true, data: { summary, details: rows } });
+    }
+    // aggregate case
+    const data = aggregateTeacherAttendance(rows);
+    return NextResponse.json({ success: true, data });
     
   } catch (error) {
     console.error('Error fetching teacher attendance data:', error);

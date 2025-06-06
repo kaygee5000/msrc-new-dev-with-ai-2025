@@ -4,58 +4,11 @@
  */
 
 // Import the database connection
-import pool from '@/utils/db';
-
-// Helper function to make API requests
-async function fetchFromEndpoint(endpoint, params = {}) {
-  try {
-    // Build query string from params
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, value);
-      }
-    });
-    
-    const queryString = queryParams.toString();
-    
-    // When running on the server side, we need to use absolute URLs
-    // Check if we're running on the server or client
-    const isServer = typeof window === 'undefined';
-    
-    let url;
-    if (isServer) {
-      // On server side, use direct database queries instead of API calls
-      // This avoids the need for server-to-server API calls
-      return await fetchDirectFromDatabase(endpoint, params);
-    } else {
-      // On client side, we can use relative URLs
-      url = `${endpoint}${queryString ? `?${queryString}` : ''}`;
-      
-      console.log(`Fetching from: ${url}`);
-      
-      const response = await fetch(url, { 
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        console.error(`API request failed with status ${response.status} for ${url}`);
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log(`Response from ${endpoint}:`, data);
-      
-      return data;
-    }
-  } catch (error) {
-    console.error(`Error fetching from ${endpoint}:`, error);
-    return { success: false, error: error.message };
-  }
-}
+import { createPool } from '@/utils/db';
 
 // Direct database queries for server-side execution
 async function fetchDirectFromDatabase(endpoint, params) {
+  const db = await createPool();
   const { schoolId, year, term, weekNumber } = params;
   
   console.log(`Direct DB query for ${endpoint} with params:`, params);
@@ -63,7 +16,7 @@ async function fetchDirectFromDatabase(endpoint, params) {
   try {
     // Handle different endpoints with appropriate queries
     if (endpoint === '/api/statistics/enrolment') {
-      let query = `
+      const query = `
         SELECT 
           id, school_id, circuit_id, district_id, region_id,
           normal_boys_total, normal_girls_total,
@@ -71,35 +24,27 @@ async function fetchDirectFromDatabase(endpoint, params) {
           total_population, term, week_number, year
         FROM school_enrolment_totals
         WHERE year = ? AND term = ?
-      `;
-      
-      const queryParams = [year, term];
-      
-      if (weekNumber) {
-        query += ' AND week_number = ?';
-        queryParams.push(weekNumber);
-      }
-      
-      if (schoolId) {
-        query += ' AND school_id = ?';
-        queryParams.push(schoolId);
-      }
-      
-      if (!weekNumber) {
-        query += ' ORDER BY week_number DESC LIMIT 1';
-      }
+        AND school_id = ? 
+        ORDER BY week_number DESC 
+        LIMIT 1`;
+
+      const queryParams = [year, term, schoolId].filter(p => p !== undefined);
       
       console.log('Executing enrollment query:', query, queryParams);
-      const [rows] = await pool.query(query, queryParams);
+      const [rows] = await db.query(query, queryParams);
       console.log(`Enrollment query returned ${rows.length} rows`);
+
+      if (rows.length === 0) {
+        return { success: false, error: 'No enrollment data found' };
+      }
       
       return { 
         success: true, 
-        data: rows.length > 0 ? rows[0] : null 
+        data: rows[0] 
       };
     } 
     else if (endpoint === '/api/statistics/student-attendance') {
-      let query = `
+      const query = `
         SELECT 
           id, school_id, circuit_id, district_id, region_id,
           normal_boys_total, normal_girls_total,
@@ -107,32 +52,18 @@ async function fetchDirectFromDatabase(endpoint, params) {
           total_population, term, week_number, year
         FROM school_student_attendance_totals
         WHERE year = ? AND term = ?
-      `;
-      
-      const queryParams = [year, term];
-      
-      if (weekNumber) {
-        query += ' AND week_number = ?';
-        queryParams.push(weekNumber);
-      }
-      
-      if (schoolId) {
-        query += ' AND school_id = ?';
-        queryParams.push(schoolId);
-      }
-      
-      query += ' ORDER BY week_number DESC';
-      
-      if (weekNumber) {
-        query += ' LIMIT 1';
-      }
+        AND school_id = ? 
+        ORDER BY week_number DESC 
+        LIMIT 1`;
+
+      const queryParams = [year, term, schoolId].filter(p => p !== undefined);
       
       console.log('Executing student attendance query:', query, queryParams);
-      const [rows] = await pool.query(query, queryParams);
+      const [rows] = await db.query(query, queryParams);
       console.log(`Student attendance query returned ${rows.length} rows`);
-      
+
       if (rows.length === 0) {
-        return { success: true, data: [] };
+        return { success: false, error: 'No student attendance data found' };
       }
       
       // Calculate attendance rates
@@ -154,7 +85,7 @@ async function fetchDirectFromDatabase(endpoint, params) {
       return { success: true, data: processedData };
     }
     else if (endpoint === '/api/statistics/teacher-attendance') {
-      let query = `
+      const query = `
         SELECT 
           id, school_id, circuit_id, district_id, region_id,
           school_session_days, days_present, days_punctual, days_absent,
@@ -163,44 +94,18 @@ async function fetchDirectFromDatabase(endpoint, params) {
           week_number, term, year, created_at
         FROM teacher_attendances
         WHERE year = ? AND term = ?
-      `;
-      
-      const queryParams = [year, term];
-      
-      if (weekNumber) {
-        query += ' AND week_number = ?';
-        queryParams.push(weekNumber);
-      }
-      
-      if (schoolId) {
-        query += ' AND school_id = ?';
-        queryParams.push(schoolId);
-      }
-      
-      query += ' ORDER BY week_number DESC';
+        AND school_id = ? 
+        ORDER BY week_number DESC 
+        LIMIT 1`;
+
+      const queryParams = [year, term, schoolId].filter(p => p !== undefined);
       
       console.log('Executing teacher attendance query:', query, queryParams);
-      const [rows] = await pool.query(query, queryParams);
+      const [rows] = await db.query(query, queryParams);
       console.log(`Teacher attendance query returned ${rows.length} rows`);
-      
+
       if (rows.length === 0) {
-        return { 
-          success: true, 
-          data: {
-            summary: {
-              totalTeachers: 0,
-              totalDaysPresent: 0,
-              totalDaysPunctual: 0,
-              totalDaysAbsent: 0,
-              totalExercisesGiven: 0,
-              totalExercisesMarked: 0,
-              avgAttendanceRate: 0,
-              avgPunctualityRate: 0,
-              avgExerciseCompletionRate: 0
-            },
-            details: []
-          }
-        };
+        return { success: false, error: 'No teacher attendance data found' };
       }
       
       // Calculate summary statistics
@@ -253,6 +158,56 @@ async function fetchDirectFromDatabase(endpoint, params) {
     return { success: false, error: error.message };
   }
 }
+
+// Helper function to make API requests
+async function fetchFromEndpoint(endpoint, params = {}) {
+  try {
+    // Build query string from params
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const queryString = queryParams.toString();
+    
+    // When running on the server side, we need to use absolute URLs
+    // Check if we're running on the server or client
+    const isServer = typeof window === 'undefined';
+    
+    let url;
+    if (isServer) {
+      // On server side, use direct database queries instead of API calls
+      // This avoids the need for server-to-server API calls
+      return await fetchDirectFromDatabase(endpoint, params);
+    } else {
+      // On client side, we can use relative URLs
+      url = `${endpoint}${queryString ? `?${queryString}` : ''}`;
+      
+      console.log(`Fetching from: ${url}`);
+      
+      const response = await fetch(url, { 
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        console.error(`API request failed with status ${response.status} for ${url}`);
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Response from ${endpoint}:`, data);
+      
+      return data;
+    }
+  } catch (error) {
+    console.error(`Error fetching from ${endpoint}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+
 
 /**
  * Transform enrollment data into a standardized summary format

@@ -1,42 +1,110 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Box, Typography, Paper, Tabs, Tab, CircularProgress, Button } from '@mui/material';
-import { Breadcrumbs, Link } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  CircularProgress, 
+  Button, 
+  Breadcrumbs, 
+  Link,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
+  Alert
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import HomeIcon from '@mui/icons-material/Home';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import EntitySummary from '@/components/EntitySummary';
+import CircuitReportContainer from '@/components/SRC_ReportContainers/CircuitReportContainer';
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+const TERMS = [1, 2, 3];
 
 export default function CircuitDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // This is circuit_id
   const router = useRouter();
   const [circuit, setCircuit] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState(0);
+  const [error, setError] = useState(null);
+
+  const [selectedPeriod, setSelectedPeriod] = useState({
+    year: CURRENT_YEAR,
+    term: TERMS[0],
+  });
+
+  const handlePeriodChange = (name, value) => {
+    setSelectedPeriod(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Memoize filterParams to prevent unnecessary re-renders of CircuitReportContainer
+  const filterParams = useMemo(() => ({
+    circuit_id: id,
+    year: selectedPeriod.year,
+    term: selectedPeriod.term,
+  }), [id, selectedPeriod.year, selectedPeriod.term]);
 
   useEffect(() => {
-    async function fetchCircuit() {
+    async function fetchCircuitDetails() {
+      if (!id) return;
       setLoading(true);
-      const res = await fetch(`/api/circuits/${id}`);
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error);
+      setError(null);
+      try {
+        const res = await fetch(`/api/circuits/${id}`);
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setCircuit(data.circuit);
+        } else {
+          setError(data.error || 'Failed to fetch circuit details.');
+          setCircuit(null); // Clear previous data if fetch fails
+        }
+      } catch (err) {
+        console.error('Error fetching circuit:', err);
+        setError('An error occurred while fetching circuit details.');
+        setCircuit(null); // Clear previous data on error
+      } finally {
+        setLoading(false);
       }
-      setCircuit(data.circuit);
-      setLoading(false);
     }
-    fetchCircuit();
+    fetchCircuitDetails();
   }, [id]);
 
   const handleEdit = () => {
     router.push(`/dashboard/admin/circuits/${id}/edit`);
   };
 
-  if (loading) return <Box p={4} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}><CircularProgress /></Box>;
-  if (!circuit) return <Box p={4} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Typography>Circuit not found.</Typography></Box>;
+  const handleBack = () => router.push('/dashboard/admin/circuits');
+
+  if (loading) return (
+    <Box display="flex" justifyContent="center" alignItems="center" p={4} minHeight="50vh">
+      <CircularProgress />
+    </Box>
+  );
+  
+  if (error) return (
+    <Box p={4} display="flex" justifyContent="center" alignItems="center" flexDirection="column" gap={2}>
+      <Alert severity="error">{error}</Alert>
+      <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={handleBack}>
+        Back to Circuits
+      </Button>
+    </Box>
+  );
+  
+  if (!circuit) return (
+    <Box p={4} display="flex" justifyContent="center" alignItems="center" flexDirection="column" gap={2}>
+      <Typography variant="h6">Circuit not found.</Typography>
+      <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={handleBack}>
+        Back to Circuits
+      </Button>
+    </Box>
+  );
 
   return (
     <Box p={2}>
@@ -86,35 +154,58 @@ export default function CircuitDetail() {
             variant="contained" 
             startIcon={<EditIcon />}
             onClick={handleEdit}
-            size="small"
           >
             Edit
           </Button>
         </Box>
       </Box>
-      <Typography variant="h4" gutterBottom>{circuit.name}</Typography>
-      <Typography variant="subtitle1" gutterBottom>{circuit.description}</Typography>
-      <Typography variant="body2" gutterBottom>District: {circuit.district_name} | Region: {circuit.region_name}</Typography>
-      <Paper sx={{ mt: 4 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Overview" />
-          <Tab label="Analytics" />
-          <Tab label="Stats" />
-        </Tabs>
-        <Box p={3}>
-          {tab === 0 && <Typography>Overview and details for this circuit.</Typography>}
-          {tab === 1 && <Typography>Analytics for this circuit.</Typography>}
-          {tab === 2 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>Circuit Statistics</Typography>
-              <EntitySummary 
-                entityType="circuit"
-                entityId={id}
-              />
-            </Box>
-          )}
-        </Box>
+
+      {/* Circuit Header Info - Can be expanded or moved into a dedicated component if needed */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h4" gutterBottom>{circuit.name}</Typography>
+        {circuit.description && <Typography variant="subtitle1" color="text.secondary" gutterBottom>{circuit.description}</Typography>}
+        <Typography variant="body2" color="text.secondary">District: {circuit.district_name || 'N/A'}</Typography>
+        <Typography variant="body2" color="text.secondary">Region: {circuit.region_name || 'N/A'}</Typography>
       </Paper>
+
+      {/* Year and Term Filters */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="subtitle1">Report Period:</Typography>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel id="year-select-label">Year</InputLabel>
+            <Select
+              labelId="year-select-label"
+              id="year-select"
+              value={selectedPeriod.year}
+              label="Year"
+              onChange={(e) => handlePeriodChange('year', e.target.value)}
+            >
+              {YEARS.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel id="term-select-label">Term</InputLabel>
+            <Select
+              labelId="term-select-label"
+              id="term-select"
+              value={selectedPeriod.term}
+              label="Term"
+              onChange={(e) => handlePeriodChange('term', e.target.value)}
+            >
+              {TERMS.map(t => <MenuItem key={t} value={t}>{`Term ${t}`}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Stack>
+      </Paper>
+
+      {/* Circuit Report Container */}
+      {(selectedPeriod.year && selectedPeriod.term) ? (
+        <CircuitReportContainer filterParams={filterParams} />
+      ) : (
+        <Paper sx={{p:2, mt:2}}><Typography>Please select a year and term to view the report.</Typography></Paper>
+      )}
+
     </Box>
   );
 }

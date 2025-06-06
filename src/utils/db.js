@@ -48,14 +48,25 @@ const createPoolWithRetry = async (retries = 3, delay = 2000) => {
   }
 };
 
-// Initialize the pool
+// Initialize the pool (reuse global in development)
 let pool;
-try {
-  pool = await createPoolWithRetry();
-} catch (error) {
-  console.error('Fatal: Could not connect to database:', error);
-  // In a real app, you might want to exit the process here
-  // process.exit(1);
+if (process.env.NODE_ENV === 'development') {
+  // Use a single pool across module reloads
+  if (!globalThis.__mysqlPool) {
+    globalThis.__mysqlPool = await createPoolWithRetry();
+    console.log('Created new global MySQL pool');
+  } else {
+    console.log('Reusing global MySQL pool');
+  }
+  pool = globalThis.__mysqlPool;
+} else {
+  // Production: fresh pool
+  try {
+    pool = await createPoolWithRetry();
+  } catch (error) {
+    console.error('Fatal: Could not connect to database:', error);
+    // process.exit(1);
+  }
 }
 
 /**
@@ -67,6 +78,10 @@ export async function getConnection() {
     throw new Error('Database connection not initialized');
   }
   return pool;
+}
+
+export async function createPool() {
+  return mysql.createPool(dbConfig);
 }
 
 // Graceful shutdown

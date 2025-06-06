@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/utils/db';
+import { aggregateStudentAttendance } from '@/utils/statisticsHelpers';
 
 /**
  * GET handler for student attendance statistics
@@ -15,9 +16,10 @@ export async function GET(request) {
     const year = searchParams.get('year') || '2024/2025';
     const term = searchParams.get('term') || '1';
     const weekNumber = searchParams.get('weekNumber');
+    const aggregate = searchParams.get('aggregate') === 'true';
     
     console.log('Student Attendance API called with params:', { 
-      schoolId, circuitId, districtId, regionId, year, term, weekNumber 
+      schoolId, circuitId, districtId, regionId, year, term, weekNumber, aggregate 
     });
 
     let query = `
@@ -32,8 +34,8 @@ export async function GET(request) {
     
     const params = [year, term];
     
-    // Add week filter if provided
-    if (weekNumber) {
+    // Add week filter if provided when not aggregating
+    if (!aggregate && weekNumber) {
       query += ' AND week_number = ?';
       params.push(weekNumber);
     }
@@ -52,11 +54,10 @@ export async function GET(request) {
       params.push(regionId);
     }
     
-    query += ' ORDER BY week_number DESC';
-    
-    // Limit to 1 record if week number is specified
-    if (weekNumber) {
-      query += ' LIMIT 1';
+    if (!aggregate) {
+      query += ' ORDER BY week_number DESC';
+      // Limit to 1 record if week number is specified
+      if (weekNumber) query += ' LIMIT 1';
     }
     
     console.log('Student attendance query:', query);
@@ -90,10 +91,12 @@ export async function GET(request) {
       };
     });
     
-    return NextResponse.json({
-      success: true,
-      data: processedData
-    });
+    if (!aggregate) {
+      return NextResponse.json({ success: true, data: processedData });
+    }
+    // aggregate case
+    const aggData = aggregateStudentAttendance(rows);
+    return NextResponse.json({ success: true, data: aggData });
     
   } catch (error) {
     console.error('Error fetching student attendance data:', error);

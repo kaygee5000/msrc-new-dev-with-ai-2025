@@ -6,8 +6,6 @@ import {
   Box, 
   Typography, 
   Paper, 
-  Tabs, 
-  Tab, 
   CircularProgress, 
   Breadcrumbs, 
   Link,
@@ -19,10 +17,6 @@ import {
   Chip,
   Alert,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Stack
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
@@ -30,8 +24,9 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SchoolIcon from '@mui/icons-material/School';
-import EntitySummary from '@/components/EntitySummary';
-import SchoolReportContainer from '@/components/SchoolReportContainer';
+import SRC_PeriodSelector from '@/components/SRC_PeriodSelector';
+import SchoolSummary from '@/components/SRC_Summaries/SchoolSummary';
+import SchoolReportContainer from '@/components/SRC_ReportContainers/SchoolReportContainer';
 
 export default function SchoolDetail() {
   const { id } = useParams();
@@ -236,11 +231,16 @@ export default function SchoolDetail() {
       
       {/* School Statistics */}
       <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>School Statistics</Typography>
-      <EntitySummary 
-        entityType="school" 
-        entityId={id} 
+      <SRC_PeriodSelector 
+        entityType="school"
+        entityId={id}
         selectedPeriod={selectedPeriod}
         onPeriodChange={handlePeriodChange}
+        sx={{ mb: 3 }}
+      />
+      <SchoolSummary 
+        entityId={id}
+        selectedPeriod={selectedPeriod}
       />
 
       {/* School Report Card Section */}

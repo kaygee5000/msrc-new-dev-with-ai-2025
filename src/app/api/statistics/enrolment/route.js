@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/utils/db';
+import { aggregateEnrollment } from '@/utils/statisticsHelpers';
 
 /**
  * GET handler for school enrollment statistics
@@ -15,9 +16,10 @@ export async function GET(request) {
     const year = searchParams.get('year') || '2024/2025'; // Default to current academic year
     const term = searchParams.get('term') || '1'; // Default to first term
     const weekNumber = searchParams.get('weekNumber');
+    const aggregate = searchParams.get('aggregate') === 'true';
     
     console.log('Enrollment API called with params:', { 
-      schoolId, circuitId, districtId, regionId, year, term, weekNumber 
+      schoolId, circuitId, districtId, regionId, year, term, weekNumber, aggregate 
     });
 
     let query = `
@@ -33,7 +35,7 @@ export async function GET(request) {
     const params = [year, term];
     
     // Add week filter if provided
-    if (weekNumber) {
+    if (!aggregate && weekNumber) {
       query += ' AND week_number = ?';
       params.push(weekNumber);
     }
@@ -53,7 +55,8 @@ export async function GET(request) {
     }
     
     // If week is specified, get that exact week, otherwise get the most recent
-    if (!weekNumber) {
+    if (!aggregate) {
+      // if not aggregating, get most recent
       query += ' ORDER BY week_number DESC LIMIT 1';
     }
     
@@ -64,18 +67,15 @@ export async function GET(request) {
     
     console.log(`Enrollment query returned ${rows.length} rows`);
     
-    if (rows.length === 0) {
-      console.log('No enrollment data found for the specified parameters');
-      return NextResponse.json({
-        success: true,
-        data: null
-      });
+    if (!aggregate) {
+      if (rows.length === 0) {
+        return NextResponse.json({ success: true, data: null });
+      }
+      return NextResponse.json({ success: true, data: rows[0] || null });
     }
-    
-    return NextResponse.json({
-      success: true,
-      data: rows[0] || null
-    });
+    // aggregate case
+    const data = aggregateEnrollment(rows);
+    return NextResponse.json({ success: true, data });
     
   } catch (error) {
     console.error('Error fetching enrolment data:', error);

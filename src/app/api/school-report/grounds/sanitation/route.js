@@ -5,13 +5,13 @@ import db from '@/utils/db';
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const filters = {
-        week: searchParams.get('week'),
         term: searchParams.get('term'),
         year: searchParams.get('year'),
         school_id: searchParams.get('school_id'),
         region_id: searchParams.get('region_id'),
         district_id: searchParams.get('district_id'),
         circuit_id: searchParams.get('circuit_id'),
+        level: searchParams.get('level') || 'school', // Default to school level
     };
 
     const tableName = 'school_sanitations';
@@ -20,10 +20,6 @@ export async function GET(request) {
     let conditions = [];
 
     // Direct filters on the target table
-    if (filters.week) {
-        conditions.push('T.week = ?');
-        queryParams.push(filters.week);
-    }
     if (filters.term) {
         conditions.push('T.term = ?');
         queryParams.push(filters.term);
@@ -86,12 +82,201 @@ export async function GET(request) {
     }
 
     try {
-        const [results] = await db.query(query, queryParams);
-        return NextResponse.json(results);
+        if (filters.level === 'school' || filters.school_id) {
+            // Original logic for fetching individual school data
+            const [results] = await db.query(query, queryParams);
+            return NextResponse.json(results);
+        } else {
+            // New logic for aggregated data
+            let aggregatedData;
+            switch (filters.level) {
+                case 'circuit':
+                    aggregatedData = await getCircuitLevelSanitationData(filters);
+                    break;
+                case 'district':
+                    aggregatedData = await getDistrictLevelSanitationData(filters);
+                    break;
+                case 'region':
+                    aggregatedData = await getRegionLevelSanitationData(filters);
+                    break;
+                default:
+                    return NextResponse.json({ message: 'Invalid aggregation level specified.' }, { status: 400 });
+            }
+            return NextResponse.json(aggregatedData);
+        }
     } catch (error) {
-        console.error(`Error fetching ${tableName}:`, error);
+        console.error('Error fetching sanitation data:', error);
         return NextResponse.json({ message: 'Error fetching data', error: error.message }, { status: 500 });
     }
+}
+
+async function getSchoolSanitationDataForAggregation(filters) {
+  // This function will fetch raw school sanitation data needed for aggregation
+  // Similar to the original query but might need adjustments for broader fetching
+  let baseQuery = `
+    SELECT 
+      s.id as school_id,
+      s.name as school_name,
+      c.id as circuit_id,
+      c.name as circuit_name,
+      d.id as district_id,
+      d.name as district_name,
+      r.id as region_id,
+      r.name as region_name,
+      ss.sanitation_data_object
+    FROM 
+      school_sanitations ss
+    JOIN 
+      schools s ON ss.school_id = s.id
+    JOIN 
+      circuits c ON s.circuit_id = c.id
+    JOIN 
+      districts d ON c.district_id = d.id
+    JOIN 
+      regions r ON d.region_id = r.id
+    WHERE 
+      ss.year = ? AND ss.term = ?
+  `;
+  const queryParams = [filters.year, filters.term];
+
+  if (filters.region_id) {
+    baseQuery += ' AND r.id = ?';
+    queryParams.push(filters.region_id);
+  }
+  if (filters.district_id) {
+    baseQuery += ' AND d.id = ?';
+    queryParams.push(filters.district_id);
+  }
+  if (filters.circuit_id) {
+    baseQuery += ' AND c.id = ?';
+    queryParams.push(filters.circuit_id);
+  }
+  
+  const results = await db.query(baseQuery, queryParams);
+  return results.map(row => ({ ...row, sanitation_data_object: JSON.parse(row.sanitation_data_object || '[]') }));
+}
+
+function aggregateSanitationItems(items) {
+    const aggregated = {};
+    items.forEach(item => {
+        const { measure_item, status } = item;
+        if (!aggregated[measure_item]) {
+            aggregated[measure_item] = { total: 0, statuses: {} };
+        }
+        aggregated[measure_item].total++;
+        aggregated[measure_item].statuses[status] = (aggregated[measure_item].statuses[status] || 0) + 1;
+    });
+    return aggregated;
+}
+
+async function getCircuitLevelSanitationData(filters) {
+    const schoolsData = await getSchoolSanitationDataForAggregation(filters);
+    const circuits = {};
+
+    schoolsData.forEach(school => {
+        if (!circuits[school.circuit_id]) {
+            circuits[school.circuit_id] = {
+                circuit_id: school.circuit_id,
+                circuit_name: school.circuit_name,
+                district_id: school.district_id,
+                district_name: school.district_name,
+                region_id: school.region_id,
+                region_name: school.region_name,
+                schools: [],
+                aggregated_sanitation: {}
+            };
+        }
+        const schoolSanitationSummary = aggregateSanitationItems(school.sanitation_data_object);
+        circuits[school.circuit_id].schools.push({
+            school_id: school.school_id,
+            school_name: school.school_name,
+            sanitation_summary: schoolSanitationSummary // Store per-school summary
+        });
+
+        // Aggregate at circuit level
+        school.sanitation_data_object.forEach(item => {
+            const { measure_item, status } = item;
+            const agg = circuits[school.circuit_id].aggregated_sanitation;
+            if (!agg[measure_item]) {
+                agg[measure_item] = { total: 0, statuses: {} };
+            }
+            agg[measure_item].total++;
+            agg[measure_item].statuses[status] = (agg[measure_item].statuses[status] || 0) + 1;
+        });
+    });
+    return Object.values(circuits);
+}
+
+async function getDistrictLevelSanitationData(filters) {
+    const circuitData = await getCircuitLevelSanitationData(filters); // Reuse circuit aggregation
+    const districts = {};
+
+    circuitData.forEach(circuit => {
+        if (!districts[circuit.district_id]) {
+            districts[circuit.district_id] = {
+                district_id: circuit.district_id,
+                district_name: circuit.district_name,
+                region_id: circuit.region_id,
+                region_name: circuit.region_name,
+                circuits: [],
+                aggregated_sanitation: {}
+            };
+        }
+        districts[circuit.district_id].circuits.push({
+            circuit_id: circuit.circuit_id,
+            circuit_name: circuit.circuit_name,
+            // schools: circuit.schools, // Optionally include detailed school list
+            aggregated_sanitation_summary: circuit.aggregated_sanitation // Store per-circuit summary
+        });
+
+        // Aggregate at district level from circuit aggregates
+        Object.entries(circuit.aggregated_sanitation).forEach(([measure_item, item_data]) => {
+            const agg = districts[circuit.district_id].aggregated_sanitation;
+            if (!agg[measure_item]) {
+                agg[measure_item] = { total: 0, statuses: {} };
+            }
+            agg[measure_item].total += item_data.total;
+            Object.entries(item_data.statuses).forEach(([status, count]) => {
+                agg[measure_item].statuses[status] = (agg[measure_item].statuses[status] || 0) + count;
+            });
+        });
+    });
+    return Object.values(districts);
+}
+
+async function getRegionLevelSanitationData(filters) {
+    const districtData = await getDistrictLevelSanitationData(filters); // Reuse district aggregation
+    const regions = {};
+
+    districtData.forEach(district => {
+        if (!regions[district.region_id]) {
+            regions[district.region_id] = {
+                region_id: district.region_id,
+                region_name: district.region_name,
+                districts: [],
+                aggregated_sanitation: {}
+            };
+        }
+        regions[district.region_id].districts.push({
+            district_id: district.district_id,
+            district_name: district.district_name,
+            // circuits: district.circuits, // Optionally include detailed circuit list
+            aggregated_sanitation_summary: district.aggregated_sanitation // Store per-district summary
+        });
+
+        // Aggregate at region level from district aggregates
+        Object.entries(district.aggregated_sanitation).forEach(([measure_item, item_data]) => {
+            const agg = regions[district.region_id].aggregated_sanitation;
+            if (!agg[measure_item]) {
+                agg[measure_item] = { total: 0, statuses: {} };
+            }
+            agg[measure_item].total += item_data.total;
+            Object.entries(item_data.statuses).forEach(([status, count]) => {
+                agg[measure_item].statuses[status] = (agg[measure_item].statuses[status] || 0) + count;
+            });
+        });
+    });
+    return Object.values(regions);
 }
 
 export async function DELETE(request) {
