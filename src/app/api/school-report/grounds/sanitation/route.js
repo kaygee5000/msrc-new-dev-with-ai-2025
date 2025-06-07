@@ -11,7 +11,7 @@ export async function GET(request) {
         region_id: searchParams.get('region_id'),
         district_id: searchParams.get('district_id'),
         circuit_id: searchParams.get('circuit_id'),
-        level: searchParams.get('level') || 'school', // Default to school level
+        level: searchParams.get('level') || 'school',
     };
 
     const tableName = 'school_sanitations';
@@ -81,6 +81,7 @@ export async function GET(request) {
         query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
+    console.log("Query in sanitation: ", query, queryParams);
     try {
         if (filters.level === 'school' || filters.school_id) {
             // Original logic for fetching individual school data
@@ -152,8 +153,32 @@ async function getSchoolSanitationDataForAggregation(filters) {
     queryParams.push(filters.circuit_id);
   }
   
-  const results = await db.query(baseQuery, queryParams);
-  return results.map(row => ({ ...row, sanitation_data_object: JSON.parse(row.sanitation_data_object || '[]') }));
+  const [results] = await db.query(baseQuery, queryParams);
+  console.log("Results in sanitation: ", results);
+  return results.map(row => {
+    let parsedSanitationData = [];
+    if (row.sanitation_data_object) {
+      if (typeof row.sanitation_data_object === 'string') {
+        try {
+          parsedSanitationData = JSON.parse(row.sanitation_data_object);
+        } catch (parseError) {
+          console.error('Failed to parse sanitation_data_object string:', parseError, 'Raw data:', row.sanitation_data_object);
+          // Fallback to empty array or handle error as appropriate
+          parsedSanitationData = []; 
+        }
+      } else if (typeof row.sanitation_data_object === 'object') {
+        // It's already an object (hopefully an array as expected)
+        parsedSanitationData = Array.isArray(row.sanitation_data_object) ? row.sanitation_data_object : [];
+      } else {
+        console.warn('sanitation_data_object is of unexpected type:', typeof row.sanitation_data_object, 'Raw data:', row.sanitation_data_object);
+        parsedSanitationData = [];
+      }
+    } else {
+        // If sanitation_data_object is null or undefined, default to empty array
+        parsedSanitationData = [];
+    }
+    return { ...row, sanitation_data_object: parsedSanitationData };
+  });
 }
 
 function aggregateSanitationItems(items) {
@@ -171,6 +196,7 @@ function aggregateSanitationItems(items) {
 
 async function getCircuitLevelSanitationData(filters) {
     const schoolsData = await getSchoolSanitationDataForAggregation(filters);
+    console.log("Schools data in sanitation: ", schoolsData);
     const circuits = {};
 
     schoolsData.forEach(school => {
@@ -187,6 +213,8 @@ async function getCircuitLevelSanitationData(filters) {
             };
         }
         const schoolSanitationSummary = aggregateSanitationItems(school.sanitation_data_object);
+       
+        console.log("School sanitation summary in sanitation: ", schoolSanitationSummary);
         circuits[school.circuit_id].schools.push({
             school_id: school.school_id,
             school_name: school.school_name,

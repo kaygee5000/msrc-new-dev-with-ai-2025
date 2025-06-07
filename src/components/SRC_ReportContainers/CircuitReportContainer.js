@@ -9,19 +9,19 @@ import {
     Tab,
 } from '@mui/material';
 
-// Import summary component
 import CircuitSummary from '@/components/SRC_Summaries/CircuitSummary';
-
-// Import aggregated view components (only Sanitation is ready for circuit level)
+import CommunityInvolvementDisplay from '@/components/SRC_CommunityInvolvement/CommunityInvolvementDisplay';
+import MeetingsHeldDisplay from '@/components/SRC_CommunityInvolvement/MeetingsHeldDisplay';
+import GeneralIssuesDisplay from '@/components/SRC_CommunityInvolvement/GeneralIssuesDisplay';
+import TextbooksDisplay from '@/components/SRC_Management/TextbooksDisplay';
+import PupilPerformanceDisplay from '@/components/SRC_Management/PupilPerformanceDisplay';
+import RecordBooksDisplay from '@/components/SRC_Management/RecordBooksDisplay';
+import SupportGrantsDisplay from '@/components/SRC_Management/SupportGrantsDisplay';
 import CircuitSanitationView from '@/components/SRC_Grounds/Sanitation/CircuitSanitationView';
-// Placeholder for other views - these will need to be created
-const PlaceholderView = ({ viewName, filterParams }) => (
-    <Paper sx={{p:2, mt:2}} elevation={1}>
-        <Typography variant="h6">{viewName}</Typography>
-        <Typography>Data for this section at the circuit level is not yet available.</Typography>
-        <Typography variant="caption">Filters: Circuit ID {filterParams.circuit_id}, Year {filterParams.year}, Term {filterParams.term}</Typography>
-    </Paper>
-);
+import SecurityDisplay from '@/components/SRC_Grounds/SecurityDisplay';
+import SchoolStructureDisplay from '@/components/SRC_Grounds/SchoolStructureDisplay';
+import FurnitureDisplay from '@/components/SRC_Grounds/FurnitureDisplay';
+import WashDisplay from '@/components/SRC_Grounds/WashDisplay';
 
 function TabPanel(props) {
     const { children, value, index, ...other } = props;
@@ -57,7 +57,7 @@ export default function CircuitReportContainer({ filterParams }) {
     // Community Involvement: Summary, Meetings, General Issues
     // School Management: Textbooks, Pupil Performance, Record Books, Support & Grants
     // School Grounds: Sanitation, Security, School Structure, Furniture, WASH
-    const subTabCounts = [3, 4, 5]; 
+    const subTabCounts = [3, 4, 5];
     const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
 
     useEffect(() => {
@@ -70,7 +70,7 @@ export default function CircuitReportContainer({ filterParams }) {
 
     if (!filterParams || !filterParams.circuit_id || !filterParams.year || !filterParams.term) {
         return (
-            <Paper elevation={2} sx={{ p: 2, mt: 3}}>
+            <Paper elevation={2} sx={{ p: 2, mt: 3 }}>
                 <Typography variant="h6" color="error">Circuit Information Missing</Typography>
                 <Typography>Please select a circuit, year, and term to view the report.</Typography>
             </Paper>
@@ -78,8 +78,14 @@ export default function CircuitReportContainer({ filterParams }) {
     }
 
     return (
-        <Box sx={{mt: 2}}>
-            <CircuitSummary circuitId={filterParams.circuit_id} year={filterParams.year} term={filterParams.term} />
+        <Box sx={{ mt: 2 }}>
+
+            {/* Circuit Report Card Summary */}
+            {filterParams.year && filterParams.term && (
+                <CircuitSummary circuitId={filterParams.circuit_id} selectedPeriod={filterParams} />
+            )}
+
+
             <Paper elevation={2} sx={{ mt: 1, overflow: 'hidden' }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={currentTab} onChange={handleTabChange} aria-label="Circuit Report Categories" variant="fullWidth">
@@ -100,13 +106,13 @@ export default function CircuitReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="Circuit Community Involvement Summary" filterParams={filterParams} />
+                        <CommunityInvolvementDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="Circuit Meetings Held" filterParams={filterParams} />
+                        <MeetingsHeldDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="Circuit General Issues" filterParams={filterParams} />
+                        <GeneralIssuesDisplay filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
 
@@ -122,16 +128,16 @@ export default function CircuitReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="Circuit Textbooks Data" filterParams={filterParams} />
+                        <TextbooksDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="Circuit Pupil Performance" filterParams={filterParams} />
+                        <PupilPerformanceDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="Circuit Record Books" filterParams={filterParams} />
+                        <RecordBooksDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="Circuit Support & Grants" filterParams={filterParams} />
+                        <SupportGrantsDisplay filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
 
@@ -151,16 +157,16 @@ export default function CircuitReportContainer({ filterParams }) {
                         <CircuitSanitationView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="Circuit Security Data" filterParams={filterParams} />
+                        <SecurityDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="Circuit School Structure Data" filterParams={filterParams} />
+                        <SchoolStructureDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="Circuit Furniture Data" filterParams={filterParams} />
+                        <FurnitureDisplay filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={4}>
-                        <PlaceholderView viewName="Circuit WASH Data" filterParams={filterParams} />
+                        <WashDisplay filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
             </Paper>

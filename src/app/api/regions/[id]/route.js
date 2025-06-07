@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '@/utils/db';
+import { aggregateEnrollment, aggregateStudentAttendance, aggregateTeacherAttendance } from '@/utils/statisticsHelpers';
 
 /**
  * GET handler for retrieving a single region by ID
@@ -20,9 +21,58 @@ export async function GET(request, { params }) {
       );
     }
 
+    // 2. District count
+    const [districtCountRows] = await db.query(
+      'SELECT COUNT(*) AS districtCount FROM districts WHERE region_id = ?',
+      [id]
+    );
+    const districtCount = districtCountRows[0]?.districtCount || 0;
+    // 3. Circuit count
+    const [circuitCountRows] = await db.query(
+      'SELECT COUNT(*) AS circuitCount FROM circuits WHERE region_id = ?',
+      [id]
+    );
+    const circuitCount = circuitCountRows[0]?.circuitCount || 0;
+    // 4. School count
+    const [schoolCountRows] = await db.query(
+      'SELECT COUNT(*) AS schoolCount FROM schools WHERE region_id = ?',
+      [id]
+    );
+    const schoolCount = schoolCountRows[0]?.schoolCount || 0;
+
+    // Build query params for stats endpoints
+    const { searchParams } = new URL(request.url);
+    const year = searchParams.get('year');
+    const term = searchParams.get('term');
+    const baseUrl = new URL(request.url).origin;
+    const queryParams = new URLSearchParams({ regionId: id });
+    if (year) queryParams.append('year', year);
+    if (term) queryParams.append('term', term);
+    queryParams.append('aggregate', 'true');
+
+    const statsEndpoints = ['enrolment', 'student-attendance', 'teacher-attendance'];
+    const statsPromises = statsEndpoints.map(ep =>
+      fetch(`${baseUrl}/api/statistics/${ep}?${queryParams}`)
+        .then(r => r.json().then(j => j.data).catch(() => null))
+        .catch(() => null)
+    );
+    const [enrolment, studentAttendance, teacherAttendance] = await Promise.all(statsPromises);
+
+    const enrolmentAgg = Array.isArray(enrolment) ? aggregateEnrollment(enrolment) : enrolment;
+    const studentAgg = Array.isArray(studentAttendance) ? aggregateStudentAttendance(studentAttendance) : studentAttendance;
+    const teacherAgg = Array.isArray(teacherAttendance) ? aggregateTeacherAttendance(teacherAttendance) : teacherAttendance;
+
     return NextResponse.json({
       success: true,
-      region: rows[0]
+      region: rows[0],
+      districtCount,
+      circuitCount,
+      schoolCount,
+      statistics: {
+        enrolment: enrolmentAgg,
+        studentAttendance: studentAgg,
+        teacherAttendance: teacherAgg
+      }
     });
   } catch (error) {
     console.error('Error fetching region:', error);

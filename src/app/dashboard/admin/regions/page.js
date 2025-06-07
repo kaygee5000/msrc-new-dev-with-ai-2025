@@ -29,6 +29,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import HomeIcon from '@mui/icons-material/Home';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -303,9 +304,7 @@ export default function RegionsAdmin() {
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    {/* <TableCell>ID</TableCell> */}
                     <TableCell>Name</TableCell>
-                    {/* <TableCell>Code</TableCell> */}
                     <TableCell>Description</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -314,23 +313,33 @@ export default function RegionsAdmin() {
                   {regions
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((region) => (
-                      <TableRow hover key={region.id}>
-                        {/* <TableCell>{region.id}</TableCell> */}
+                      <TableRow 
+                        hover 
+                        key={region.id} 
+                        onClick={() => router.push(`/dashboard/admin/regions/${region.id}`)}
+                        sx={{ cursor: 'pointer' }}
+                      >
                         <TableCell>{region.name}</TableCell>
-                        {/* <TableCell>{region.code}</TableCell> */}
                         <TableCell>{region.description}</TableCell>
                         <TableCell align="right">
                           <IconButton 
+                            color="info" 
+                            size="small" 
+                            onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/admin/regions/${region.id}`); }}
+                          >
+                            <VisibilityIcon />
+                          </IconButton>
+                          <IconButton 
                             color="primary" 
-                            onClick={() => handleOpenDialog(region)}
-                            size="small"
+                            size="small" 
+                            onClick={(e) => { e.stopPropagation(); handleOpenDialog(region); }}
                           >
                             <EditIcon />
                           </IconButton>
                           <IconButton 
                             color="error" 
-                            onClick={() => handleDelete(region.id)}
-                            size="small"
+                            size="small" 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(region.id); }}
                           >
                             <DeleteIcon />
                           </IconButton>

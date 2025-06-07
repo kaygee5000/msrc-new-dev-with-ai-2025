@@ -82,6 +82,7 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
 
     return (
         <Box sx={{ mt: 2 }}>
+            <SchoolSummary entityId={filterParams.schoolId} selectedPeriod={filterParams} />
             <Paper elevation={2} sx={{ mt: 1, overflow: 'hidden' }}>
                 {/* Filter controls have been removed and are now expected from the parent page */}
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

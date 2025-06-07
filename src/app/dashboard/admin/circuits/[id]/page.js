@@ -23,9 +23,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import HomeIcon from '@mui/icons-material/Home';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CircuitReportContainer from '@/components/SRC_ReportContainers/CircuitReportContainer';
+import SRC_PeriodSelector from '@/components/SRC_PeriodSelector';
+import CircuitSummary from '@/components/SRC_Summaries/CircuitSummary';
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+// Academic years in 'YYYY/YYYY' format (latest first)
+const ACADEMIC_YEARS = Array.from({ length: 3 }, (_, i) => `${CURRENT_YEAR - 1 - i}/${CURRENT_YEAR - i}`);
 const TERMS = [1, 2, 3];
 
 export default function CircuitDetail() {
@@ -36,20 +39,22 @@ export default function CircuitDetail() {
   const [error, setError] = useState(null);
 
   const [selectedPeriod, setSelectedPeriod] = useState({
-    year: CURRENT_YEAR,
+    year: ACADEMIC_YEARS[0],
     term: TERMS[0],
   });
 
-  const handlePeriodChange = (name, value) => {
-    setSelectedPeriod(prev => ({ ...prev, [name]: value }));
-  };
+  // Update selectedPeriod directly from PeriodSelector's newPeriod object
+  const handlePeriodChange = useCallback((newPeriod) => {
+    setSelectedPeriod(newPeriod);
+  }, []);
 
   // Memoize filterParams to prevent unnecessary re-renders of CircuitReportContainer
   const filterParams = useMemo(() => ({
     circuit_id: id,
     year: selectedPeriod.year,
     term: selectedPeriod.term,
-  }), [id, selectedPeriod.year, selectedPeriod.term]);
+    week: selectedPeriod.week,
+  }), [id, selectedPeriod.year, selectedPeriod.term, selectedPeriod.week]);
 
   useEffect(() => {
     async function fetchCircuitDetails() {
@@ -168,38 +173,17 @@ export default function CircuitDetail() {
         <Typography variant="body2" color="text.secondary">Region: {circuit.region_name || 'N/A'}</Typography>
       </Paper>
 
-      {/* Year and Term Filters */}
-      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="subtitle1">Report Period:</Typography>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="year-select-label">Year</InputLabel>
-            <Select
-              labelId="year-select-label"
-              id="year-select"
-              value={selectedPeriod.year}
-              label="Year"
-              onChange={(e) => handlePeriodChange('year', e.target.value)}
-            >
-              {YEARS.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="term-select-label">Term</InputLabel>
-            <Select
-              labelId="term-select-label"
-              id="term-select"
-              value={selectedPeriod.term}
-              label="Term"
-              onChange={(e) => handlePeriodChange('term', e.target.value)}
-            >
-              {TERMS.map(t => <MenuItem key={t} value={t}>{`Term ${t}`}</MenuItem>)}
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
+      {/* Report Period Selector */}
+      <SRC_PeriodSelector
+        entityType="circuit"
+        entityId={id}
+        selectedPeriod={selectedPeriod}
+        onPeriodChange={handlePeriodChange}
+        showHeader={false}
+        sx={{ mb: 3 }}
+      />
 
-      {/* Circuit Report Container */}
+        {/* Circuit Report Container */}
       {(selectedPeriod.year && selectedPeriod.term) ? (
         <CircuitReportContainer filterParams={filterParams} />
       ) : (

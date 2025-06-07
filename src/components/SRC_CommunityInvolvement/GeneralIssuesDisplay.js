@@ -75,7 +75,7 @@ export default function GeneralIssuesDisplay({ filterParams }) {
     const title = 'General Issues';
 
     const fetchData = useCallback(async () => {
-        if (!filterParams || !filterParams.school_id) {
+        if (!filterParams || (!filterParams.school_id && !filterParams.circuit_id && !filterParams.district_id && !filterParams.region_id)) {
             setData(null);
             return;
         }
@@ -84,6 +84,9 @@ export default function GeneralIssuesDisplay({ filterParams }) {
 
         const query = new URLSearchParams();
         if (filterParams.school_id) query.append('school_id', filterParams.school_id);
+        else if (filterParams.circuit_id) query.append('circuit_id', filterParams.circuit_id);
+        else if (filterParams.district_id) query.append('district_id', filterParams.district_id);
+        else if (filterParams.region_id) query.append('region_id', filterParams.region_id);
         if (filterParams.year) query.append('year', filterParams.year);
         if (filterParams.term) query.append('term', filterParams.term);
         if (filterParams.week) query.append('week', filterParams.week);

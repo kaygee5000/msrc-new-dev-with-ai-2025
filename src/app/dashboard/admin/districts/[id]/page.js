@@ -25,10 +25,9 @@ import {
   LocationOn as LocationOnIcon,
 } from '@mui/icons-material';
 import DistrictReportContainer from '@/components/SRC_ReportContainers/DistrictReportContainer';
+import SRC_PeriodSelector from '@/components/SRC_PeriodSelector';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
-const TERMS = [1, 2, 3];
+
 
 export default function DistrictDetail() {
   const { id } = useParams(); // This is district_id
@@ -38,18 +37,20 @@ export default function DistrictDetail() {
   const [error, setError] = useState(null);
 
   const [selectedPeriod, setSelectedPeriod] = useState({
-    year: CURRENT_YEAR,
-    term: TERMS[0],
+    year: null, // SRC_PeriodSelector will populate this
+    term: null,
+    week: null
   });
 
-  const handlePeriodChange = (name, value) => {
-    setSelectedPeriod(prev => ({ ...prev, [name]: value }));
+  const handlePeriodChange = (newPeriod) => {
+    setSelectedPeriod(newPeriod); // newPeriod is { year, term, week }
   };
 
   const filterParams = useMemo(() => ({
     district_id: id,
     year: selectedPeriod.year,
     term: selectedPeriod.term,
+    // week: selectedPeriod.week, // available if needed by DistrictReportContainer later
   }), [id, selectedPeriod.year, selectedPeriod.term]);
 
   useEffect(() => {
@@ -172,36 +173,17 @@ export default function DistrictDetail() {
         {/* Add other relevant non-report header info here if needed */}
       </Paper>
 
-      {/* Year and Term Filters */}
-      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="subtitle1">Report Period:</Typography>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="year-select-label">Year</InputLabel>
-            <Select
-              labelId="year-select-label"
-              id="year-select"
-              value={selectedPeriod.year}
-              label="Year"
-              onChange={(e) => handlePeriodChange('year', e.target.value)}
-            >
-              {YEARS.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="term-select-label">Term</InputLabel>
-            <Select
-              labelId="term-select-label"
-              id="term-select"
-              value={selectedPeriod.term}
-              label="Term"
-              onChange={(e) => handlePeriodChange('term', e.target.value)}
-            >
-              {TERMS.map(t => <MenuItem key={t} value={t}>{`Term ${t}`}</MenuItem>)}
-            </Select>
-          </FormControl>
-        </Stack>
-      </Paper>
+      {/* Period Selector */}
+      <SRC_PeriodSelector 
+        entityType="district"
+        entityId={id}
+        selectedPeriod={selectedPeriod}
+        onPeriodChange={handlePeriodChange}
+        showWeekSelector={false} // District level usually doesn't need week selection
+        showHeader={true} // Shows the 'Reporting Period' header from the component
+        elevation={1}
+        sx={{mb:3}}
+      />
 
       {/* District Report Container */}
       {(selectedPeriod.year && selectedPeriod.term) ? (

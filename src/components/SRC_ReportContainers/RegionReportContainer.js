@@ -54,16 +54,12 @@ export default function RegionReportContainer({ filterParams }) {
     const [currentTab, setCurrentTab] = useState(0);
     const [subTab, setSubTab] = useState(0);
 
-    const subTabCounts = [3, 4, 5]; // Community Involvement, Management, Grounds
+    const subTabCounts = [3, 4, 5];
     const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
 
-    useEffect(() => {
-        setSubTab(0); 
-    }, [currentTab]);
+    useEffect(() => { setSubTab(0); }, [currentTab]);
 
-    const handleTabChange = (event, newValue) => {
-        setCurrentTab(newValue);
-    };
+    const handleTabChange = (event, newValue) => { setCurrentTab(newValue); };
 
     if (!filterParams || !filterParams.region_id || !filterParams.year || !filterParams.term) {
         return (

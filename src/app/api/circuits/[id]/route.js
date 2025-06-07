@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { aggregateEnrollment, aggregateStudentAttendance, aggregateTeacherAttendance } from '@/utils/statisticsHelpers';
 import { getConnection } from '@/utils/db';
 
 /**
@@ -26,9 +27,32 @@ export async function GET(request, { params }) {
       );
     }
 
+    // Fetch statistics from dedicated endpoints
+    const { searchParams } = new URL(request.url);
+    const year = searchParams.get('year');
+    const term = searchParams.get('term');
+    const weekNumber = searchParams.get('week') || searchParams.get('weekNumber');
+    const baseUrl = new URL(request.url).origin;
+    const queryParams = new URLSearchParams({ circuitId: id });
+    if (year) queryParams.append('year', year);
+    if (term) queryParams.append('term', term);
+    queryParams.append('aggregate', 'true');
+    if (weekNumber) queryParams.append('weekNumber', weekNumber);
+    const statsEndpoints = ['enrolment', 'student-attendance', 'teacher-attendance'];
+   
+    const statsPromises = statsEndpoints.map(ep =>
+      fetch(`${baseUrl}/api/statistics/${ep}?${queryParams}`)
+        .then(r => r.json().then(j => j.data).catch(() => null))
+        .catch(() => null)
+    );
+    const [enrolment, studentAttendance, teacherAttendance] = await Promise.all(statsPromises);
+    const enrolmentAgg = Array.isArray(enrolment) ? aggregateEnrollment(enrolment) : enrolment;
+    const studentAgg = Array.isArray(studentAttendance) ? aggregateStudentAttendance(studentAttendance) : studentAttendance;
+    const teacherAgg = Array.isArray(teacherAttendance) ? aggregateTeacherAttendance(teacherAttendance) : teacherAttendance;
     return NextResponse.json({
       success: true,
-      circuit: rows[0]
+      circuit: rows[0],
+      statistics: { enrolment: enrolmentAgg, studentAttendance: studentAgg, teacherAttendance: teacherAgg }
     });
   } catch (error) {
     console.error('Error fetching circuit:', error);

@@ -15,7 +15,16 @@ import {
   LinearProgress
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { WcIcon, WaterDropIcon, DeleteIcon, SanitizerIcon, HelpOutlineIcon, BathtubIcon, WaterIcon, CleaningServicesIcon, ShowerIcon, WashIcon } from '@mui/icons-material'; // Assuming these are available or defined elsewhere
+import WcIcon from '@mui/icons-material/Wc';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SanitizerIcon from '@mui/icons-material/Sanitizer';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import BathtubIcon from '@mui/icons-material/Bathtub';
+import WaterIcon from '@mui/icons-material/Water';
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
+import ShowerIcon from '@mui/icons-material/Shower';
+import WashIcon from '@mui/icons-material/Wash';
 
 // Re-use or adapt MEASURE_ITEMS and getItemDisplay from SchoolSanitationView.js
 const MEASURE_ITEMS = {
@@ -88,7 +97,7 @@ const ItemStatusBreakdown = ({ aggregatedData, levelName }) => {
         const availablePercent = calculatePercentage(availableCount, data.total);
 
         return (
-          <Grid item xs={12} sm={6} md={4} key={itemName}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={itemName}>
             <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 {React.cloneElement(itemDisplayInfo.icon, { sx: { fontSize: 24, mr: 1, color: itemDisplayInfo.status.isAvailable ? 'success.main' : 'text.secondary' } })}

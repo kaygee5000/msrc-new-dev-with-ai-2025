@@ -244,7 +244,11 @@ export default function SchoolDetail() {
       />
 
       {/* School Report Card Section */}
-      <SchoolReportContainer filterParams={filterParams} />
+      {(selectedPeriod.year && selectedPeriod.term) ? (
+        <SchoolReportContainer filterParams={filterParams} />
+      ) : (
+              <Paper sx={{p:2, mt:2}}><Typography>Please select a year and term to view the report.</Typography></Paper>
+            )}
     </Box>
   );
 }

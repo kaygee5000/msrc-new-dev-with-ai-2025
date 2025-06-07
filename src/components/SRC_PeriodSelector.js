@@ -81,7 +81,7 @@ const SRC_PeriodSelector = ({
     };
 
     fetchPeriods();
-  }, [entityType, entityId, onPeriodChange, selectedPeriod?.year]);
+  }, [entityType, entityId]);
 
   const handlePeriodChange = (field, value) => {
     console.log(`Period change - Field: ${field}, Value:`, value);

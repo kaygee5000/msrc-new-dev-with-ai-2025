@@ -5,60 +5,55 @@ import {
   Paper,
   Typography,
   Grid,
+  Card,
+  CardContent,
+  Box,
   CircularProgress,
   Alert,
   Chip,
-  Box
 } from '@mui/material';
+import PeopleIcon from '@mui/icons-material/People';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
+import SchoolIcon from '@mui/icons-material/School';
 
-export default function CircuitSummary({ circuitId, year, term }) {
-  const [summaryData, setSummaryData] = useState(null);
+export default function CircuitSummary({ circuitId: entityId, selectedPeriod = {} }) {
+  const [stats, setStats] = useState({});
+  const [circuitInfo, setCircuitInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const { year, term, week } = selectedPeriod;
+
   const fetchSummaryData = useCallback(async () => {
-    if (!circuitId || !year || !term) {
-        setLoading(false);
-        // setError('Circuit ID, Year, and Term are required to fetch summary.');
-        // Or set summaryData to a default state indicating selection is needed
-        setSummaryData(null); 
-        return;
+    if (!entityId) {
+      setLoading(false);
+      return;
     }
     setLoading(true);
     setError(null);
     try {
-      // TODO: Replace with actual API call to fetch circuit details
-      // Example: /api/circuits/${circuitId}?year=${year}&term=${term}
-      // This API would need to return circuit name, district name, region name, number of schools, etc.
-      // For now, using placeholder data structure based on what CircuitSanitationView might receive
-      const q = new URLSearchParams({ circuit_id: circuitId, year, term, level: 'circuit' });
-      const res = await fetch(`/api/school-report/grounds/sanitation?${q.toString()}`); 
-      // The above API is for sanitation, we'll need a dedicated circuit info API.
-      // For now, let's assume it gives us some basic info or we derive it.
+      const url = `/api/circuits/${entityId}?year=${year}&term=${term}` + (week ? `&week=${week}` : '');
+      console.log('CircuitSummary fetching URL:', url);
+      const res = await fetch(url);
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.message || `Error ${res.status}`);
       }
       const data = await res.json();
-      if (data && data.length > 0) {
-        // Assuming the API returns an array of circuits, even if filtered to one
-        const circuitInfo = data[0]; 
-        setSummaryData({
-          name: circuitInfo.circuit_name || 'N/A',
-          districtName: circuitInfo.district_name || 'N/A',
-          regionName: circuitInfo.region_name || 'N/A',
-          numberOfSchools: circuitInfo.schools ? circuitInfo.schools.length : 'N/A', // Example
-        });
+      console.log('CircuitSummary received data:', data);
+      if (data && data.circuit) {
+        setCircuitInfo(data.circuit);
+        if (data.statistics) setStats(data.statistics);
       } else {
         throw new Error('Circuit not found or no data available.');
       }
     } catch (e) {
       console.error('Error fetching circuit summary:', e);
       setError(e.message);
-      setSummaryData(null);
+      setStats({});
     }
     setLoading(false);
-  }, [circuitId, year, term]);
+  }, [entityId, year, term]);
 
   useEffect(() => {
     fetchSummaryData();
@@ -77,21 +72,21 @@ export default function CircuitSummary({ circuitId, year, term }) {
     return <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>;
   }
 
-  if (!summaryData) {
+  if (!circuitInfo) {
     return <Alert severity="info" sx={{ mb: 2 }}>Select a circuit to view its summary.</Alert>;
   }
 
   return (
     <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
       <Typography variant="h5" gutterBottom component="div">
-        {summaryData.name} Circuit Summary
+        {circuitInfo.name} Circuit Summary
       </Typography>
       <Grid container spacing={1}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>District:</strong> {summaryData.districtName}</Typography>
+          <Typography variant="body1"><strong>District:</strong> {circuitInfo.district_name}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Region:</strong> {summaryData.regionName}</Typography>
+          <Typography variant="body1"><strong>Region:</strong> {circuitInfo.region_name}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Typography variant="body1"><strong>Year:</strong> {year}</Typography>
@@ -100,7 +95,70 @@ export default function CircuitSummary({ circuitId, year, term }) {
           <Typography variant="body1"><strong>Term:</strong> {term}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1" component="div"><strong>Number of Schools:</strong> <Chip label={summaryData.numberOfSchools} size="small" color="primary" /></Typography>
+          <Typography variant="body1" component="div"><strong>Description :</strong> {circuitInfo.description}</Typography>
+        </Grid>
+      </Grid>
+      {/* Statistics Cards */}
+      <Grid container spacing={3} sx={{ mb: 2 }}>
+        {/* Enrollment */}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card><CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography color="textSecondary" variant="subtitle2">Enrollment</Typography>
+                <Typography variant="h4">{stats.enrolment?.totalStudents ?? 'N/A'}</Typography>
+                {stats.enrolment?.genderDistribution && (
+                  <Typography variant="body2">Boys: {stats.enrolment.genderDistribution.boys} | Girls: {stats.enrolment.genderDistribution.girls}</Typography>
+                )}
+              </Box>
+              <PeopleIcon fontSize="large" color="primary" />
+            </Box>
+          </CardContent></Card>
+        </Grid>
+        {/* Student Attendance */}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card><CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography color="textSecondary" variant="subtitle2">Student Attendance</Typography>
+                <Typography variant="h4">{stats.studentAttendance?.attendanceRate != null ? `${stats.studentAttendance.attendanceRate}%` : 'N/A'}</Typography>
+                {stats.studentAttendance && (
+                  <Typography variant="body2">Present: {stats.studentAttendance.totalPresent} / {stats.studentAttendance.totalEnrolled}</Typography>
+                )}
+              </Box>
+              <EventAvailableIcon fontSize="large" color="primary" />
+            </Box>
+          </CardContent></Card>
+        </Grid>
+        {/* Teacher Attendance */}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card><CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography color="textSecondary" variant="subtitle2">Teacher Attendance</Typography>
+                <Typography variant="h4">{stats.teacherAttendance?.attendanceRate != null ? `${stats.teacherAttendance.attendanceRate}%` : 'N/A'}</Typography>
+                {stats.teacherAttendance && (
+                  <Typography variant="body2">Teachers: {stats.teacherAttendance.totalTeachers}</Typography>
+                )}
+              </Box>
+              <SchoolIcon fontSize="large" color="primary" />
+            </Box>
+          </CardContent></Card>
+        </Grid>
+        {/* Teacher Performance */}
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Card><CardContent>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography color="textSecondary" variant="subtitle2">Teacher Performance</Typography>
+                <Typography variant="h4">{stats.teacherAttendance?.exerciseCompletionRate != null ? `${stats.teacherAttendance.exerciseCompletionRate}%` : 'N/A'}</Typography>
+                {stats.teacherAttendance && (
+                  <Typography variant="body2">Exercises Completion Rate</Typography>
+                )}
+              </Box>
+              <SchoolIcon fontSize="large" color="primary" />
+            </Box>
+          </CardContent></Card>
         </Grid>
       </Grid>
     </Paper>
