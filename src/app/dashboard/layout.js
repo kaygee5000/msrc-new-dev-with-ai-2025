@@ -37,6 +37,7 @@ const menuItems = [
   },
   { text: 'WASH Dashboard', icon: <WaterDropIcon />, path: '/dashboard/wash' },
   { text: 'TVET Dashboard', icon: <School />, path: '/dashboard/tvet' },
+  { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/reentry' },
   // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
   // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
   // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },

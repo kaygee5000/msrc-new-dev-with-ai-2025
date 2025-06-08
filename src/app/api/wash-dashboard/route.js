@@ -2,16 +2,15 @@
 import { getConnection } from '../../../utils/db';
 
 export async function GET(request) {
-  let connection;
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period");
     const level = searchParams.get("level") || "school";
     const levelId = searchParams.get("levelId");
 
-    connection = await getConnection();
+    const connection = await getConnection();
 
-    // Base query to get WASH data
+    // Base query to get WASH data - removing period column since it doesn't exist
     let query = `
       SELECT 
         id,
@@ -19,7 +18,6 @@ export async function GET(request) {
         circuit_id,
         district_id,
         region_id,
-        period,
         responses,
         created_at,
         updated_at
@@ -28,12 +26,6 @@ export async function GET(request) {
     `;
     
     const params = [];
-
-    // Add period filter if provided
-    if (period) {
-      query += ' AND period = ?';
-      params.push(period);
-    }
 
     // Add level-specific filters
     if (level && levelId) {
@@ -116,7 +108,7 @@ export async function GET(request) {
         circuit_id: row.circuit_id,
         district_id: row.district_id,
         region_id: row.region_id,
-        period: row.period,
+        period: 'N/A', // Since period column doesn't exist
         indicators,
         created_at: row.created_at,
         updated_at: row.updated_at
