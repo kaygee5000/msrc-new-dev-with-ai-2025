@@ -13,16 +13,28 @@ export async function GET(request) {
     // Base query to get pregnancy data
     let query = `
       SELECT 
-        id,
-        school_id,
-        circuit_id,
-        district_id,
-        region_id,
-        period,
-        responses,
-        created_at,
-        updated_at
-      FROM pregnancy 
+        ptr.id,
+        ptr.question_id,
+        ptr.school_id,
+        s.circuit_id,
+        s.district_id,
+        s.region_id,
+        ptr.level,
+        ptr.numeric_response,
+        ptr.text_response,
+        ptr.single_choice_response,
+        ptr.multiple_choice_response,
+        ptr.submission_type,
+        ptr.week,
+        ptr.term,
+        ptr.year,
+        ptr.created_at,
+        ptr.updated_at,
+        ptq.question_type,
+        ptq.options
+      FROM pregnancy_tracker_responses ptr
+      JOIN schools s ON ptr.school_id = s.id
+      JOIN pregnancy_tracker_questions ptq ON ptr.question_id = ptq.id
       WHERE 1=1
     `;
     
@@ -62,50 +74,103 @@ export async function GET(request) {
     
     // Process the data to extract pregnancy/reentry indicators
     const processedData = rows.map(row => {
-      let responses = [];
-      try {
-        responses = JSON.parse(row.responses);
-      } catch (e) {
-        console.error('Error parsing responses:', e);
-        responses = [];
+      let answer = null;
+      switch (row.question_type) {
+        case 'open_ended_numeric':
+          answer = row.numeric_response;
+          break;
+        case 'open_ended_text':
+          answer = row.text_response;
+          break;
+        case 'close_ended_single_choice':
+          answer = row.single_choice_response;
+          break;
+        case 'close_ended_multiple_choice':
+          answer = row.multiple_choice_response;
+          break;
+        default:
+          // Fallback for other types or if question_type is not found
+          if (row.numeric_response !== null) {
+            answer = row.numeric_response;
+          } else if (row.text_response !== null) {
+            answer = row.text_response;
+          } else if (row.single_choice_response !== null) {
+            answer = row.single_choice_response;
+          } else if (row.multiple_choice_response !== null) {
+            answer = row.multiple_choice_response;
+          }
+          break;
       }
-
-      // Map responses to pregnancy/reentry indicators based on question_id
-      const indicators = {
-        // Girls Pregnancy indicators
-        pregnant_girls_attending: responses.find(r => r.question_id === 1)?.answer || 0,
-        pregnant_girls_not_attending: responses.find(r => r.question_id === 2)?.answer || 0,
-        
-        // Girls Re-entry indicators
-        dropped_out_returned: responses.find(r => r.question_id === 3)?.answer || 0,
-        pregnant_returned_after_birth: responses.find(r => r.question_id === 4)?.answer || 0,
-        
-        // Support Services
-        support_activities: responses.find(r => r.question_id === 5)?.answer || '',
-        followup_activities: responses.find(r => r.question_id === 6)?.answer || '',
-      };
 
       return {
         id: row.id,
+        question_id: row.question_id,
         school_id: row.school_id,
         circuit_id: row.circuit_id,
         district_id: row.district_id,
         region_id: row.region_id,
-        period: row.period,
-        indicators,
+        level: row.level,
+        answer: answer,
+        week: row.week,
+        term: row.term,
+        year: row.year,
         created_at: row.created_at,
         updated_at: row.updated_at
       };
     });
 
+    // Group processed data by school_id, year, term, and week
+    const groupedData = {};
+    processedData.forEach(item => {
+      const key = `${item.school_id}-${item.year}-${item.term}-${item.week}`;
+      if (!groupedData[key]) {
+        groupedData[key] = {
+          school_id: item.school_id,
+          circuit_id: item.circuit_id,
+          district_id: item.district_id,
+          region_id: item.region_id,
+          period: `${item.year} - Term ${item.term} - Week ${item.week}`,
+          indicators: {},
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        };
+      }
+      groupedData[key].indicators[`question_${item.question_id}`] = item.answer;
+    });
+
+    const finalProcessedData = Object.values(groupedData).map(entry => {
+      // Map generic question_id based indicators to meaningful names
+      const indicators = {
+        pregnant_girls_attending: entry.indicators.question_1 || 0,
+        pregnant_girls_not_attending: entry.indicators.question_2 || 0,
+        dropped_out_returned: entry.indicators.question_3 || 0,
+        pregnant_returned_after_birth: entry.indicators.question_4 || 0,
+        support_activities: entry.indicators.question_5 || '',
+        followup_activities: entry.indicators.question_6 || '',
+        pregnancy_outcome: entry.indicators.question_7 || null,
+      };
+
+      return {
+        id: entry.id, // This ID might not be unique per grouped entry, consider generating a new one if needed
+        school_id: entry.school_id,
+        circuit_id: entry.circuit_id,
+        district_id: entry.district_id,
+        region_id: entry.region_id,
+        period: entry.period,
+        indicators,
+        created_at: entry.created_at,
+        updated_at: entry.updated_at
+      };
+    });
+
     // Calculate summary statistics
-    const totalRecords = processedData.length;
+    const totalRecords = finalProcessedData.length;
     const summary = {
       total_schools: totalRecords,
-      total_pregnant_attending: processedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_girls_attending) || 0), 0),
-      total_pregnant_not_attending: processedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_girls_not_attending) || 0), 0),
-      total_dropped_out_returned: processedData.reduce((sum, d) => sum + (parseInt(d.indicators.dropped_out_returned) || 0), 0),
-      total_pregnant_returned: processedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_returned_after_birth) || 0), 0),
+      total_pregnant_attending: finalProcessedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_girls_attending) || 0), 0),
+      total_pregnant_not_attending: finalProcessedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_girls_not_attending) || 0), 0),
+      total_dropped_out_returned: finalProcessedData.reduce((sum, d) => sum + (parseInt(d.indicators.dropped_out_returned) || 0), 0),
+      total_pregnant_returned: finalProcessedData.reduce((sum, d) => sum + (parseInt(d.indicators.pregnant_returned_after_birth) || 0), 0),
     };
 
     // Calculate reentry rate
