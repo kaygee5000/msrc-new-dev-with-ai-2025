@@ -27,7 +27,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import LockIcon from '@mui/icons-material/Lock';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import LocalPoliceIcon from '@mui/icons-material/LocalPolice';
-import GateIcon from '@mui/icons-material/Gate';
+import FenceIcon from '@mui/icons-material/Fence';
 import WarningIcon from '@mui/icons-material/Warning';
 import ShieldIcon from '@mui/icons-material/Shield';
 import VisibilityIcon from '@mui/icons-material/Visibility';
