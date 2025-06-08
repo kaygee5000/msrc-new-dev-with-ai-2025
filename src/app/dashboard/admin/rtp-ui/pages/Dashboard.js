@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import ClientOnly from '../components/ClientOnly';
 import { mockOutcomeIndicators, mockOutputIndicators } from '../mock/mockIndicators';
 import { mockFilters, getCascadingFilters } from '../mock/mockFilters';

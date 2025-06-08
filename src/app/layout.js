@@ -1,5 +1,5 @@
-import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
+import { Inter, Roboto_Mono } from "next/font/google";
 import MUIProvider from "@/components/MUIProvider";
 import EmotionCache from "@/components/EmotionCache";
 import ClientProviders from "@/components/ClientProviders";
