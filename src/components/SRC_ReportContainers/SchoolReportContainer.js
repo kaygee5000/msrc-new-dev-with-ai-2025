@@ -22,21 +22,24 @@ import SchoolSummary from '@/components/SRC_Summaries/SchoolSummary';
 // Import individual display components
 // Paths will need adjustment after moving: ../SRC_CommunityInvolvement/ etc.
 import GeneralIssuesDisplay from '@/components/SRC_CommunityInvolvement/GeneralIssuesDisplay';
-import CommunityInvolvementDisplay from '@/components/SRC_CommunityInvolvement/CommunityInvolvementDisplay';
+import SchoolCommunityInvolvementView from '@/components/SRC_CommunityInvolvement/CommunityInvolvement/SchoolCommunityInvolvementView';
 import MeetingsHeldDisplay from '@/components/SRC_CommunityInvolvement/MeetingsHeldDisplay';
-
-// Management
-import TextbooksDisplay from '@/components/SRC_Management/TextbooksDisplay';
-import PupilPerformanceDisplay from '@/components/SRC_Management/PupilPerformanceDisplay';
-import RecordBooksDisplay from '@/components/SRC_Management/RecordBooksDisplay';
-import SupportGrantsDisplay from '@/components/SRC_Management/SupportGrantsDisplay';
+import SchoolTextbooksView from '@/components/SRC_Management/Textbooks/SchoolTextbooksView';
+import SchoolPupilPerformanceView from '@/components/SRC_Management/PupilPerformance/SchoolPupilPerformanceView';
+import SchoolRecordBooksView from '@/components/SRC_Management/RecordBooks/SchoolRecordBooksView';
+import SchoolSupportGrantsView from '@/components/SRC_Management/SupportGrants/SchoolSupportGrantsView';
 
 // Grounds
 import SchoolSanitationView from '@/components/SRC_Grounds/Sanitation/SchoolSanitationView';
-import SecurityDisplay from '@/components/SRC_Grounds/SecurityDisplay';
-import SchoolStructureDisplay from '@/components/SRC_Grounds/SchoolStructureDisplay';
-import FurnitureDisplay from '@/components/SRC_Grounds/FurnitureDisplay';
-import WashDisplay from '@/components/SRC_Grounds/WashDisplay';
+import SchoolSecurityView from '@/components/SRC_Grounds/Security/SchoolSecurityView';
+import SchoolStructureView from '@/components/SRC_Grounds/SchoolStructure/SchoolStructureView';
+import SchoolFurnitureView from '@/components/SRC_Grounds/Furniture/SchoolFurnitureView';
+import SchoolWashView from '@/components/SRC_Grounds/WASH/SchoolWashView';
+
+// Main
+import SchoolStudentEnrollmentView from '@/components/SRC_Main/StudentEnrollment/SchoolStudentEnrollmentView';
+import SchoolStudentAttendanceView from '@/components/SRC_Main/StudentAttendance/SchoolStudentAttendanceView';
+import SchoolFacilitatorsView from '@/components/SRC_Main/Facilitators/SchoolFacilitatorsView';
 
 function TabPanel(props) {
     const { children, value, index, ...other } = props;
@@ -68,7 +71,7 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
     const [currentTab, setCurrentTab] = useState(0);
     const [subTab, setSubTab] = useState(0);
     // Define number of sub-tabs per main tab
-    const subTabCounts = [3, 4, 5];
+    const subTabCounts = [3, 4, 5, 3];
     // Clamp subTab to valid range
     const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
 
@@ -90,6 +93,7 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
                         <Tab label="Community Involvement" {...a11yProps(0)} />
                         <Tab label="School Management" {...a11yProps(1)} />
                         <Tab label="School Grounds" {...a11yProps(2)} />
+                        <Tab label="Main" {...a11yProps(3)} />
                     </Tabs>
                 </Box>
 
@@ -103,7 +107,7 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
                     </Tabs>
                 </Box>
                 <TabPanel value={effectiveSubTab} index={0}>
-                    <CommunityInvolvementDisplay filterParams={filterParams} />
+                    <SchoolCommunityInvolvementView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={1}>
                     <MeetingsHeldDisplay filterParams={filterParams} />
@@ -124,20 +128,16 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
                     </Tabs>
                 </Box>
                 <TabPanel value={effectiveSubTab} index={0}>
-                    <TextbooksDisplay filterParams={filterParams} />
+                    <SchoolTextbooksView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={1}>
-                    {filterParams && filterParams.school_id && filterParams.year && filterParams.term ? (
-                        <PupilPerformanceDisplay filterParams={filterParams} />
-                    ) : (
-                        <Typography variant="h6" gutterBottom>No data available</Typography>
-                    )}
+                    <SchoolPupilPerformanceView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={2}>
-                    <RecordBooksDisplay filterParams={filterParams} />
+                    <SchoolRecordBooksView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={3}>
-                    <SupportGrantsDisplay filterParams={filterParams} />
+                    <SchoolSupportGrantsView filterParams={filterParams} />
                 </TabPanel>
             </TabPanel>
 
@@ -156,16 +156,36 @@ export default function SchoolReportContainer({ filterParams }) { // Expect filt
                     <SchoolSanitationView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={1}>
-                    <SecurityDisplay filterParams={filterParams} />
+                    <SchoolSecurityView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={2}>
-                    <SchoolStructureDisplay filterParams={filterParams} />
+                    <SchoolStructureView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={3}>
-                    <FurnitureDisplay filterParams={filterParams} />
+                    <SchoolFurnitureView filterParams={filterParams} />
                 </TabPanel>
                 <TabPanel value={effectiveSubTab} index={4}>
-                    <WashDisplay filterParams={filterParams} />
+                    <SchoolWashView filterParams={filterParams} />
+                </TabPanel>
+            </TabPanel>
+            
+            <TabPanel value={currentTab} index={3}>
+                <Typography variant="h6" gutterBottom>School Main Data</Typography>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                    <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
+                        <Tab label="Student Enrollment" />
+                        <Tab label="Student Attendance" />
+                        <Tab label="Facilitators" />
+                    </Tabs>
+                </Box>
+                <TabPanel value={effectiveSubTab} index={0}>
+                    <SchoolStudentEnrollmentView filterParams={filterParams} />
+                </TabPanel>
+                <TabPanel value={effectiveSubTab} index={1}>
+                    <SchoolStudentAttendanceView filterParams={filterParams} />
+                </TabPanel>
+                <TabPanel value={effectiveSubTab} index={2}>
+                    <SchoolFacilitatorsView filterParams={filterParams} />
                 </TabPanel>
             </TabPanel>
             </Paper>

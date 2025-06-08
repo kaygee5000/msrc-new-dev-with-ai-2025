@@ -14,6 +14,15 @@ import RegionSummary from '@/components/SRC_Summaries/RegionSummary';
 
 // Import aggregated view components
 import RegionSanitationView from '@/components/SRC_Grounds/Sanitation/RegionSanitationView';
+import RegionSecurityView from '@/components/SRC_Grounds/Security/RegionSecurityView';
+import RegionSchoolStructureView from '@/components/SRC_Grounds/SchoolStructure/RegionSchoolStructureView';
+import RegionFurnitureView from '@/components/SRC_Grounds/Furniture/RegionFurnitureView';
+import RegionWashView from '@/components/SRC_Grounds/WASH/RegionWashView';
+import RegionTextbooksView from '@/components/SRC_Management/Textbooks/RegionTextbooksView';
+import RegionCommunityInvolvementView from '@/components/SRC_CommunityInvolvement/CommunityInvolvement/RegionCommunityInvolvementView';
+import RegionPupilPerformanceView from '@/components/SRC_Management/PupilPerformance/RegionPupilPerformanceView';
+import RegionRecordBooksView from '@/components/SRC_Management/RecordBooks/RegionRecordBooksView';
+import RegionSupportGrantsView from '@/components/SRC_Management/SupportGrants/RegionSupportGrantsView';
 
 // Placeholder for other views - these will need to be created
 const PlaceholderView = ({ viewName, filterParams }) => (
@@ -93,7 +102,7 @@ export default function RegionReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="Region Community Involvement Summary" filterParams={filterParams} />
+                        <RegionCommunityInvolvementView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
                         <PlaceholderView viewName="Region Meetings Held" filterParams={filterParams} />
@@ -115,16 +124,16 @@ export default function RegionReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="Region Textbooks Data" filterParams={filterParams} />
+                        <RegionTextbooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="Region Pupil Performance" filterParams={filterParams} />
+                        <RegionPupilPerformanceView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="Region Record Books" filterParams={filterParams} />
+                        <RegionRecordBooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="Region Support & Grants" filterParams={filterParams} />
+                        <RegionSupportGrantsView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
 
@@ -144,16 +153,16 @@ export default function RegionReportContainer({ filterParams }) {
                         <RegionSanitationView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="Region Security Data" filterParams={filterParams} />
+                        <RegionSecurityView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="Region School Structure Data" filterParams={filterParams} />
+                        <RegionSchoolStructureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="Region Furniture Data" filterParams={filterParams} />
+                        <RegionFurnitureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={4}>
-                        <PlaceholderView viewName="Region WASH Data" filterParams={filterParams} />
+                        <RegionWashView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
             </Paper>

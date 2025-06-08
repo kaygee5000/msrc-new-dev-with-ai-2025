@@ -10,18 +10,23 @@ import {
 } from '@mui/material';
 
 import CircuitSummary from '@/components/SRC_Summaries/CircuitSummary';
-import CommunityInvolvementDisplay from '@/components/SRC_CommunityInvolvement/CommunityInvolvementDisplay';
+import CircuitCommunityInvolvementView from '@/components/SRC_CommunityInvolvement/CommunityInvolvement/CircuitCommunityInvolvementView';
 import MeetingsHeldDisplay from '@/components/SRC_CommunityInvolvement/MeetingsHeldDisplay';
 import GeneralIssuesDisplay from '@/components/SRC_CommunityInvolvement/GeneralIssuesDisplay';
-import TextbooksDisplay from '@/components/SRC_Management/TextbooksDisplay';
-import PupilPerformanceDisplay from '@/components/SRC_Management/PupilPerformanceDisplay';
-import RecordBooksDisplay from '@/components/SRC_Management/RecordBooksDisplay';
-import SupportGrantsDisplay from '@/components/SRC_Management/SupportGrantsDisplay';
+import CircuitTextbooksView from '@/components/SRC_Management/Textbooks/CircuitTextbooksView';
+import CircuitPupilPerformanceView from '@/components/SRC_Management/PupilPerformance/CircuitPupilPerformanceView';
+import CircuitRecordBooksView from '@/components/SRC_Management/RecordBooks/CircuitRecordBooksView';
+import CircuitSupportGrantsView from '@/components/SRC_Management/SupportGrants/CircuitSupportGrantsView';
 import CircuitSanitationView from '@/components/SRC_Grounds/Sanitation/CircuitSanitationView';
-import SecurityDisplay from '@/components/SRC_Grounds/SecurityDisplay';
-import SchoolStructureDisplay from '@/components/SRC_Grounds/SchoolStructureDisplay';
-import FurnitureDisplay from '@/components/SRC_Grounds/FurnitureDisplay';
-import WashDisplay from '@/components/SRC_Grounds/WashDisplay';
+import CircuitSecurityView from '@/components/SRC_Grounds/Security/CircuitSecurityView';
+import CircuitSchoolStructureView from '@/components/SRC_Grounds/SchoolStructure/CircuitSchoolStructureView';
+import CircuitFurnitureView from '@/components/SRC_Grounds/Furniture/CircuitFurnitureView';
+import CircuitWashView from '@/components/SRC_Grounds/WASH/CircuitWashView';
+
+// Main
+import CircuitStudentEnrollmentView from '@/components/SRC_Main/StudentEnrollment/CircuitStudentEnrollmentView';
+import CircuitStudentAttendanceView from '@/components/SRC_Main/StudentAttendance/CircuitStudentAttendanceView';
+import CircuitFacilitatorsView from '@/components/SRC_Main/Facilitators/CircuitFacilitatorsView';
 
 function TabPanel(props) {
     const { children, value, index, ...other } = props;
@@ -57,7 +62,8 @@ export default function CircuitReportContainer({ filterParams }) {
     // Community Involvement: Summary, Meetings, General Issues
     // School Management: Textbooks, Pupil Performance, Record Books, Support & Grants
     // School Grounds: Sanitation, Security, School Structure, Furniture, WASH
-    const subTabCounts = [3, 4, 5];
+    // Main: Student Enrollment, Student Attendance, Facilitators
+    const subTabCounts = [3, 4, 5, 3];
     const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
 
     useEffect(() => {
@@ -92,6 +98,7 @@ export default function CircuitReportContainer({ filterParams }) {
                         <Tab label="Community Involvement" {...a11yProps(0)} />
                         <Tab label="School Management" {...a11yProps(1)} />
                         <Tab label="School Grounds" {...a11yProps(2)} />
+                        <Tab label="Main" {...a11yProps(3)} />
                     </Tabs>
                 </Box>
 
@@ -106,7 +113,7 @@ export default function CircuitReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <CommunityInvolvementDisplay filterParams={filterParams} />
+                        <CircuitCommunityInvolvementView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
                         <MeetingsHeldDisplay filterParams={filterParams} />
@@ -128,16 +135,16 @@ export default function CircuitReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <TextbooksDisplay filterParams={filterParams} />
+                        <CircuitTextbooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PupilPerformanceDisplay filterParams={filterParams} />
+                        <CircuitPupilPerformanceView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <RecordBooksDisplay filterParams={filterParams} />
+                        <CircuitRecordBooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <SupportGrantsDisplay filterParams={filterParams} />
+                        <CircuitSupportGrantsView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
 
@@ -157,16 +164,37 @@ export default function CircuitReportContainer({ filterParams }) {
                         <CircuitSanitationView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <SecurityDisplay filterParams={filterParams} />
+                        <CircuitSecurityView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <SchoolStructureDisplay filterParams={filterParams} />
+                        <CircuitSchoolStructureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <FurnitureDisplay filterParams={filterParams} />
+                        <CircuitFurnitureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={4}>
-                        <WashDisplay filterParams={filterParams} />
+                        <CircuitWashView filterParams={filterParams} />
+                    </TabPanel>
+                </TabPanel>
+                
+                {/* Main Tab Panel */}
+                <TabPanel value={currentTab} index={3}>
+                    <Typography variant="h6" gutterBottom>Circuit Main Data</Typography>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
+                            <Tab label="Student Enrollment" />
+                            <Tab label="Student Attendance" />
+                            <Tab label="Facilitators" />
+                        </Tabs>
+                    </Box>
+                    <TabPanel value={effectiveSubTab} index={0}>
+                        <CircuitStudentEnrollmentView filterParams={filterParams} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={1}>
+                        <CircuitStudentAttendanceView filterParams={filterParams} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={2}>
+                        <CircuitFacilitatorsView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
             </Paper>

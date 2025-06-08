@@ -13,7 +13,7 @@ export async function GET(request) {
         circuit_id: searchParams.get('circuit_id'),
     };
 
-    const tableName = 'school_record_books';
+    const tableName = 'record_books';
     let query = `SELECT T.* FROM ${tableName} T`;
     const queryParams = [];
     let conditions = [];

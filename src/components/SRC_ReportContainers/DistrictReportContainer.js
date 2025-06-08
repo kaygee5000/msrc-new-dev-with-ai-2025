@@ -14,6 +14,20 @@ import DistrictSummary from '@/components/SRC_Summaries/DistrictSummary';
 
 // Import aggregated view components
 import DistrictSanitationView from '@/components/SRC_Grounds/Sanitation/DistrictSanitationView';
+import DistrictSecurityView from '@/components/SRC_Grounds/Security/DistrictSecurityView';
+import DistrictSchoolStructureView from '@/components/SRC_Grounds/SchoolStructure/DistrictSchoolStructureView';
+import DistrictFurnitureView from '@/components/SRC_Grounds/Furniture/DistrictFurnitureView';
+import DistrictWashView from '@/components/SRC_Grounds/WASH/DistrictWashView';
+import DistrictTextbooksView from '@/components/SRC_Management/Textbooks/DistrictTextbooksView';
+import DistrictCommunityInvolvementView from '@/components/SRC_CommunityInvolvement/CommunityInvolvement/DistrictCommunityInvolvementView';
+import DistrictPupilPerformanceView from '@/components/SRC_Management/PupilPerformance/DistrictPupilPerformanceView';
+import DistrictRecordBooksView from '@/components/SRC_Management/RecordBooks/DistrictRecordBooksView';
+import DistrictSupportGrantsView from '@/components/SRC_Management/SupportGrants/DistrictSupportGrantsView';
+
+// Main
+import DistrictStudentEnrollmentView from '@/components/SRC_Main/StudentEnrollment/DistrictStudentEnrollmentView';
+import DistrictStudentAttendanceView from '@/components/SRC_Main/StudentAttendance/DistrictStudentAttendanceView';
+import DistrictFacilitatorsView from '@/components/SRC_Main/Facilitators/DistrictFacilitatorsView';
 
 // Placeholder for other views - these will need to be created
 const PlaceholderView = ({ viewName, filterParams }) => (
@@ -54,7 +68,7 @@ export default function DistrictReportContainer({ filterParams }) {
     const [currentTab, setCurrentTab] = useState(0);
     const [subTab, setSubTab] = useState(0);
 
-    const subTabCounts = [3, 4, 5]; // Community Involvement, Management, Grounds
+    const subTabCounts = [3, 4, 5, 3]; // Community Involvement, Management, Grounds, Main
     const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
 
     useEffect(() => {
@@ -83,6 +97,7 @@ export default function DistrictReportContainer({ filterParams }) {
                         <Tab label="Community Involvement" {...a11yProps(0)} />
                         <Tab label="School Management" {...a11yProps(1)} />
                         <Tab label="School Grounds" {...a11yProps(2)} />
+                        <Tab label="Main" {...a11yProps(3)} />
                     </Tabs>
                 </Box>
 
@@ -97,7 +112,7 @@ export default function DistrictReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="District Community Involvement Summary" filterParams={filterParams} />
+                        <DistrictCommunityInvolvementView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
                         <PlaceholderView viewName="District Meetings Held" filterParams={filterParams} />
@@ -119,16 +134,16 @@ export default function DistrictReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <PlaceholderView viewName="District Textbooks Data" filterParams={filterParams} />
+                        <DistrictTextbooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="District Pupil Performance" filterParams={filterParams} />
+                        <DistrictPupilPerformanceView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="District Record Books" filterParams={filterParams} />
+                        <DistrictRecordBooksView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="District Support & Grants" filterParams={filterParams} />
+                        <DistrictSupportGrantsView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
 
@@ -148,16 +163,37 @@ export default function DistrictReportContainer({ filterParams }) {
                         <DistrictSanitationView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <PlaceholderView viewName="District Security Data" filterParams={filterParams} />
+                        <DistrictSecurityView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <PlaceholderView viewName="District School Structure Data" filterParams={filterParams} />
+                        <DistrictSchoolStructureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <PlaceholderView viewName="District Furniture Data" filterParams={filterParams} />
+                        <DistrictFurnitureView filterParams={filterParams} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={4}>
-                        <PlaceholderView viewName="District WASH Data" filterParams={filterParams} />
+                        <DistrictWashView filterParams={filterParams} />
+                    </TabPanel>
+                </TabPanel>
+                
+                {/* Main Tab Panel */}
+                <TabPanel value={currentTab} index={3}>
+                    <Typography variant="h6" gutterBottom>District Main Data</Typography>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
+                            <Tab label="Student Enrollment" />
+                            <Tab label="Student Attendance" />
+                            <Tab label="Facilitators" />
+                        </Tabs>
+                    </Box>
+                    <TabPanel value={effectiveSubTab} index={0}>
+                        <DistrictStudentEnrollmentView filterParams={filterParams} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={1}>
+                        <DistrictStudentAttendanceView filterParams={filterParams} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={2}>
+                        <DistrictFacilitatorsView filterParams={filterParams} />
                     </TabPanel>
                 </TabPanel>
             </Paper>
