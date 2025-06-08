@@ -1,23 +1,15 @@
 // API route for WASH data
-import mysql from 'mysql2/promise';
-
-const dbConfig = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
-  port: parseInt(process.env.DB_PORT || '3306'),
-  ssl: process.env.DB_SSL === 'true' ? {} : false,
-};
+import { getConnection } from '../../../utils/db';
 
 export async function GET(request) {
+  let connection;
   try {
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period');
-    const level = searchParams.get('level') || 'school';
-    const levelId = searchParams.get('levelId');
+    const period = searchParams.get("period");
+    const level = searchParams.get("level") || "school";
+    const levelId = searchParams.get("levelId");
 
-    const connection = await mysql.createConnection(dbConfig);
+    connection = await getConnection();
 
     // Base query to get WASH data
     let query = `
@@ -152,8 +144,6 @@ export async function GET(request) {
       hygiene_trend: [60, 63, 67, 70, 73],
       handwashing_trend: [40, 43, 47, 50, 53]
     };
-
-    await connection.end();
 
     return Response.json({
       success: true,

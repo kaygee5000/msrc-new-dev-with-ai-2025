@@ -36,6 +36,7 @@ const menuItems = [
     ]
   },
   { text: 'WASH Dashboard', icon: <WaterDropIcon />, path: '/dashboard/wash' },
+  { text: 'TVET Dashboard', icon: <School />, path: '/dashboard/tvet' },
   // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
   // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
   // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
