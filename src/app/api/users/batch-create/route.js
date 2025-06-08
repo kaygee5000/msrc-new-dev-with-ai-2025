@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { parse } from 'papaparse';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { v4 as uuidv4 } from 'uuid';
 import pool from '@/utils/db';
 import { hashPassword, generatePassword } from '@/utils/password';
@@ -39,25 +39,41 @@ export const POST = async (req) => {
       
       records = result.data;
     } else if (['xlsx', 'xls'].includes(fileExtension)) {
-      // Parse Excel
+      // Parse Excel using ExcelJS
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
       
-      // Assume first sheet
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      // Get first worksheet
+      const worksheet = workbook.getWorksheet(1);
       
-      // Convert to JSON
-      const data = XLSX.utils.sheet_to_json(worksheet);
-      
-      // Normalize headers to lowercase
-      records = data.map(row => {
-        const normalizedRow = {};
-        for (const key in row) {
-          normalizedRow[key.trim().toLowerCase()] = row[key];
-        }
-        return normalizedRow;
+      // Get headers from first row
+      const headers = [];
+      const firstRow = worksheet.getRow(1);
+      firstRow.eachCell((cell, colNumber) => {
+        headers[colNumber - 1] = cell.value?.toString().trim().toLowerCase() || '';
       });
+      
+      // Convert rows to JSON
+      const data = [];
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header row
+        
+        const rowData = {};
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber - 1];
+          if (header) {
+            rowData[header] = cell.value;
+          }
+        });
+        
+        // Only add row if it has data
+        if (Object.values(rowData).some(value => value !== null && value !== undefined && value !== '')) {
+          data.push(rowData);
+        }
+      });
+      
+      records = data;
     } else {
       return NextResponse.json(
         { message: 'Unsupported file format. Please upload a CSV or Excel file.' },

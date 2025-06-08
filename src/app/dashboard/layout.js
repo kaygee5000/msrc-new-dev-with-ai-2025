@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   Dashboard, Domain, LocationCity, Business, School, Groups, BarChart, Assessment, ListAlt, Settings, Menu as MenuIcon,
-  ExpandLess, ExpandMore, SportsSoccer, CalendarMonth, Tune, ViewList, Person, Logout, ArrowDropDown
+  ExpandLess, ExpandMore, SportsSoccer, CalendarMonth, Tune, ViewList, Person, Logout, ArrowDropDown, WaterDrop as WaterDropIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useSession, signOut } from "next-auth/react";
@@ -35,6 +35,9 @@ const menuItems = [
       { text: 'RTP Configuration', icon: <Tune />, path: '/dashboard/admin/rtp/settings' }
     ]
   },
+  { text: 'WASH Dashboard', icon: <WaterDropIcon />, path: '/dashboard/wash' },
+  { text: 'TVET Dashboard', icon: <School />, path: '/dashboard/tvet' },
+  { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/reentry' },
   // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
   // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
   // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
@@ -296,3 +299,5 @@ export default function DashboardLayout({ children }) {
     </Box>
   );
 }
+
+
