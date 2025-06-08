@@ -65,7 +65,7 @@ const DataDisplayTable = ({ data, title }) => {
 // Mapping of security features to their display properties
 const SECURITY_FEATURES = {
   'Perimeter Fencing': {
-    icon: <GateIcon sx={{ fontSize: 56 }} />,
+    icon: <FenceIcon sx={{ fontSize: 56 }} />,
     category: 'perimeter',
     color: 'primary'
   },

@@ -67,6 +67,7 @@
     "react": "^19.0.0",
     "react-apexcharts": "^1.4.1",
     "react-dom": "^19.0.0",
+    "recharts": "^2.15.3",
     "redis": "^4.7.0"
   },
   "devDependencies": {
