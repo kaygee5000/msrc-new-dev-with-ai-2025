@@ -191,13 +191,69 @@ export async function GET(request) {
         (processedData.filter(d => d.indicators.schools_with_partnerships === 'yes_with_active_placement' || d.indicators.schools_with_partnerships === 'yes_without_active_placement').length / totalRecords * 100).toFixed(1) : 0,
     };
 
-    // Calculate trends (mock data for now - would need historical data)
+    // Calculate trends from actual historical data
+    // Get historical data for the past 5 terms
+    const trendQuery = `
+      SELECT 
+        CONCAT(year, '-', term) as period,
+        SUM(CASE WHEN question_id = 3 THEN numeric_response ELSE 0 END) as boys_enrolled,
+        SUM(CASE WHEN question_id = 4 THEN numeric_response ELSE 0 END) as girls_enrolled,
+        SUM(CASE WHEN question_id = 5 THEN numeric_response ELSE 0 END) as male_teachers,
+        SUM(CASE WHEN question_id = 6 THEN numeric_response ELSE 0 END) as female_teachers,
+        COUNT(DISTINCT school_id) as total_schools,
+        SUM(CASE WHEN question_id = 11 AND (text_response = 'yes_with_active_placement' OR text_response = 'yes_without_active_placement') THEN 1 ELSE 0 END) as schools_with_partnerships
+      FROM tvet_tracker_responses
+      WHERE submission_type = 'termly'
+      GROUP BY year, term
+      ORDER BY year DESC, term DESC
+      LIMIT 5
+    `;
+    
+    const [trendRows] = await connection.execute(trendQuery);
+    
+    // Reverse the rows to show oldest first
+    trendRows.reverse();
+    
     const trends = {
-      enrollment_trend: [1200, 1350, 1480, 1620, 1750],
-      teacher_strength_trend: [100, 110, 120, 130, 140],
-      partnerships_trend: [40, 45, 50, 55, 60],
+      enrollment_trend: trendRows.map(row => (parseInt(row.boys_enrolled) || 0) + (parseInt(row.girls_enrolled) || 0)),
+      teacher_strength_trend: trendRows.map(row => (parseInt(row.male_teachers) || 0) + (parseInt(row.female_teachers) || 0)),
+      partnerships_trend: trendRows.map(row => row.total_schools > 0 ? 
+        ((parseInt(row.schools_with_partnerships) || 0) / row.total_schools * 100).toFixed(1) : 0),
+      period_labels: trendRows.map(row => row.period)
     };
 
+    // Get available periods for filtering
+    const periodsQuery = `
+      SELECT DISTINCT year, term, week
+      FROM tvet_tracker_responses
+      ORDER BY year DESC, term DESC, week DESC
+    `;
+    
+    const [periodsRows] = await connection.execute(periodsQuery);
+    const availablePeriods = periodsRows.map(row => ({
+      year: row.year,
+      term: row.term,
+      week: row.week
+    }));
+
+    // Get available levels for drill-down
+    const availableLevels = ['national', 'region', 'district', 'circuit', 'school'];
+    
+    // Get regions for initial drill-down
+    const regionsQuery = `
+      SELECT DISTINCT r.id, r.name
+      FROM regions r
+      JOIN schools s ON s.region_id = r.id
+      JOIN tvet_tracker_responses ttr ON ttr.school_id = s.id
+      ORDER BY r.name
+    `;
+    
+    const [regionsRows] = await connection.execute(regionsQuery);
+    const availableRegions = regionsRows.map(row => ({
+      id: row.id,
+      name: row.name
+    }));
+    
     return Response.json({
       success: true,
       data: processedData,
@@ -205,7 +261,10 @@ export async function GET(request) {
       trends,
       level,
       period,
-      total: totalRecords
+      total: totalRecords,
+      availablePeriods,
+      availableLevels,
+      availableRegions
     });
 
   } catch (error) {

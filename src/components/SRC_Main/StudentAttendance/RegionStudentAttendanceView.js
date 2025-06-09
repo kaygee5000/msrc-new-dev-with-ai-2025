@@ -1,5 +1,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import Skeleton from '@mui/material/Skeleton';
+import Button from '@mui/material/Button';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 import {
   Box,
   Paper,
@@ -155,9 +159,10 @@ const transformDataToMetrics = (rawData) => {
   return metricTypes;
 };
 
-export default function RegionStudentAttendanceView({ filterParams }) {
+export default function RegionStudentAttendanceView({ filterParams, loadOnDemand = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
   const [error, setError] = useState(null);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
@@ -165,6 +170,7 @@ export default function RegionStudentAttendanceView({ filterParams }) {
   const title = 'Student Attendance';
 
   const fetchData = useCallback(async () => {
+    NProgress.start();
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
@@ -172,6 +178,7 @@ export default function RegionStudentAttendanceView({ filterParams }) {
     }
     
     setLoading(true);
+    setDataLoaded(false);
     setError(null);
     
     const q = new URLSearchParams();
@@ -251,11 +258,16 @@ export default function RegionStudentAttendanceView({ filterParams }) {
     }
     
     setLoading(false);
-  }, [filterParams]);
+    setDataLoaded(true);
+    NProgress.done();
+  }, [filterParams, title]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => {
+    if (!loadOnDemand) {
+      fetchData();
+    }
+    // eslint-disable-next-line
+  }, [filterParams, loadOnDemand]);
 
   if (loading) return (
     <Box sx={{ textAlign: 'center', py: 3 }}>
@@ -263,7 +275,18 @@ export default function RegionStudentAttendanceView({ filterParams }) {
       <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
     </Box>
   );
-  
+
+  if (loadOnDemand && !dataLoaded) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Button variant="contained" onClick={fetchData} disabled={loading}>
+          {loading ? 'Loading...' : 'Load Data'}
+        </Button>
+        {loading && <Skeleton variant="rectangular" height={120} sx={{ mt: 2 }} />}
+      </Box>
+    );
+  }
+
   if (error) return (
     <Alert severity="error" sx={{ mt: 2 }}>
       Error loading {title} data: {error}

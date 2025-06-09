@@ -38,6 +38,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CircuitFacilitatorsView from './CircuitFacilitatorsView';
 import SchoolFacilitatorsView from './SchoolFacilitatorsView';
 
+import FacilitatorManagement from './FacilitatorManagement';
 // DataDisplayTable component (can be reused or adapted)
 const DataDisplayTable = ({ data, title }) => {
   if (!data || data.length === 0) return <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>No data for {title}.</Typography>;
@@ -239,13 +240,13 @@ export default function DistrictFacilitatorsView({ filterParams }) {
       setFacilitators(facilitatorsData);
       
       // Fetch attendance data
-      const attendanceRes = await fetch(`/api/school-report/main/facilitator-attendance?${q}`);
+      const attendanceRes = await fetch(`/api/school-report/main/facilitators/attendance?${q}`);
       if (!attendanceRes.ok) throw new Error((await attendanceRes.json()).message || `Error ${attendanceRes.status}`);
       const attendanceData = await attendanceRes.json();
       setAttendance(attendanceData);
       
       // Fetch lesson data
-      const lessonRes = await fetch(`/api/school-report/main/facilitator-lessons?${q}`);
+      const lessonRes = await fetch(`/api/school-report/main/facilitators/strands-covered?${q}`);
       if (!lessonRes.ok) throw new Error((await lessonRes.json()).message || `Error ${lessonRes.status}`);
       const lessonData = await lessonRes.json();
       setLessonData(lessonData);
@@ -422,6 +423,10 @@ export default function DistrictFacilitatorsView({ filterParams }) {
           </Box>
         </Stack>
       </Paper>
+
+      {/* Facilitator Management Section */}
+      <FacilitatorManagement filterParams={filterParams} />
+
       
       {viewMode === 'card' ? (
         <Grid container spacing={2} sx={{ mt: 1 }}>

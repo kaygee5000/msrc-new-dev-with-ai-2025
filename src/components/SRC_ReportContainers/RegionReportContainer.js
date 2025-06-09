@@ -13,6 +13,9 @@ import {
 import RegionSummary from '@/components/SRC_Summaries/RegionSummary';
 
 // Import aggregated view components
+import RegionStudentEnrollmentView from '@/components/SRC_Main/StudentEnrollment/RegionStudentEnrollmentView';
+import RegionStudentAttendanceView from '@/components/SRC_Main/StudentAttendance/RegionStudentAttendanceView';
+import RegionFacilitatorsView from '@/components/SRC_Main/Facilitators/RegionFacilitatorsView';
 import RegionSanitationView from '@/components/SRC_Grounds/Sanitation/RegionSanitationView';
 import RegionSecurityView from '@/components/SRC_Grounds/Security/RegionSecurityView';
 import RegionSchoolStructureView from '@/components/SRC_Grounds/SchoolStructure/RegionSchoolStructureView';
@@ -85,11 +88,33 @@ export default function RegionReportContainer({ filterParams }) {
             <Paper elevation={2} sx={{ mt: 1, overflow: 'hidden' }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={currentTab} onChange={handleTabChange} aria-label="Region Report Categories" variant="fullWidth">
-                        <Tab label="Community Involvement" {...a11yProps(0)} />
-                        <Tab label="School Management" {...a11yProps(1)} />
-                        <Tab label="School Grounds" {...a11yProps(2)} />
+                        <Tab label="Main" {...a11yProps(0)} />
+                        <Tab label="Community Involvement" {...a11yProps(1)} />
+                        <Tab label="School Management" {...a11yProps(2)} />
+                        <Tab label="School Grounds" {...a11yProps(3)} />
                     </Tabs>
                 </Box>
+
+                {/* Main Tab Panel */}
+                <TabPanel value={currentTab} index={0}>
+                    <Typography variant="h6" gutterBottom>Region Main Data</Typography>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
+                            <Tab label="Student Enrollment" />
+                            <Tab label="Student Attendance" />
+                            <Tab label="Facilitators" />
+                        </Tabs>
+                    </Box>
+                    <TabPanel value={effectiveSubTab} index={0}>
+                        <RegionStudentEnrollmentView filterParams={filterParams} loadOnDemand={true} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={1}>
+                        <RegionStudentAttendanceView filterParams={filterParams} loadOnDemand={true} />
+                    </TabPanel>
+                    <TabPanel value={effectiveSubTab} index={2}>
+                        <RegionFacilitatorsView filterParams={filterParams} loadOnDemand={true} />
+                    </TabPanel>
+                </TabPanel>
 
                 {/* Community Involvement Tab Panel */}
                 <TabPanel value={currentTab} index={0}>

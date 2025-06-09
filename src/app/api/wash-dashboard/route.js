@@ -81,7 +81,12 @@ export async function GET(request) {
     const processedData = rows.map(row => {
       let survey_object = {};
       try {
-        survey_object = JSON.parse(row.survey_object);
+        // Check if row.survey_object is already an object
+        if (row.survey_object && typeof row.survey_object === 'object') {
+          survey_object = row.survey_object;
+        } else if (row.survey_object && typeof row.survey_object === 'string') {
+          survey_object = JSON.parse(row.survey_object);
+        }
       } catch (e) {
         console.error('Error parsing survey_object:', e);
         survey_object = {};

@@ -14,7 +14,14 @@ import {
   Chip, 
   IconButton,
   Divider,
-  LinearProgress
+  LinearProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import { 
   School, 
@@ -44,7 +51,7 @@ const fetchReentryData = async (filters) => {
     throw new Error(result.error || 'Failed to fetch reentry data');
   }
 
-  const { data, summary, trends } = result;
+  const { data, summary, trends, availablePeriods, availableLevels } = result;
 
   // Process the data to fit the frontend structure
   const processedData = {
@@ -99,37 +106,69 @@ const fetchReentryData = async (filters) => {
     ];
 
     // Process support services data
-    const supportActivities = data.filter(d => d.indicators.support_activities && d.indicators.support_activities.trim() !== '').length;
-    const followupActivities = data.filter(d => d.indicators.followup_activities && d.indicators.followup_activities.trim() !== '').length;
+    // Safely check for support_activities and followup_activities with null checks
+    const supportActivities = data.filter(d => {
+      return d.indicators && d.indicators.support_activities && 
+             typeof d.indicators.support_activities === 'string' && 
+             d.indicators.support_activities.trim() !== '';
+    }).length;
+    
+    const followupActivities = data.filter(d => {
+      return d.indicators && d.indicators.followup_activities && 
+             typeof d.indicators.followup_activities === 'string' && 
+             d.indicators.followup_activities.trim() !== '';
+    }).length;
+    
+    // Calculate percentages safely
+    const totalSchools = data.length || 1; // Avoid division by zero
+    const supportPercentage = ((supportActivities / totalSchools) * 100).toFixed(1);
+    const followupPercentage = ((followupActivities / totalSchools) * 100).toFixed(1);
     
     processedData.supportServices = [
       {
         name: 'Schools with Support Activities',
         count: supportActivities,
-        percentage: ((supportActivities / data.length) * 100).toFixed(1),
+        percentage: supportPercentage,
         icon: <SupportAgent />
       },
       {
         name: 'Schools with Follow-up Activities',
         count: followupActivities,
-        percentage: ((followupActivities / data.length) * 100).toFixed(1),
+        percentage: followupPercentage,
         icon: <FollowTheSigns />
       }
     ];
 
-    // Process trends from API
-    if (trends) {
-      processedData.trends = [
-        { name: 'Period 1', attending: trends.pregnant_attending_trend[0], reentry: trends.reentry_trend[0], support: trends.support_activities_trend[0] },
-        { name: 'Period 2', attending: trends.pregnant_attending_trend[1], reentry: trends.reentry_trend[1], support: trends.support_activities_trend[1] },
-        { name: 'Period 3', attending: trends.pregnant_attending_trend[2], reentry: trends.reentry_trend[2], support: trends.support_activities_trend[2] },
-        { name: 'Period 4', attending: trends.pregnant_attending_trend[3], reentry: trends.reentry_trend[3], support: trends.support_activities_trend[3] },
-        { name: 'Period 5', attending: trends.pregnant_attending_trend[4], reentry: trends.reentry_trend[4], support: trends.support_activities_trend[4] },
-      ];
+    // Process trends from API with proper null checks
+    if (trends && 
+        trends.pregnant_attending_trend && 
+        trends.reentry_trend && 
+        trends.support_activities_trend &&
+        trends.period_labels) {
+      
+      // Use the period labels from the API
+      processedData.trends = trends.period_labels.map((period, i) => ({
+        name: period,
+        attending: trends.pregnant_attending_trend[i] !== undefined ? 
+          parseInt(trends.pregnant_attending_trend[i]) || 0 : 0,
+        reentry: trends.reentry_trend[i] !== undefined ? 
+          parseInt(trends.reentry_trend[i]) || 0 : 0,
+        support: trends.support_activities_trend[i] !== undefined ? 
+          parseInt(trends.support_activities_trend[i]) || 0 : 0,
+        followup: trends.followup_activities_trend[i] !== undefined ? 
+          parseInt(trends.followup_activities_trend[i]) || 0 : 0
+      }));
+    } else {
+      processedData.trends = [];
     }
   }
 
-  return processedData;
+  // Include availablePeriods and availableLevels in the returned data
+  return {
+    ...processedData,
+    availablePeriods,
+    availableLevels
+  };
 };
 
 const TrendIndicator = ({ value }) => {
@@ -141,26 +180,133 @@ const TrendIndicator = ({ value }) => {
 const COLORS = ['#4CAF50', '#FF9800', '#2196F3', '#9C27B0', '#F44336'];
 
 export default function ReentryDashboard() {
-  const [reentryData, setReentryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterPeriod, setFilterPeriod] = useState({ year: '2024', term: 'Term 1', level: 'region' });
+  const [reentryData, setReentryData] = useState(null);
+  const [availablePeriods, setAvailablePeriods] = useState([]);
+  const [availableLevels, setAvailableLevels] = useState([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState('national');
+  const [selectedLevelId, setSelectedLevelId] = useState('');
+  const [availableRegions, setAvailableRegions] = useState([]);
+  const [availableDistricts, setAvailableDistricts] = useState([]);
+  const [availableCircuits, setAvailableCircuits] = useState([]);
+  const [availableSchools, setAvailableSchools] = useState([]);
+  const [breadcrumbs, setBreadcrumbs] = useState([{ level: 'national', name: 'National', id: '' }]);
+
+  // Function to fetch available entities for drill-down
+  const fetchAvailableEntities = async (level, parentId) => {
+    try {
+      const response = await fetch(`/api/hierarchy/${level}?parentId=${parentId || ''}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const result = await response.json();
+      return result.data || [];
+    } catch (err) {
+      console.error(`Error fetching ${level}:`, err);
+      return [];
+    }
+  };
+
+  // Handle level change for drill-down
+  const handleLevelChange = async (level, levelId, levelName) => {
+    setSelectedLevel(level);
+    setSelectedLevelId(levelId);
+    
+    // Update breadcrumbs
+    const newBreadcrumbs = [...breadcrumbs];
+    // Find the index of the current level in breadcrumbs
+    const index = newBreadcrumbs.findIndex(b => b.level === level);
+    
+    if (index !== -1) {
+      // If level exists in breadcrumbs, truncate array to this level
+      newBreadcrumbs.splice(index + 1);
+      // Update the ID of the current level
+      newBreadcrumbs[index].id = levelId;
+    } else {
+      // Add new level to breadcrumbs
+      newBreadcrumbs.push({ level, name: levelName, id: levelId });
+    }
+    
+    setBreadcrumbs(newBreadcrumbs);
+    
+    // Load data for the selected level
+    loadData({ level, levelId });
+  };
+
+  // Navigate to a specific breadcrumb
+  const navigateToBreadcrumb = (index) => {
+    const breadcrumb = breadcrumbs[index];
+    // Truncate breadcrumbs to this level
+    const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
+    setBreadcrumbs(newBreadcrumbs);
+    
+    // Load data for this level
+    setSelectedLevel(breadcrumb.level);
+    setSelectedLevelId(breadcrumb.id);
+    loadData({ level: breadcrumb.level, levelId: breadcrumb.id });
+  };
+
+  // Load data with filters
+  const loadData = async (filters = {}) => {
+    try {
+      setLoading(true);
+      const finalFilters = {
+        ...filters,
+        year: selectedYear || undefined,
+        term: selectedTerm || undefined,
+        week: selectedWeek || undefined
+      };
+      
+      const result = await fetchReentryData(finalFilters);
+      setReentryData(result);
+      
+      // Store available periods and levels
+      if (result.availablePeriods) {
+        setAvailablePeriods(result.availablePeriods);
+      }
+      
+      if (result.availableLevels) {
+        setAvailableLevels(result.availableLevels);
+      }
+      
+      // Load available entities for drill-down based on current level
+      if (selectedLevel === 'national') {
+        const regions = await fetchAvailableEntities('region');
+        setAvailableRegions(regions);
+      } else if (selectedLevel === 'region' && selectedLevelId) {
+        const districts = await fetchAvailableEntities('district', selectedLevelId);
+        setAvailableDistricts(districts);
+      } else if (selectedLevel === 'district' && selectedLevelId) {
+        const circuits = await fetchAvailableEntities('circuit', selectedLevelId);
+        setAvailableCircuits(circuits);
+      } else if (selectedLevel === 'circuit' && selectedLevelId) {
+        const schools = await fetchAvailableEntities('school', selectedLevelId);
+        setAvailableSchools(schools);
+      }
+      
+    } catch (err) {
+      console.error('Error loading pregnancy & re-entry data:', err);
+      setError(`Error loading pregnancy & re-entry data: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle period selection
+  const handlePeriodSubmit = () => {
+    loadData({
+      level: selectedLevel,
+      levelId: selectedLevelId
+    });
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchReentryData(filterPeriod);
-        setReentryData(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Initial data load
     loadData();
-  }, [filterPeriod]);
+  }, []);
 
   const handleExport = () => {
     alert('Export functionality will be implemented here!');
@@ -193,13 +339,165 @@ export default function ReentryDashboard() {
       {/* Period Selection */}
       <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>Filter by Period</Typography>
-        <Chip label={`Current Period: ${filterPeriod.year} - ${filterPeriod.term} (${filterPeriod.level})`} color="primary" />
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Year</InputLabel>
+              <Select
+                value={selectedYear}
+                label="Year"
+                onChange={(e) => setSelectedYear(e.target.value)}
+              >
+                <MenuItem value="">All Years</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.year) || [])].map(year => (
+                  <MenuItem key={year} value={year}>{year}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Term</InputLabel>
+              <Select
+                value={selectedTerm}
+                label="Term"
+                onChange={(e) => setSelectedTerm(e.target.value)}
+              >
+                <MenuItem value="">All Terms</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.term) || [])].map(term => (
+                  <MenuItem key={term} value={term}>{term}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Week</InputLabel>
+              <Select
+                value={selectedWeek}
+                label="Week"
+                onChange={(e) => setSelectedWeek(e.target.value)}
+              >
+                <MenuItem value="">All Weeks</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.week) || [])].map(week => (
+                  <MenuItem key={week} value={week}>{week}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handlePeriodSubmit}
+              fullWidth
+            >
+              Apply Filters
+            </Button>
+          </Grid>
+        </Grid>
       </Paper>
 
+      {/* Drill-down Navigation */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Drill Down</Typography>
+        <Box mb={2}>
+          <Breadcrumbs aria-label="breadcrumb">
+            {breadcrumbs.map((crumb, index) => (
+              <Link
+                key={crumb.level}
+                color={index === breadcrumbs.length - 1 ? "text.primary" : "inherit"}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToBreadcrumb(index);
+                }}
+                sx={{ display: 'flex', alignItems: 'center' }}
+              >
+                {crumb.name}
+              </Link>
+            ))}
+          </Breadcrumbs>
+        </Box>
+        
+        {/* Show appropriate entities based on current level */}
+        {selectedLevel === 'national' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Regions</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableRegions.map(region => (
+                  <Chip 
+                    key={region.id}
+                    label={region.name}
+                    onClick={() => handleLevelChange('region', region.id, region.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'region' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Districts</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableDistricts.map(district => (
+                  <Chip 
+                    key={district.id}
+                    label={district.name}
+                    onClick={() => handleLevelChange('district', district.id, district.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'district' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Circuits</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableCircuits.map(circuit => (
+                  <Chip 
+                    key={circuit.id}
+                    label={circuit.name}
+                    onClick={() => handleLevelChange('circuit', circuit.id, circuit.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'circuit' && (
+          <Grid container spacing={2}>
+            <Grid  size={{xs:12}}>
+              <Typography variant="subtitle1">Schools</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableSchools.map(school => (
+                  <Chip 
+                    key={school.id}
+                    label={school.name}
+                    onClick={() => handleLevelChange('school', school.id, school.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+      </Paper>
+      
       {/* Summary Cards */}
       <Typography variant="h5" gutterBottom>Overview</Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -212,7 +510,7 @@ export default function ReentryDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -225,7 +523,7 @@ export default function ReentryDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -238,7 +536,7 @@ export default function ReentryDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -251,7 +549,7 @@ export default function ReentryDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -264,7 +562,7 @@ export default function ReentryDashboard() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid size={{xs:12, sm:6, md:2}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
@@ -283,7 +581,7 @@ export default function ReentryDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Pregnancy Status</Typography>
       <Grid container spacing={3} mb={4}>
         {reentryData.pregnancyStatus.map((status, index) => (
-          <Grid item xs={12} sm={6} md={6} key={index}>
+          <Grid size={{xs:12, sm:6, md:6}} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -310,7 +608,7 @@ export default function ReentryDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Re-entry Status</Typography>
       <Grid container spacing={3} mb={4}>
         {reentryData.reentryStatus.map((status, index) => (
-          <Grid item xs={12} sm={6} md={6} key={index}>
+          <Grid size={{xs:12, sm:6, md:2}} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={2}>
@@ -337,7 +635,7 @@ export default function ReentryDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Support Services</Typography>
       <Grid container spacing={3} mb={4}>
         {reentryData.supportServices.map((service, index) => (
-          <Grid item xs={12} sm={6} md={6} key={index}>
+          <Grid size={{xs:12, sm:6, md:6}} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -368,7 +666,8 @@ export default function ReentryDashboard() {
             <Legend />
             <Line type="monotone" dataKey="attending" stroke="#4CAF50" name="Pregnant Attending" />
             <Line type="monotone" dataKey="reentry" stroke="#2196F3" name="Re-entry Rate %" />
-            <Line type="monotone" dataKey="support" stroke="#FF9800" name="Support Activities" />
+            <Line type="monotone" dataKey="support" stroke="#FF9800" name="Support Activities %" />
+            <Line type="monotone" dataKey="followup" stroke="#9C27B0" name="Follow-up Activities %" />
           </LineChart>
         </ResponsiveContainer>
         <Typography variant="caption" display="block" sx={{ mt: 2 }}>

@@ -13,7 +13,14 @@ import {
   Stack, 
   Chip, 
   IconButton,
-  Divider
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Button,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import { 
   School, 
@@ -43,7 +50,7 @@ const fetchTvetData = async (filters) => {
     throw new Error(result.error || 'Failed to fetch TVET data');
   }
 
-  const { data, summary, trends } = result;
+  const { data, summary, trends, availablePeriods, availableLevels, availableRegions } = result;
 
   // Process the data to fit the frontend structure
   const processedData = {
@@ -53,6 +60,9 @@ const fetchTvetData = async (filters) => {
     performance: [],
     partnerships: [],
     trends: [],
+    availablePeriods: availablePeriods || [],
+    availableLevels: availableLevels || [],
+    availableRegions: availableRegions || [],
   };
 
   if (data && data.length > 0) {
@@ -84,82 +94,166 @@ const fetchTvetData = async (filters) => {
       percentage: ((count / totalRecords) * 100).toFixed(1)
     }));
 
-    // Process infrastructure data
-    processedData.infrastructure = [
-      {
-        name: 'Workshops Available',
-        available: data.filter(d => d.indicators.workshops_available).length,
-        notAvailable: data.filter(d => !d.indicators.workshops_available).length,
-        percentage: ((data.filter(d => d.indicators.workshops_available).length / totalRecords) * 100).toFixed(1)
-      },
-      {
-        name: 'Functional Equipment',
-        available: data.filter(d => d.indicators.equipment_functional).length,
-        notAvailable: data.filter(d => !d.indicators.equipment_functional).length,
-        percentage: ((data.filter(d => d.indicators.equipment_functional).length / totalRecords) * 100).toFixed(1)
-      },
-      {
-        name: 'Library Resources',
-        available: data.filter(d => d.indicators.library_resources).length,
-        notAvailable: data.filter(d => !d.indicators.library_resources).length,
-        percentage: ((data.filter(d => d.indicators.library_resources).length / totalRecords) * 100).toFixed(1)
-      }
-    ];
+    // Process infrastructure data - only use what's available in the database
+    // We'll check if schools have teachers with capacity as an infrastructure indicator
+    processedData.infrastructure = [];
+    
+    // Check if teachers_with_capacity data exists
+    const teachersWithCapacityData = data.filter(d => d.indicators.teachers_with_capacity !== null);
+    if (teachersWithCapacityData.length > 0) {
+      const teachersWithCapacity = teachersWithCapacityData.filter(d => 
+        d.indicators.teachers_with_capacity === 'yes' || 
+        d.indicators.teachers_with_capacity === 'most' || 
+        d.indicators.teachers_with_capacity === 'some'
+      ).length;
+      
+      processedData.infrastructure.push({
+        name: 'Teachers with Capacity',
+        available: teachersWithCapacity,
+        notAvailable: teachersWithCapacityData.length - teachersWithCapacity,
+        percentage: ((teachersWithCapacity / teachersWithCapacityData.length) * 100).toFixed(1)
+      });
+    }
+    
+    // Check if student services data exists
+    const studentServicesData = data.filter(d => d.indicators.student_services_offered !== null);
+    if (studentServicesData.length > 0) {
+      const withStudentServices = studentServicesData.filter(d => 
+        d.indicators.student_services_offered === 'yes'
+      ).length;
+      
+      processedData.infrastructure.push({
+        name: 'Student Services',
+        available: withStudentServices,
+        notAvailable: studentServicesData.length - withStudentServices,
+        percentage: ((withStudentServices / studentServicesData.length) * 100).toFixed(1)
+      });
+    }
 
-    // Process performance data
-    processedData.performance = [
-      {
-        metric: 'Completion Rate',
-        value: summary.completion_rate_avg,
+    // Process performance data - only use actual data from the database
+    processedData.performance = [];
+    
+    // Calculate total enrollment
+    const totalEnrollment = summary.total_boys_enrolled + summary.total_girls_enrolled;
+    if (totalEnrollment > 0) {
+      processedData.performance.push({
+        metric: 'Total Enrollment',
+        value: totalEnrollment,
+        icon: <Groups />,
+        color: 'primary',
+        isAbsolute: true
+      });
+    }
+    
+    // Calculate gender ratio
+    if (summary.total_boys_enrolled > 0 || summary.total_girls_enrolled > 0) {
+      const girlsPercentage = summary.total_girls_enrolled > 0 ? 
+        ((summary.total_girls_enrolled / totalEnrollment) * 100).toFixed(1) : 0;
+      
+      processedData.performance.push({
+        metric: 'Girls Enrollment',
+        value: girlsPercentage,
         icon: <Assessment />,
+        color: 'secondary'
+      });
+    }
+    
+    // Add partnership percentage if available
+    if (summary.schools_with_partnerships_percentage) {
+      processedData.performance.push({
+        metric: 'Schools with Partnerships',
+        value: summary.schools_with_partnerships_percentage,
+        icon: <Business />,
         color: 'success'
-      },
-      {
-        metric: 'Employment Rate',
-        value: summary.employment_rate_avg,
-        icon: <Work />,
-        color: 'info'
-      },
-      {
-        metric: 'Certification Rate',
-        value: (data.reduce((sum, d) => sum + (parseFloat(d.indicators.certification_rate) || 0), 0) / totalRecords).toFixed(1),
-        icon: <Verified />,
-        color: 'warning'
-      }
-    ];
+      });
+    }
 
-    // Process partnerships data
-    processedData.partnerships = [
-      {
-        name: 'Industry Partnerships',
-        count: data.filter(d => d.indicators.industry_partnerships).length,
-        percentage: ((data.filter(d => d.indicators.industry_partnerships).length / totalRecords) * 100).toFixed(1)
-      },
-      {
-        name: 'Internship Programs',
-        count: data.filter(d => d.indicators.internship_programs).length,
-        percentage: ((data.filter(d => d.indicators.internship_programs).length / totalRecords) * 100).toFixed(1)
-      },
-      {
-        name: 'Job Placement Support',
-        count: data.filter(d => d.indicators.job_placement_support).length,
-        percentage: ((data.filter(d => d.indicators.job_placement_support).length / totalRecords) * 100).toFixed(1)
+    // Process partnerships data - only use actual data from the database
+    processedData.partnerships = [];
+    
+    // Check for schools with partnerships data
+    const schoolsWithPartnershipsData = data.filter(d => d.indicators.schools_with_partnerships !== null);
+    if (schoolsWithPartnershipsData.length > 0) {
+      // Count schools with active placement partnerships
+      const activePartnerships = schoolsWithPartnershipsData.filter(d => 
+        d.indicators.schools_with_partnerships === 'yes_with_active_placement'
+      ).length;
+      
+      if (activePartnerships > 0) {
+        processedData.partnerships.push({
+          name: 'Active Placement Partnerships',
+          count: activePartnerships,
+          percentage: ((activePartnerships / schoolsWithPartnershipsData.length) * 100).toFixed(1)
+        });
       }
-    ];
+      
+      // Count schools with partnerships but no active placement
+      const nonActivePlacements = schoolsWithPartnershipsData.filter(d => 
+        d.indicators.schools_with_partnerships === 'yes_without_active_placement'
+      ).length;
+      
+      if (nonActivePlacements > 0) {
+        processedData.partnerships.push({
+          name: 'Partnerships without Placement',
+          count: nonActivePlacements,
+          percentage: ((nonActivePlacements / schoolsWithPartnershipsData.length) * 100).toFixed(1)
+        });
+      }
+      
+      // Count schools with no partnerships
+      const noPartnerships = schoolsWithPartnershipsData.filter(d => 
+        d.indicators.schools_with_partnerships === 'no'
+      ).length;
+      
+      if (noPartnerships > 0) {
+        processedData.partnerships.push({
+          name: 'No Industry Partnerships',
+          count: noPartnerships,
+          percentage: ((noPartnerships / schoolsWithPartnershipsData.length) * 100).toFixed(1)
+        });
+      }
+    }
 
-    // Process trends from API
-    if (trends) {
-      processedData.trends = [
-        { name: 'Period 1', enrollment: trends.enrollment_trend[0], completion: trends.completion_trend[0], employment: trends.employment_trend[0] },
-        { name: 'Period 2', enrollment: trends.enrollment_trend[1], completion: trends.completion_trend[1], employment: trends.employment_trend[1] },
-        { name: 'Period 3', enrollment: trends.enrollment_trend[2], completion: trends.completion_trend[2], employment: trends.employment_trend[2] },
-        { name: 'Period 4', enrollment: trends.enrollment_trend[3], completion: trends.completion_trend[3], employment: trends.employment_trend[3] },
-        { name: 'Period 5', enrollment: trends.enrollment_trend[4], completion: trends.completion_trend[4], employment: trends.employment_trend[4] },
-      ];
+    // Process trends from API using actual data
+    if (trends && trends.enrollment_trend && trends.teacher_strength_trend && trends.partnerships_trend && trends.period_labels) {
+      processedData.trends = trends.period_labels.map((period, index) => ({
+        name: period,
+        enrollment: parseInt(trends.enrollment_trend[index]) || 0,
+        teachers: parseInt(trends.teacher_strength_trend[index]) || 0,
+        partnerships: parseFloat(trends.partnerships_trend[index]) || 0
+      }));
+    } else {
+      processedData.trends = [];
     }
   }
 
   return processedData;
+};
+
+// Function to fetch hierarchical entities (districts, circuits, schools)
+const fetchHierarchyEntities = async (level, parentId) => {
+  try {
+    // Only include parentId in params if it's provided and not for national level
+    const params = new URLSearchParams({ level });
+    if (parentId && level !== 'national') {
+      params.append('parentId', parentId);
+    }
+    
+    const response = await fetch(`/api/tvet-dashboard/hierarchy?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to fetch hierarchy data');
+    }
+
+    return result.entities || [];
+  } catch (err) {
+    console.error(`Error fetching ${level}:`, err);
+    return [];
+  }
 };
 
 const TrendIndicator = ({ value }) => {
@@ -174,23 +268,123 @@ export default function TvetDashboard() {
   const [tvetData, setTvetData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterPeriod, setFilterPeriod] = useState({ year: '2024', term: 'Term 1', level: 'region' });
+  
+  // Period filter state
+  const [selectedYear, setSelectedYear] = useState('');
+  const [selectedTerm, setSelectedTerm] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('');
+  
+  // Drill-down state
+  const [selectedLevel, setSelectedLevel] = useState('national');
+  const [selectedLevelId, setSelectedLevelId] = useState(null);
+  const [breadcrumbs, setBreadcrumbs] = useState([{ level: 'national', name: 'National', id: null }]);
+  
+  // Available entities for drill-down
+  const [availableRegions, setAvailableRegions] = useState([]);
+  const [availableDistricts, setAvailableDistricts] = useState([]);
+  const [availableCircuits, setAvailableCircuits] = useState([]);
+  const [availableSchools, setAvailableSchools] = useState([]);
+  
+  // Available periods for filtering
+  const [availablePeriods, setAvailablePeriods] = useState([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await fetchTvetData(filterPeriod);
-        setTvetData(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadData();
-  }, [filterPeriod]);
+  }, []);
+  
+  // Handle period filter submission
+  const handlePeriodSubmit = () => {
+    loadData({
+      year: selectedYear,
+      term: selectedTerm,
+      week: selectedWeek,
+      level: selectedLevel,
+      levelId: selectedLevelId
+    });
+  };
+  
+  // Handle level change for drill-down
+  const handleLevelChange = async (level, levelId, levelName) => {
+    setSelectedLevel(level);
+    setSelectedLevelId(levelId);
+    
+    // Update breadcrumbs
+    const newBreadcrumbs = [...breadcrumbs];
+    // Find the index of the current level in breadcrumbs
+    const index = newBreadcrumbs.findIndex(b => b.level === level);
+    
+    if (index !== -1) {
+      // If level exists in breadcrumbs, truncate array to this level
+      newBreadcrumbs.splice(index + 1);
+      // Update the ID of the current level
+      newBreadcrumbs[index].id = levelId;
+    } else {
+      // Add new level to breadcrumbs
+      newBreadcrumbs.push({ level, name: levelName, id: levelId });
+    }
+    
+    setBreadcrumbs(newBreadcrumbs);
+    
+    // Load data for the selected level
+    loadData({ level, levelId });
+  };
+
+  // Navigate to a specific breadcrumb
+  const navigateToBreadcrumb = (index) => {
+    const breadcrumb = breadcrumbs[index];
+    // Truncate breadcrumbs to this level
+    const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
+    setBreadcrumbs(newBreadcrumbs);
+    
+    // Load data for this level
+    setSelectedLevel(breadcrumb.level);
+    setSelectedLevelId(breadcrumb.id);
+    loadData({ level: breadcrumb.level, levelId: breadcrumb.id });
+  };
+
+  // Load data with filters
+  const loadData = async (filters = {}) => {
+    try {
+      setLoading(true);
+      const finalFilters = {
+        year: filters.year || selectedYear,
+        term: filters.term || selectedTerm,
+        week: filters.week || selectedWeek,
+        level: filters.level || selectedLevel,
+        levelId: filters.levelId || selectedLevelId
+      };
+      
+      const data = await fetchTvetData(finalFilters);
+      setTvetData(data);
+      
+      // Store available periods
+      if (data.availablePeriods && data.availablePeriods.length > 0) {
+        setAvailablePeriods(data.availablePeriods);
+      }
+      
+      // Store available regions for initial drill-down
+      if (data.availableRegions && data.availableRegions.length > 0) {
+        setAvailableRegions(data.availableRegions);
+      }
+      
+      // Fetch entities for the current level if needed
+      if (selectedLevel === 'region' && selectedLevelId) {
+        const districts = await fetchHierarchyEntities('district', selectedLevelId);
+        setAvailableDistricts(districts);
+      } else if (selectedLevel === 'district' && selectedLevelId) {
+        const circuits = await fetchHierarchyEntities('circuit', selectedLevelId);
+        setAvailableCircuits(circuits);
+      } else if (selectedLevel === 'circuit' && selectedLevelId) {
+        const schools = await fetchHierarchyEntities('school', selectedLevelId);
+        setAvailableSchools(schools);
+      }
+      
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleExport = () => {
     alert('Export functionality will be implemented here!');
@@ -223,59 +417,219 @@ export default function TvetDashboard() {
       {/* Period Selection */}
       <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6" gutterBottom>Filter by Period</Typography>
-        <Chip label={`Current Period: ${filterPeriod.year} - ${filterPeriod.term} (${filterPeriod.level})`} color="primary" />
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Year</InputLabel>
+              <Select
+                value={selectedYear}
+                label="Year"
+                onChange={(e) => setSelectedYear(e.target.value)}
+              >
+                <MenuItem value="">All Years</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.year) || [])].map(year => (
+                  <MenuItem key={year} value={year}>{year}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Term</InputLabel>
+              <Select
+                value={selectedTerm}
+                label="Term"
+                onChange={(e) => setSelectedTerm(e.target.value)}
+              >
+                <MenuItem value="">All Terms</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.term) || [])].map(term => (
+                  <MenuItem key={term} value={term}>{term}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Week</InputLabel>
+              <Select
+                value={selectedWeek}
+                label="Week"
+                onChange={(e) => setSelectedWeek(e.target.value)}
+              >
+                <MenuItem value="">All Weeks</MenuItem>
+                {[...new Set(availablePeriods?.map(p => p.week) || [])].map(week => (
+                  <MenuItem key={week} value={week}>{week}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handlePeriodSubmit}
+              fullWidth
+            >
+              Apply Filters
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+      
+      {/* Drill-down Navigation */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Drill Down</Typography>
+        <Box mb={2}>
+          <Breadcrumbs aria-label="breadcrumb">
+            {breadcrumbs.map((crumb, index) => (
+              <Link
+                key={crumb.level}
+                color={index === breadcrumbs.length - 1 ? "text.primary" : "inherit"}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToBreadcrumb(index);
+                }}
+                sx={{ display: 'flex', alignItems: 'center' }}
+              >
+                {crumb.name}
+              </Link>
+            ))}
+          </Breadcrumbs>
+        </Box>
+        
+        {/* Show appropriate entities based on current level */}
+        {selectedLevel === 'national' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Regions</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableRegions.map(region => (
+                  <Chip 
+                    key={region.id}
+                    label={region.name}
+                    onClick={() => handleLevelChange('region', region.id, region.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'region' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Districts</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableDistricts.map(district => (
+                  <Chip 
+                    key={district.id}
+                    label={district.name}
+                    onClick={() => handleLevelChange('district', district.id, district.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'district' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Circuits</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableCircuits.map(circuit => (
+                  <Chip 
+                    key={circuit.id}
+                    label={circuit.name}
+                    onClick={() => handleLevelChange('circuit', circuit.id, circuit.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+        
+        {selectedLevel === 'circuit' && (
+          <Grid container spacing={2}>
+            <Grid size={{xs:12}}>
+              <Typography variant="subtitle1">Schools</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {availableSchools.map(school => (
+                  <Chip 
+                    key={school.id}
+                    label={school.name}
+                    onClick={() => handleLevelChange('school', school.id, school.name)}
+                    clickable
+                  />
+                ))}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
       </Paper>
 
       {/* Summary Cards */}
       <Typography variant="h5" gutterBottom>Overview</Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{xs:12, sm:6, md:3}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <School color="primary" sx={{ fontSize: 40 }} />
+                <Avatar sx={{ bgcolor: 'primary.main' }}>
+                  <School />
+                </Avatar>
                 <Box>
-                  <Typography variant="h4">{tvetData.summary.totalInstitutions}</Typography>
-                  <Typography variant="body2" color="text.secondary">Total Institutions</Typography>
+                  <Typography variant="body2" color="text.secondary">TVET Schools</Typography>
+                  <Typography variant="h6">{tvetData.summary.total_schools || 0}</Typography>
                 </Box>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{xs:12, sm:6, md:3}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <Groups color="info" sx={{ fontSize: 40 }} />
+                <Avatar sx={{ bgcolor: 'success.main' }}>
+                  <People />
+                </Avatar>
                 <Box>
-                  <Typography variant="h4">{tvetData.summary.averageEnrollment}</Typography>
-                  <Typography variant="body2" color="text.secondary">Average Enrollment</Typography>
+                  <Typography variant="body2" color="text.secondary">Total Enrollment</Typography>
+                  <Typography variant="h6">{tvetData.summary.total_enrollment || 0}</Typography>
                 </Box>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{xs:12, sm:6, md:3}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <Assessment color="success" sx={{ fontSize: 40 }} />
+                <Avatar sx={{ bgcolor: 'info.main' }}>
+                  <Man />
+                </Avatar>
                 <Box>
-                  <Typography variant="h4">{tvetData.summary.completionRate}%</Typography>
-                  <Typography variant="body2" color="text.secondary">Completion Rate</Typography>
+                  <Typography variant="body2" color="text.secondary">Boys Enrolled</Typography>
+                  <Typography variant="h6">{tvetData.summary.boys_enrolled || 0}</Typography>
                 </Box>
               </Stack>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{xs:12, sm:6, md:3}}>
           <Card>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
-                <Work color="warning" sx={{ fontSize: 40 }} />
+                <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                  <Woman />
+                </Avatar>
                 <Box>
-                  <Typography variant="h4">{tvetData.summary.employmentRate}%</Typography>
-                  <Typography variant="body2" color="text.secondary">Employment Rate</Typography>
+                  <Typography variant="body2" color="text.secondary">Girls Enrolled</Typography>
+                  <Typography variant="h6">{tvetData.summary.girls_enrolled || 0}</Typography>
                 </Box>
               </Stack>
             </CardContent>
@@ -287,7 +641,7 @@ export default function TvetDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Programs Offered</Typography>
       <Grid container spacing={3} mb={4}>
         {tvetData.programs.slice(0, 8).map((program, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -310,7 +664,7 @@ export default function TvetDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Infrastructure Status</Typography>
       <Grid container spacing={3} mb={4}>
         {tvetData.infrastructure.map((infra, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -334,7 +688,7 @@ export default function TvetDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Performance Metrics</Typography>
       <Grid container spacing={3} mb={4}>
         {tvetData.performance.map((perf, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -344,7 +698,7 @@ export default function TvetDashboard() {
                   </Typography>
                 </Stack>
                 <Typography variant="h4" color={`${perf.color}.main`}>
-                  {perf.value}%
+                  {perf.value}{!perf.isAbsolute && '%'}
                 </Typography>
               </CardContent>
             </Card>
@@ -356,7 +710,7 @@ export default function TvetDashboard() {
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>Industry Partnerships</Typography>
       <Grid container spacing={3} mb={4}>
         {tvetData.partnerships.map((partnership, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={1} alignItems="center" mb={1}>
@@ -386,12 +740,12 @@ export default function TvetDashboard() {
             <RechartsTooltip />
             <Legend />
             <Line type="monotone" dataKey="enrollment" stroke="#8884d8" name="Enrollment" />
-            <Line type="monotone" dataKey="completion" stroke="#82ca9d" name="Completion Rate %" />
-            <Line type="monotone" dataKey="employment" stroke="#ffc658" name="Employment Rate %" />
+            <Line type="monotone" dataKey="teachers" stroke="#82ca9d" name="Teacher Strength" />
+            <Line type="monotone" dataKey="partnerships" stroke="#ffc658" name="Partnerships %" />
           </LineChart>
         </ResponsiveContainer>
         <Typography variant="caption" display="block" sx={{ mt: 2 }}>
-          Note: Trend data shows progress over the last 5 periods. Enrollment numbers are in absolute values, while completion and employment rates are percentages.
+          Note: Trend data shows progress over the last 5 periods. Enrollment and teacher strength are in absolute values, while partnerships are shown as percentages.
         </Typography>
       </Paper>
 

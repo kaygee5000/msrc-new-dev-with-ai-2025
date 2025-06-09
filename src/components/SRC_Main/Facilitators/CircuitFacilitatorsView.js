@@ -34,6 +34,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import BookIcon from '@mui/icons-material/Book';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
+import FacilitatorManagement from './FacilitatorManagement';
 // Import the enhanced SchoolFacilitatorsView for drill-down
 import SchoolFacilitatorsView from './SchoolFacilitatorsView';
 
@@ -238,13 +239,13 @@ export default function CircuitFacilitatorsView({ filterParams }) {
       setFacilitators(facilitatorsData);
       
       // Fetch attendance data
-      const attendanceRes = await fetch(`/api/school-report/main/facilitator-attendance?${q}`);
+      const attendanceRes = await fetch(`/api/school-report/main/facilitators/attendance?${q}`);
       if (!attendanceRes.ok) throw new Error((await attendanceRes.json()).message || `Error ${attendanceRes.status}`);
       const attendanceData = await attendanceRes.json();
       setAttendance(attendanceData);
       
       // Fetch lesson data
-      const lessonRes = await fetch(`/api/school-report/main/facilitator-lessons?${q}`);
+      const lessonRes = await fetch(`/api/school-report/main/facilitators/strands-covered?${q}`);
       if (!lessonRes.ok) throw new Error((await lessonRes.json()).message || `Error ${lessonRes.status}`);
       const lessonData = await lessonRes.json();
       setLessonData(lessonData);
@@ -368,6 +369,7 @@ export default function CircuitFacilitatorsView({ filterParams }) {
       </Paper>
 
       {/* Summary stats */}
+<FacilitatorManagement filterParams={filterParams} />
       <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
           <Box>

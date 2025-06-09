@@ -22,7 +22,7 @@ const menuItems = [
   { text: 'Circuits', icon: <Business />, path: '/dashboard/admin/circuits' },
   { text: 'Schools', icon: <School />, path: '/dashboard/admin/schools' },
   { text: 'Users', icon: <Groups />, path: '/dashboard/admin/users' },
-  { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/admin/reentry' },
+  { text: 'Pregnancy & Re-entry Old', icon: <BarChart />, path: '/dashboard/admin/reentry' },
   { 
     text: 'Right to Play', 
     icon: <SportsSoccer />, 
@@ -37,7 +37,7 @@ const menuItems = [
   },
   { text: 'WASH Dashboard', icon: <WaterDropIcon />, path: '/dashboard/wash' },
   { text: 'TVET Dashboard', icon: <School />, path: '/dashboard/tvet' },
-  { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/reentry' },
+  { text: 'Pregnancy & Re-entry New', icon: <BarChart />, path: '/dashboard/reentry' },
   // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
   // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
   // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },
@@ -276,7 +276,12 @@ export default function DashboardLayout({ children }) {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              height: 'auto',
+              position: 'relative'
+            },
           }}
           open
         >

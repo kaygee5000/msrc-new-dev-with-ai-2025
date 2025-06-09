@@ -31,6 +31,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SchoolIcon from '@mui/icons-material/School';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import FacilitatorManagement from './FacilitatorManagement';
 
 const DataDisplayTable = ({ data, title }) => {
   if (!data || data.length === 0) return <Typography variant="body2" sx={{ mt: 1, mb: 2 }}>No data for {title}.</Typography>;
@@ -315,6 +316,7 @@ export default function SchoolFacilitatorsView({ filterParams }) {
       </Paper>
 
       {/* Summary stats */}
+      <FacilitatorManagement filterParams={filterParams} />
       <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
           <Box>

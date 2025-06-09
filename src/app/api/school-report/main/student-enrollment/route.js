@@ -42,10 +42,7 @@ export async function GET(request) {
         r.name as region_name,
         se.year,
         se.term,
-        se.grade,
-        se.boys_enrolled,
-        se.girls_enrolled,
-        se.total_enrolled,
+        se.enrolment_data,
         se.created_at,
         se.updated_at
       FROM enrolments se
@@ -75,11 +72,11 @@ export async function GET(request) {
     
     // Add week filter if provided
     if (week) {
-      query += ' AND se.week = ?';
+      query += ' AND se.week_number = ?';
       queryParams.push(week);
     }
 
-    query += ' ORDER BY r.name, d.name, c.name, s.name, se.grade';
+    query += ' ORDER BY r.name, d.name, c.name, s.name';
 
     // Execute query
     const [results] = await db.query(query, queryParams);

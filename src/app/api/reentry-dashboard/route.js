@@ -178,13 +178,63 @@ export async function GET(request) {
     summary.reentry_rate = totalDroppedOut > 0 ? 
       ((summary.total_dropped_out_returned / totalDroppedOut) * 100).toFixed(1) : 0;
 
-    // Calculate trends (mock data for now - would need historical data)
+    // Calculate trends from actual historical data
+    // Get historical data for the past 5 terms
+    const trendQuery = `
+      SELECT 
+        CONCAT(year, '-', term) as period,
+        SUM(CASE WHEN question_id = 1 THEN numeric_response ELSE 0 END) as pregnant_attending,
+        SUM(CASE WHEN question_id = 2 THEN numeric_response ELSE 0 END) as pregnant_not_attending,
+        SUM(CASE WHEN question_id = 3 THEN numeric_response ELSE 0 END) as dropped_out_returned,
+        SUM(CASE WHEN question_id = 4 THEN numeric_response ELSE 0 END) as pregnant_returned,
+        COUNT(DISTINCT school_id) as total_schools,
+        COUNT(DISTINCT CASE WHEN question_id = 5 AND text_response IS NOT NULL AND text_response != '' THEN school_id ELSE NULL END) as schools_with_support,
+        COUNT(DISTINCT CASE WHEN question_id = 6 AND text_response IS NOT NULL AND text_response != '' THEN school_id ELSE NULL END) as schools_with_followup
+      FROM pregnancy_tracker_responses
+      WHERE submission_type = 'termly'
+      GROUP BY year, term
+      ORDER BY year DESC, term DESC
+      LIMIT 5
+    `;
+    
+    const [trendRows] = await connection.execute(trendQuery);
+    
+    // Reverse the rows to show oldest first
+    trendRows.reverse();
+    
+    // Calculate percentages and prepare trend data
     const trends = {
-      pregnant_attending_trend: [45, 48, 52, 55, 58],
-      reentry_trend: [65, 68, 72, 75, 78],
-      support_activities_trend: [30, 35, 40, 45, 50],
-      followup_activities_trend: [25, 28, 32, 35, 38]
+      pregnant_attending_trend: trendRows.map(row => parseInt(row.pregnant_attending) || 0),
+      reentry_trend: trendRows.map(row => {
+        const totalDroppedOut = (parseInt(row.pregnant_not_attending) || 0) + (parseInt(row.dropped_out_returned) || 0);
+        return totalDroppedOut > 0 ? 
+          ((parseInt(row.dropped_out_returned) / totalDroppedOut) * 100).toFixed(1) : 0;
+      }),
+      support_activities_trend: trendRows.map(row => 
+        row.total_schools > 0 ? ((row.schools_with_support / row.total_schools) * 100).toFixed(1) : 0
+      ),
+      followup_activities_trend: trendRows.map(row => 
+        row.total_schools > 0 ? ((row.schools_with_followup / row.total_schools) * 100).toFixed(1) : 0
+      ),
+      period_labels: trendRows.map(row => row.period)
     };
+
+    // Get available periods for filtering
+    const periodsQuery = `
+      SELECT DISTINCT year, term, week
+      FROM pregnancy_tracker_responses
+      ORDER BY year DESC, term DESC, week DESC
+    `;
+    
+    const [periodsRows] = await connection.execute(periodsQuery);
+    
+    // Format periods for the frontend
+    const availablePeriods = periodsRows.map(row => ({
+      year: row.year,
+      term: row.term,
+      week: row.week,
+      label: `${row.year} - Term ${row.term} - Week ${row.week}`
+    }));
 
     return Response.json({
       success: true,
@@ -193,7 +243,15 @@ export async function GET(request) {
       trends,
       level,
       period,
-      total: totalRecords
+      total: totalRecords,
+      availablePeriods,
+      availableLevels: [
+        { id: 'national', name: 'National' },
+        { id: 'region', name: 'Region' },
+        { id: 'district', name: 'District' },
+        { id: 'circuit', name: 'Circuit' },
+        { id: 'school', name: 'School' }
+      ]
     });
 
   } catch (error) {

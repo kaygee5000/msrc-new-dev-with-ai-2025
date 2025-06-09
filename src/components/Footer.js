@@ -14,10 +14,6 @@ import {
   Stack,
   useTheme 
 } from '@mui/material';
-import FacebookIcon from '@mui/icons-material/Facebook';
-import TwitterIcon from '@mui/icons-material/Twitter';
-import InstagramIcon from '@mui/icons-material/Instagram';
-import YouTubeIcon from '@mui/icons-material/YouTube';
 
 export default function Footer() {
   const theme = useTheme();
@@ -40,18 +36,24 @@ export default function Footer() {
       <Container maxWidth="lg">
         <Grid container spacing={4}>
           {/* Brand Column */}
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-              mSRC
-            </Typography>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Box
+                component="img"
+                src="/assets/msrc-logo.70a4620a.png"
+                alt="MSRC Logo"
+                sx={{ width: 100, height: 'auto', mr: 2 }}
+              />
+            </Box>
             <Typography variant="body2" sx={{ mb: 3 }}>
-              Mobile School Report Card: Enhancing education monitoring and data-driven decision making across Ghana.
+              Mobile School Report Card:<br />
+              Enhancing education monitoring and data-driven decision making across Ghana.
             </Typography>
           
           </Grid>
 
           {/* Quick Links */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Quick Links
             </Typography>
@@ -88,7 +90,7 @@ export default function Footer() {
           </Grid>
 
           {/* Resources */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
               Resources
             </Typography>
@@ -121,36 +123,6 @@ export default function Footer() {
                   </Typography>
                 </Link>
               </ListItem>
-            </List>
-          </Grid>
-
-          {/* Contact */}
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-              Contact
-            </Typography>
-            <List disablePadding>
-              <ListItem disableGutters>
-                <Typography variant="body2">
-                  Ghana Education Service
-                </Typography>
-              </ListItem>
-              <ListItem disableGutters>
-                <Typography variant="body2">
-                  P.O. Box M.45
-                </Typography>
-              </ListItem>
-              <ListItem disableGutters>
-                <Typography variant="body2">
-                  Accra, Ghana
-                </Typography>
-              </ListItem>
-              <ListItem disableGutters>
-                <Typography variant="body2">
-                  Email: info@msrcghana.org
-                </Typography>
-              </ListItem>
-              
             </List>
           </Grid>
         </Grid>

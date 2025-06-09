@@ -415,7 +415,7 @@ export default function DistrictFurnitureView({ filterParams }) {
       {circuitsData.map((circuit) => (
         <Accordion key={circuit.circuit_id} sx={{ mb: 2 }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>{circuit.circuit_name} - {circuit.schools.length} Schools</Typography>
+            <Typography>{circuit.circuit_name} - {circuit?.schools?.length} Schools</Typography>
           </AccordionSummary>
           <AccordionDetails>
             {/* Reusing the CircuitFurnitureView for detailed circuit data */}
