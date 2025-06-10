@@ -371,85 +371,7 @@ export default function RegionFacilitatorsView({ filterParams, loadOnDemand = fa
     setDataLoaded(true);
     NProgress.done();
   }, [filterParams, title]);
-      if (!districtMap.has(item.district_id)) {
-        districtMap.set(item.district_id, {
-          district_id: item.district_id,
-          district_name: item.district_name || `District ID: ${item.district_id}`,
-          circuits: new Map(),
-          facilitators: [],
-          attendance: [],
-          lessons: []
-        });
-      }
-      
-      const district = districtMap.get(item.district_id);
-      
-      if (item.data_type === 'facilitator') {
-        district.facilitators.push(item);
-      } else if (item.data_type === 'attendance') {
-        district.attendance.push(item);
-      } else if (item.data_type === 'lesson') {
-        district.lessons.push(item);
-      }
-      
-      // Create circuit entry if it doesn't exist
-      if (!district.circuits.has(item.circuit_id)) {
-        district.circuits.set(item.circuit_id, {
-          circuit_id: item.circuit_id,
-          circuit_name: item.circuit_name || `Circuit ID: ${item.circuit_id}`,
-          schools: new Map(),
-          facilitators: [],
-          attendance: [],
-          lessons: []
-        });
-      }
-      
-      const circuit = district.circuits.get(item.circuit_id);
-      
-      if (item.data_type === 'facilitator') {
-        circuit.facilitators.push(item);
-      } else if (item.data_type === 'attendance') {
-        circuit.attendance.push(item);
-      } else if (item.data_type === 'lesson') {
-        circuit.lessons.push(item);
-      }
-      
-      // Create school entry if it doesn't exist
-      if (!circuit.schools.has(item.school_id)) {
-        circuit.schools.set(item.school_id, {
-          school_id: item.school_id,
-          school_name: item.school_name || `School ID: ${item.school_id}`,
-          facilitators: [],
-          attendance: [],
-          lessons: []
-        });
-      }
-      
-      const school = circuit.schools.get(item.school_id);
-      
-      if (item.data_type === 'facilitator') {
-        school.facilitators.push(item);
-      } else if (item.data_type === 'attendance') {
-        school.attendance.push(item);
-      } else if (item.data_type === 'lesson') {
-        school.lessons.push(item);
-      }
-    });
-    
-    // Convert maps to arrays for rendering
-    const districtsArray = Array.from(districtMap.values()).map(district => ({
-      ...district,
-      circuits: Array.from(district.circuits.values()).map(circuit => ({
-        ...circuit,
-        schools: Array.from(circuit.schools.values())
-      }))
-    }));
-    
-    setDistrictsData(districtsArray);
-  } catch(e) {
-    console.error(`Error fetching ${title} data:`, e);
-    setError(e.message);
-    resetData();
+
 
   const resetData = () => {
     setFacilitators([]);
@@ -640,5 +562,6 @@ return (
     ))}
   </Box>
 );
+}
 
 
