@@ -9,6 +9,7 @@ import {
   CardContent,
   Stack,
   Tooltip,
+  Button,
   CircularProgress,
   Alert,
   Table,
@@ -34,6 +35,8 @@ import TrendingFlatIcon from '@mui/icons-material/TrendingFlat';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 
 // Import the enhanced Circuit and School views for drill-down
 import CircuitPupilPerformanceView from './CircuitPupilPerformanceView';

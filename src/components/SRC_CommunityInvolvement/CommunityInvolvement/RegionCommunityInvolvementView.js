@@ -500,65 +500,92 @@ export default function RegionCommunityInvolvementView({ filterParams, loadOnDem
         </Box>
       </Stack>
     </Paper>
-            return (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
-                <Paper 
-                  variant="outlined" 
-                  sx={{ 
-                    '&:hover': { boxShadow: 3 }, 
-                    height: '100%',
-                    bgcolor: display.statusColor === 'success' ? 'success.50' : 
-                            display.statusColor === 'warning' ? 'warning.50' :
-                            display.statusColor === 'error' ? 'error.50' : 
-                            display.statusColor === 'primary' ? 'primary.50' : 
-                            display.statusColor === 'info' ? 'info.50' : 'background.paper',
-                    borderColor: display.statusColor === 'success' ? 'success.200' : 
-                               display.statusColor === 'warning' ? 'warning.200' :
-                               display.statusColor === 'error' ? 'error.200' : 
-                               display.statusColor === 'primary' ? 'primary.200' : 
-                               display.statusColor === 'info' ? 'info.200' : 'divider'
-                  }}
-                >
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>
-                      {name}
-                    </Typography>
-                    
-                    <Box my={2} sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <Box sx={{ 
-                        position: 'relative',
-                        color: display.statusColor === 'success' ? 'success.main' : 
-                               display.statusColor === 'warning' ? 'warning.main' :
-                               display.statusColor === 'error' ? 'error.main' : 
-                               display.statusColor === 'primary' ? 'primary.main' : 
-                               display.statusColor === 'info' ? 'info.main' : 'text.secondary'
-                      }}>
-                        {display.icon}
-                      </Box>
-                    </Box>
-                    
-                    <Chip
-                      label={
-                        display.status === 'active' ? 'Active' :
-                        display.status === 'inactive' ? 'Inactive' :
-                        display.status === 'unknown' ? 'Unknown' : 'No Data'
-                      }
-                      color={display.statusColor}
-                      variant="outlined"
-                      size="small"
-                      sx={{ mt: 1, fontWeight: 'medium' }}
-                    />
-                  </CardContent>
-                </Paper>
-              </Grid>
-            );
-          })}
-        </Grid>
+
+    {/* Meetings Held section (on-demand) */}
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="h6" sx={{ mb: 1 }}>Meetings Held</Typography>
+      {!showMeetingsHeld ? (
+        <Button variant="contained" onClick={() => setShowMeetingsHeld(true)}>Load Meetings Held</Button>
       ) : (
-        <DataDisplayTable data={data} title={title} />
+        <React.Suspense fallback={<Skeleton variant="rectangular" height={120} sx={{ mb: 2 }} />}>
+          <RegionMeetingsHeldView filterParams={filterParams} />
+        </React.Suspense>
       )}
+    </Box>
+
+    {/* General Issues section (on-demand) */}
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="h6" sx={{ mb: 1 }}>General Issues</Typography>
+      {!showGeneralIssues ? (
+        <Button variant="contained" onClick={() => setShowGeneralIssues(true)}>Load General Issues</Button>
+      ) : (
+        <React.Suspense fallback={<Skeleton variant="rectangular" height={120} sx={{ mb: 2 }} />}>
+          <RegionGeneralIssuesView filterParams={filterParams} />
+        </React.Suspense>
+      )}
+    </Box>
+
+    {/* Main involvementTypes grid/table */}
+    {viewMode === 'card' ? (
+      <Grid container spacing={2} sx={{ mt: 1 }}>
+        {involvementTypes.map(({ name, data: involvementData }, idx) => {
+          const display = getInvolvementDisplay(name, involvementData);
+          return (
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
+              <Paper 
+                variant="outlined" 
+                sx={{ 
+                  '&:hover': { boxShadow: 3 }, 
+                  height: '100%',
+                  bgcolor: display.statusColor === 'success' ? 'success.50' : 
+                          display.statusColor === 'warning' ? 'warning.50' :
+                          display.statusColor === 'error' ? 'error.50' : 
+                          display.statusColor === 'primary' ? 'primary.50' : 
+                          display.statusColor === 'info' ? 'info.50' : 'background.paper',
+                  borderColor: display.statusColor === 'success' ? 'success.200' : 
+                             display.statusColor === 'warning' ? 'warning.200' :
+                             display.statusColor === 'error' ? 'error.200' : 
+                             display.statusColor === 'primary' ? 'primary.200' : 
+                             display.statusColor === 'info' ? 'info.200' : 'divider'
+                }}
+              >
+                <CardContent sx={{ textAlign: 'center' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>
+                    {name}
+                  </Typography>
+                  <Box my={2} sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Box sx={{ 
+                      position: 'relative',
+                      color: display.statusColor === 'success' ? 'success.main' : 
+                             display.statusColor === 'warning' ? 'warning.main' :
+                             display.statusColor === 'error' ? 'error.main' : 
+                             display.statusColor === 'primary' ? 'primary.main' : 
+                             display.statusColor === 'info' ? 'info.main' : 'text.secondary'
+                    }}>
+                      {display.icon}
+                    </Box>
+                  </Box>
+                  <Chip
+                    label={
+                      display.status === 'active' ? 'Active' :
+                      display.status === 'inactive' ? 'Inactive' :
+                      display.status === 'unknown' ? 'Unknown' : 'No Data'
+                    }
+                    color={display.statusColor}
+                    variant="outlined"
+                    size="small"
+                    sx={{ mt: 1, fontWeight: 'medium' }}
+                  />
+                </CardContent>
+              </Paper>
+            </Grid>
+          );
+        })}
       
-      {/* District-by-district breakdown */}
+      </Grid>
+    ) : (
+      <DataDisplayTable data={data} title={title} />
+    )}
       <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>District Breakdown</Typography>
       
       {districtsData.map((district) => (

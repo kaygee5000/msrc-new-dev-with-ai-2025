@@ -9,6 +9,7 @@ import {
   CardContent,
   Stack,
   Tooltip,
+  Button,
   CircularProgress,
   Alert,
   Table,
@@ -33,6 +34,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SchoolIcon from '@mui/icons-material/School';
 import BookIcon from '@mui/icons-material/Book';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 
 // Import the enhanced Circuit and School views for drill-down
 import CircuitFacilitatorsView from './CircuitFacilitatorsView';

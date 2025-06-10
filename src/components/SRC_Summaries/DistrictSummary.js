@@ -98,19 +98,19 @@ export default function DistrictSummary({ districtId, year, term }) {
       </Typography>
       <Grid container spacing={1}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Region:</strong> {summaryData.regionName}</Typography>
+          <Typography variant="body1" component="div"><strong>Region:</strong> {summaryData.regionName}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Year:</strong> {year}</Typography>
+           <Typography variant="body1" component="div"><strong>Year:</strong> {year}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Term:</strong> {term}</Typography>
+           <Typography variant="body1" component="div"><strong>Term:</strong> {term}</Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Number of Circuits:</strong> <Chip label={summaryData.circuitCount || 'N/A'} size="small" color="primary" /></Typography>
+           <Typography variant="body1" component="div"><strong>Number of Circuits:</strong> <Chip label={summaryData.circuitCount || 'N/A'} size="small" color="primary" /></Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Typography variant="body1"><strong>Total Schools:</strong> <Chip label={summaryData.schoolCount || 'N/A'} size="small" color="secondary" /></Typography>
+           <Typography variant="body1" component="div"><strong>Total Schools:</strong> <Chip label={summaryData.schoolCount || 'N/A'} size="small" color="secondary" /></Typography>
         </Grid>
       </Grid>
 

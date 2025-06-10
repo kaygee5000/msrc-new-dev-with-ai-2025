@@ -7,6 +7,7 @@ import {
   Typography,
   Grid,
   Chip,
+  Button,
   CircularProgress,
   Alert,
   Table,
@@ -30,6 +31,8 @@ import Bathtub from '@mui/icons-material/Bathtub';
 import CleaningServices from '@mui/icons-material/CleaningServices';
 import Shower from '@mui/icons-material/Shower';
 import Wash from '@mui/icons-material/Wash';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 
 const MEASURE_ITEMS = {
   'Toilet (Seat/Cubicle)': { icon: <Wc />, defaultStatus: 'Not Available' },
