@@ -21,7 +21,8 @@ import {
   ToggleButton,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Button
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -30,6 +31,9 @@ import BookIcon from '@mui/icons-material/Book';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import PersonIcon from '@mui/icons-material/Person';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 
 // Import the enhanced District and Circuit views for drill-down
 import DistrictTextbooksView from './DistrictTextbooksView';

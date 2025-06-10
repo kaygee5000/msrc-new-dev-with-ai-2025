@@ -4,6 +4,8 @@ import Skeleton from '@mui/material/Skeleton';
 import Button from '@mui/material/Button';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
+import PersonIcon from '@mui/icons-material/Person';
+
 import {
   Box,
   Paper,

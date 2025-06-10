@@ -22,22 +22,22 @@ const menuItems = [
   { text: 'Circuits', icon: <Business />, path: '/dashboard/admin/circuits' },
   { text: 'Schools', icon: <School />, path: '/dashboard/admin/schools' },
   { text: 'Users', icon: <Groups />, path: '/dashboard/admin/users' },
-  { text: 'Pregnancy & Re-entry Old', icon: <BarChart />, path: '/dashboard/admin/reentry' },
-  { 
-    text: 'Right to Play', 
-    icon: <SportsSoccer />, 
-    path: '/dashboard/admin/rtp',
-    subItems: [
-      { text: 'Overview', icon: <Dashboard />, path: '/dashboard/admin/rtp' },
-      { text: 'Itineraries', icon: <CalendarMonth />, path: '/dashboard/admin/rtp/itineraries' },
-      { text: 'Schools & Districts', icon: <Groups />, path: '/dashboard/admin/rtp/schools-districts' },
-      { text: 'Gender Analysis', icon: <BarChart />, path: '/dashboard/admin/rtp/gender-analysis' },
-      { text: 'RTP Configuration', icon: <Tune />, path: '/dashboard/admin/rtp/settings' }
-    ]
-  },
   { text: 'WASH Dashboard', icon: <WaterDropIcon />, path: '/dashboard/wash' },
+  { text: 'Pregnancy & Re-entry', icon: <BarChart />, path: '/dashboard/admin/reentry' },
+  // { 
+  //   text: 'Right to Play', 
+  //   icon: <SportsSoccer />, 
+  //   path: '/dashboard/admin/rtp',
+  //   subItems: [
+  //     { text: 'Overview', icon: <Dashboard />, path: '/dashboard/admin/rtp' },
+  //     { text: 'Itineraries', icon: <CalendarMonth />, path: '/dashboard/admin/rtp/itineraries' },
+  //     { text: 'Schools & Districts', icon: <Groups />, path: '/dashboard/admin/rtp/schools-districts' },
+  //     { text: 'Gender Analysis', icon: <BarChart />, path: '/dashboard/admin/rtp/gender-analysis' },
+  //     { text: 'RTP Configuration', icon: <Tune />, path: '/dashboard/admin/rtp/settings' }
+  //   ]
+  // },
   { text: 'TVET Dashboard', icon: <School />, path: '/dashboard/tvet' },
-  { text: 'Pregnancy & Re-entry New', icon: <BarChart />, path: '/dashboard/reentry' },
+  // { text: 'Pregnancy & Re-entry New', icon: <BarChart />, path: '/dashboard/reentry' },
   // { text: 'Reports', icon: <Assessment />, path: '/dashboard/reports' },
   // { text: 'Analytics', icon: <BarChart />, path: '/dashboard/analytics' },
   // { text: 'Submissions', icon: <ListAlt />, path: '/dashboard/submissions' },

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 import Skeleton from '@mui/material/Skeleton';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
@@ -157,14 +158,14 @@ export default function RegionReportContainer({ filterParams, loadOnDemand = fal
         <Box sx={{mt: 2}}>
             <RegionSummary regionId={filterParams.region_id} year={filterParams.year} term={filterParams.term} />
             <Paper elevation={2} sx={{ mt: 1, overflow: 'hidden' }}>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                {/* <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={currentTab} onChange={handleTabChange} aria-label="Region Report Categories" variant="fullWidth">
                         <Tab label="Main" {...a11yProps(0)} />
                         <Tab label="Community Involvement" {...a11yProps(1)} />
                         <Tab label="School Management" {...a11yProps(2)} />
                         <Tab label="School Grounds" {...a11yProps(3)} />
                     </Tabs>
-                </Box>
+                </Box> */}
 
                 {/* Main Tab Panel */}
                 <TabPanel value={currentTab} index={0}>
