@@ -168,6 +168,7 @@ export default function RegionStudentAttendanceView({ filterParams, loadOnDemand
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
   const title = 'Student Attendance';
+  const [subTab, setSubTab] = useState(0);
 
   const fetchData = useCallback(async () => {
     NProgress.start();
