@@ -61,6 +61,10 @@ const DataDisplayTable = ({ data, title }) => {
   );
 };
 
+// Import new four-level components
+import SchoolMeetingsHeldView from '../MeetingsHeld/SchoolMeetingsHeldView';
+import SchoolGeneralIssuesView from '../GeneralIssues/SchoolGeneralIssuesView';
+
 // Mapping of community involvement activities to their display properties
 const ACTIVITY_ITEMS = {
   'PTA Meetings': {

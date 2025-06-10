@@ -42,6 +42,9 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 // Import the enhanced District and Circuit views for drill-down
 import DistrictCommunityInvolvementView from './DistrictCommunityInvolvementView';
 import CircuitCommunityInvolvementView from './CircuitCommunityInvolvementView';
+// Import new four-level components
+import RegionMeetingsHeldView from '../MeetingsHeld/RegionMeetingsHeldView';
+import RegionGeneralIssuesView from '../GeneralIssues/RegionGeneralIssuesView';
 
 // DataDisplayTable component (can be reused or adapted)
 const DataDisplayTable = ({ data, title }) => {
@@ -218,6 +221,8 @@ const transformDataToInvolvements = (rawData) => {
 };
 
 export default function RegionCommunityInvolvementView({ filterParams, loadOnDemand = false, reportTitle = 'Community Involvement' }) {
+  const [showMeetingsHeld, setShowMeetingsHeld] = useState(false);
+  const [showGeneralIssues, setShowGeneralIssues] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -465,43 +470,36 @@ export default function RegionCommunityInvolvementView({ filterParams, loadOnDem
           </Grid>
           <Grid size="xs">
             <Typography variant="caption" color="text.secondary">Term</Typography>
-            <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
-          </Grid>
         </Grid>
-      </Paper>
+      </Grid>
+    </Paper>
 
-      {/* Summary stats */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography variant="h6" gutterBottom>Region Community Engagement</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {stats.active} of {stats.total} involvement types active across {districtsData.length} districts
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography 
-              variant="h4" 
-              color={
-                stats.percent === 100 ? 'success.main' : 
-                stats.percent >= 80 ? 'info.main' : 
-                stats.percent >= 60 ? 'warning.main' : 'error.main'
-              }
-            >
-              {stats.status}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {stats.percent}% overall engagement
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
-      
-      {viewMode === 'card' ? (
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {involvementTypes.map(({ name, data: involvementData }, idx) => {
-            const display = getInvolvementDisplay(name, involvementData);
-            
+    {/* Summary stats */}
+    <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+      <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
+        <Box>
+          <Typography variant="h6" gutterBottom>Region Community Engagement</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {stats.active} of {stats.total} involvement types active across {districtsData.length} districts
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography 
+            variant="h4" 
+            color={
+              stats.percent === 100 ? 'success.main' : 
+              stats.percent >= 80 ? 'info.main' : 
+              stats.percent >= 60 ? 'warning.main' : 'error.main'
+            }
+          >
+            {stats.status}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {stats.percent}% overall engagement
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
             return (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 

@@ -39,6 +39,9 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 // Import the enhanced Circuit and School views for drill-down
 import CircuitCommunityInvolvementView from './CircuitCommunityInvolvementView';
 import SchoolCommunityInvolvementView from './SchoolCommunityInvolvementView';
+// Import new four-level components
+import DistrictMeetingsHeldView from '../MeetingsHeld/DistrictMeetingsHeldView';
+import DistrictGeneralIssuesView from '../GeneralIssues/DistrictGeneralIssuesView';
 
 // DataDisplayTable component (can be reused or adapted)
 const DataDisplayTable = ({ data, title }) => {

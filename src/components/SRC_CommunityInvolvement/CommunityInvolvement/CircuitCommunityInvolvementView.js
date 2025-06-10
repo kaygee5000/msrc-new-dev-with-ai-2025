@@ -67,6 +67,10 @@ const DataDisplayTable = ({ data, title }) => {
   );
 };
 
+// Import new four-level components
+import CircuitMeetingsHeldView from '../MeetingsHeld/CircuitMeetingsHeldView';
+import CircuitGeneralIssuesView from '../GeneralIssues/CircuitGeneralIssuesView';
+
 // Mapping of community involvement types to their display properties
 const COMMUNITY_INVOLVEMENT_TYPES = {
   'PTA Meetings': {
