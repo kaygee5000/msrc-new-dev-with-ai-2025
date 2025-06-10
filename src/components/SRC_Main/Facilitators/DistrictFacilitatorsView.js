@@ -202,16 +202,56 @@ const transformDataToMetrics = (facilitators, attendance, lessonData) => {
   return metrics;
 };
 
-export default function DistrictFacilitatorsView({ filterParams }) {
+export default function DistrictFacilitatorsView({ filterParams, loadOnDemand = false, reportTitle = 'Facilitators' }) {
   const [facilitators, setFacilitators] = useState([]);
   const [attendance, setAttendance] = useState([]);
-  const [lessonData, setLessonData] = useState([]);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [circuitsData, setCircuitsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [districtInfo, setDistrictInfo] = useState({});
-  const title = 'Facilitators';
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
+
+  // NProgress integration
+  useEffect(() => {
+    if (loading) NProgress.start();
+    else NProgress.done();
+    return () => NProgress.done();
+  }, [loading]);
+
+  // On-demand UI logic
+  if (loadOnDemand && !dataLoaded) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Button variant="contained" color="primary" onClick={() => { setDataLoaded(true); }} data-testid="load-btn">Load {reportTitle}</Button>
+      </Box>
+    );
+  }
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
+      </Box>
+    );
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Retry</Button>
+      </Box>
+    );
+  }
+  if (!facilitators.length && !attendance.length && !lessonData.length) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="info">No data available.</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Refresh</Button>
+      </Box>
+    );
+  }
 
   const fetchData = useCallback(async () => {
     if (!filterParams?.district_id) {

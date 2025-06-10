@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
 import {
   Box,
   Paper,
@@ -21,7 +22,9 @@ import {
   ToggleButton,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Button,
+  Skeleton
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -159,22 +162,28 @@ const transformDataToMetrics = (rawData) => {
   return metricTypes;
 };
 
-export default function RegionSchoolStructureView({ filterParams }) {
+export default function RegionSchoolStructureView({ filterParams, loadOnDemand = false, reportTitle: initialReportTitle = 'School Structure' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
-  const title = 'School Structure';
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const reportTitle = initialReportTitle;
 
   const fetchData = useCallback(async () => {
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
+      setRegionInfo({});
+      setDataLoaded(false); // Reset if params are insufficient
+      if (NProgress.isStarted()) NProgress.done();
+      setLoading(false);
       return;
     }
-    
+
+    NProgress.start();
     setLoading(true);
     setError(null);
     
@@ -193,8 +202,9 @@ export default function RegionSchoolStructureView({ filterParams }) {
       if (!res.ok) throw new Error((await res.json()).message || `Error ${res.status}`);
       const structureData = await res.json();
       setData(structureData);
+      setDataLoaded(true); // Data fetch attempt was made and successful
       
-      // Group data by district, then by circuit, then by school
+      // Group data by district
       const districtMap = new Map();
       
       structureData.forEach(item => {
@@ -243,39 +253,134 @@ export default function RegionSchoolStructureView({ filterParams }) {
       }));
       
       setDistrictsData(districtsArray);
-    } catch(e) { 
-      console.error(`Error fetching ${title}:`, e); 
-      setError(e.message); 
+    } catch(err) {
+      console.error(`Failed to fetch ${reportTitle.toLowerCase()} data:`, err);
+      setError(err.message || 'An unexpected error occurred.');
+      setData(null); // Clear data on error
+      setDistrictsData([]); // Clear districts data on error
+      setRegionInfo({}); // Clear region info on error
+      setDataLoaded(true); // Data fetch attempt was made, even if it failed
+    } finally {
+      setLoading(false);
+      NProgress.done();
+    }
+  }, [filterParams, reportTitle]);
+
+  useEffect(() => {
+    if (loadOnDemand) {
       setData(null);
       setDistrictsData([]);
+      setRegionInfo({});
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+    } else {
+      fetchData();
     }
-    
-    setLoading(false);
-  }, [filterParams]);
+  }, [filterParams, loadOnDemand, fetchData]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  // --- Start Conditional Rendering ---
+  if (loadOnDemand && !dataLoaded && !loading && !error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            {reportTitle} Data
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Click the button to load the {reportTitle.toLowerCase()} data for the selected region.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={fetchData}
+            startIcon={<SchoolIcon />}
+          >
+            Load {reportTitle} Data
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
-  
-  if (error) return (
-    <Alert severity="error" sx={{ mt: 2 }}>
-      Error loading {title} data: {error}
-    </Alert>
-  );
+  if (loading) {
+    if (!NProgress.isStarted()) NProgress.start();
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+          <Skeleton variant="text" width={180} sx={{ mr: 1 }} /> <CircularProgress size={20} />
+        </Typography>
+        
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" gutterBottom><Skeleton width="50%" /></Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+          </Grid>
+        </Paper>
 
-  if (!data || data.length === 0) return (
-    <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available for this region.</Alert>
-  );
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom><Skeleton width="40%" /></Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}><Skeleton variant="text" width="80%" /><Skeleton variant="text" width="60%" /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><Skeleton variant="text" width="80%" /><Skeleton variant="text" width="60%" /></Grid>
+          </Grid>
+        </Paper>
 
-  const metricTypes = transformDataToMetrics(data);
-  const stats = getSummaryStats(data);
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[...Array(4)].map((_, i) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+              <Skeleton variant="rectangular" height={150} />
+            </Grid>
+          ))}
+        </Grid>
+
+        {[...Array(2)].map((_, i) => (
+          <Paper key={i} variant="outlined" sx={{ mb: 1 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton width="60%" />
+            </AccordionSummary>
+          </Paper>
+        ))}
+      </Box>
+    );
+  } else {
+    if (NProgress.isStarted()) NProgress.done();
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            TRY AGAIN
+          </Button>
+        }>
+          <Typography fontWeight="bold">{reportTitle} Data Error</Typography>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (dataLoaded && !loading && (!data || data.length === 0)) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="info" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            REFRESH DATA
+          </Button>
+        }>
+          <Typography fontWeight="bold">No {reportTitle} Data</Typography>
+          No {reportTitle.toLowerCase()} data found for the selected filters.
+        </Alert>
+      </Box>
+    );
+  }
+
+  const metrics = data ? transformDataToMetrics(data) : [];
+  const stats = data ? getSummaryStats(data) : { totalStructures: 0, status: 'No Data' };
 
   const handleViewModeChange = (event, newMode) => {
     if (newMode !== null) {
@@ -305,11 +410,11 @@ export default function RegionSchoolStructureView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -319,8 +424,8 @@ export default function RegionSchoolStructureView({ filterParams }) {
       {/* Summary stats */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography variant="h6" gutterBottom>Region School Structure Summary</Typography>
+          <Box sx={{ width: '100%' }}>
+            <Typography variant="h5" gutterBottom>{reportTitle} - Region: {regionInfo.name || filterParams.region_id || 'N/A'}</Typography>
             <Typography variant="body2" color="text.secondary">
               Total Structures: {stats.totalStructures}
             </Typography>
@@ -343,11 +448,11 @@ export default function RegionSchoolStructureView({ filterParams }) {
       
       {viewMode === 'card' ? (
         <Grid container spacing={2} sx={{ mt: 1 }}>
-          {metricTypes.map(({ name, data: metricData }, idx) => {
+          {metrics.map(({ name, data: metricData }, idx) => {
             const display = getSchoolStructureDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 
@@ -402,7 +507,7 @@ export default function RegionSchoolStructureView({ filterParams }) {
       ) : (
         <Box>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>All Region School Structure Data</Typography>
-          <DataDisplayTable data={data} title={title} />
+          <DataDisplayTable data={data} title={reportTitle} />
         </Box>
       )}
       

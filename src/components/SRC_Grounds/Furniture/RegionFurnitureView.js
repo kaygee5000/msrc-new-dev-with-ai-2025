@@ -1,5 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 import {
   Box,
   Paper,
@@ -21,7 +23,9 @@ import {
   ToggleButton,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Skeleton,
+  Button
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -192,24 +196,33 @@ const transformDataToMetrics = (rawData) => {
   return metricTypes;
 };
 
-export default function RegionFurnitureView({ filterParams }) {
+export default function RegionFurnitureView({ filterParams, loadOnDemand = false, reportTitle: initialReportTitle = 'Furniture Report' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
-  const title = 'Furniture';
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const reportTitle = initialReportTitle; // Use a const for reportTitle based on prop
+
 
   const fetchData = useCallback(async () => {
+    NProgress.start();
+    setLoading(true);
+    setError(null);
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
+      setRegionInfo({});
+      setError(null); // Clear previous errors
+      setLoading(false);
+      setDataLoaded(false); // Reset data loaded state
+      NProgress.done();
       return;
     }
     
-    setLoading(true);
-    setError(null);
+
     
     const q = new URLSearchParams();
     ['region_id', 'year', 'term'].forEach(k => filterParams[k] && q.append(k, filterParams[k]));
@@ -272,36 +285,146 @@ export default function RegionFurnitureView({ filterParams }) {
       }));
       
       setDistrictsData(districtsArray);
+      setDataLoaded(true);
     } catch(e) { 
-      console.error(`Error fetching ${title}:`, e); 
-      setError(e.message); 
+      console.error(`Error fetching ${reportTitle}:`, e); 
+      setError(e.message || 'An unexpected error occurred.'); 
       setData(null);
       setDistrictsData([]);
+      setRegionInfo({}); // Clear region info on error
+      setDataLoaded(true); // Mark as data fetch attempted
     }
     
     setLoading(false);
-  }, [filterParams]);
+    NProgress.done();
+  }, [filterParams, reportTitle]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => {
+    if (loadOnDemand) {
+      // If on-demand, clear previous data and wait for button click
+      setData(null);
+      setDistrictsData([]);
+      setRegionInfo({});
+      setError(null);
+      setLoading(false); // Ensure loading is false
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done(); // Ensure NProgress is stopped
+    } else {
+      fetchData();
+    }
+  }, [filterParams, loadOnDemand, fetchData]);
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
-  
-  if (error) return (
-    <Alert severity="error" sx={{ mt: 2 }}>
-      Error loading {title} data: {error}
-    </Alert>
-  );
+  // --- Conditional Rendering ---
+  if (loadOnDemand && !dataLoaded && !loading && !error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            {reportTitle}
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Click the button to load the {reportTitle.toLowerCase()} for the selected region.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={fetchData}
+            startIcon={<DeskIcon />}
+          >
+            Load {reportTitle}
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
 
-  if (!data || data.length === 0) return (
-    <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available for this region.</Alert>
-  );
+  if (loading) {
+    if (!NProgress.isStarted()) NProgress.start();
+    return (
+      <Box sx={{ p: 2 }}>
+        {/* Skeleton for Region Info & Metadata */}
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+            <Skeleton variant="text" width="40%" height={40} />
+            <Skeleton variant="rounded" width={100} height={30} /> {/* For ToggleButtonGroup */}
+          </Stack>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+          </Grid>
+        </Paper>
+
+        {/* Skeleton for Summary Stats */}
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
+            <Box sx={{ width: '60%' }}>
+              <Skeleton variant="text" width="70%" height={30} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="90%" />
+            </Box>
+            <Box sx={{ textAlign: 'right', width: '35%' }}>
+              <Skeleton variant="text" width="80%" height={50} sx={{ mb: 0.5 }}/>
+              <Skeleton variant="text" width="60%" />
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Skeleton for Metric Cards */}
+        <Grid container spacing={2} sx={{ mt: 1, mb: 3 }}>
+          {[...Array(4)].map((_, i) => (
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
+              <Paper variant="outlined" sx={{ height: '100%', p:2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <Skeleton variant="text" width="60%" sx={{ mb: 1 }} />
+                <Skeleton variant="circular" width={56} height={56} sx={{ my: 2 }} />
+                <Skeleton variant="rounded" width="50%" height={24} />
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Skeleton for District Accordions */}
+        <Typography variant="h6" gutterBottom sx={{mt: 2}}><Skeleton width="30%" /></Typography>
+        {[...Array(2)].map((_, i) => (
+          <Paper key={i} variant="outlined" sx={{ mb: 1 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton width="60%" />
+            </AccordionSummary>
+          </Paper>
+        ))}
+      </Box>
+    );
+  } else {
+    if (NProgress.isStarted()) NProgress.done();
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            TRY AGAIN
+          </Button>
+        }>
+          <Typography fontWeight="bold">{reportTitle} Error</Typography>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (dataLoaded && !loading && (!data || data.length === 0)) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="info" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            REFRESH DATA
+          </Button>
+        }>
+          <Typography fontWeight="bold">No {reportTitle} Data</Typography>
+          No {reportTitle.toLowerCase()} found for the selected filters.
+        </Alert>
+      </Box>
+    );
+  }
 
   const metricTypes = transformDataToMetrics(data);
   const stats = getSummaryStats(data);
@@ -334,11 +457,11 @@ export default function RegionFurnitureView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -377,7 +500,7 @@ export default function RegionFurnitureView({ filterParams }) {
             const display = getFurnitureDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 
@@ -434,7 +557,7 @@ export default function RegionFurnitureView({ filterParams }) {
       ) : (
         <Box>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>All Region Furniture Data</Typography>
-          <DataDisplayTable data={data} title={title} />
+          <DataDisplayTable data={data} title={reportTitle} />
         </Box>
       )}
       

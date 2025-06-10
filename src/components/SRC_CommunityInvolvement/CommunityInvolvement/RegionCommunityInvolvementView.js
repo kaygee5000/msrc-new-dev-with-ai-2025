@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
 import {
   Box,
   Paper,
@@ -21,7 +22,9 @@ import {
   ToggleButton,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Button,
+  Skeleton
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -214,19 +217,28 @@ const transformDataToInvolvements = (rawData) => {
   return involvementTypes;
 };
 
-export default function RegionCommunityInvolvementView({ filterParams }) {
+export default function RegionCommunityInvolvementView({ filterParams, loadOnDemand = false, reportTitle = 'Community Involvement' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
   const title = 'Community Involvement';
 
   const fetchData = useCallback(async () => {
+    NProgress.start();
+    setLoading(true);
+    setError(null);
+    setDataLoaded(false); // Reset before fetch attempt
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
+      setRegionInfo({});
+      setLoading(false);
+      NProgress.done();
+      if (!loadOnDemand) setDataLoaded(true); // Considered 'loaded' as empty if not on-demand
       return;
     }
     
@@ -293,40 +305,131 @@ export default function RegionCommunityInvolvementView({ filterParams }) {
       }));
       
       setDistrictsData(districtsArray);
+      setDataLoaded(true); // Data successfully loaded
 
     } catch(e) { 
-      console.error(`Error fetching ${title}:`, e); 
+      console.error(`Error fetching ${title} data:`, e); 
       setError(e.message); 
       setData(null);
       setDistrictsData([]);
+      // dataLoaded remains false if an error occurs
+    } finally {
+      setLoading(false);
+      NProgress.done();
     }
-    
-    setLoading(false);
   }, [filterParams]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => {
+    if (!loadOnDemand) {
+      fetchData();
+    } else {
+      setData(null);
+      setDistrictsData([]);
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+    }
+  }, [filterParams, loadOnDemand, fetchData]);
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
-  
-  if (error) return (
-    <Alert severity="error" sx={{ mt: 2 }}>
-      Error loading {title} data: {error}
-    </Alert>
-  );
+  // --- Conditional Rendering --- 
 
-  if (!data || data.length === 0) return (
-    <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available for this region.</Alert>
-  );
+  // On-demand load button
+  if (loadOnDemand && !dataLoaded && !loading && !error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            {reportTitle} Data
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Click the button to load the {reportTitle.toLowerCase()} data for the selected region.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={async () => { NProgress.start(); setLoading(true); setError(null); await fetchData(); setDataLoaded(true); NProgress.done(); }}
+            startIcon={<VolunteerActivismIcon />}
+          >
+            Load {reportTitle} Data
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
 
-  const involvementTypes = transformDataToInvolvements(data);
-  const stats = getSummaryStats(data);
+  // Skeleton loader
+  if (loading) {
+    if (!NProgress.isStarted()) NProgress.start();
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+          <Skeleton variant="text" width={180} sx={{ mr: 1 }} /> <CircularProgress size={20} />
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" gutterBottom><Skeleton width="50%" /></Typography>
+          <Grid container spacing={2}>
+            <Grid size="xs"><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+            <Grid size="xs"><Skeleton variant="text" width="70%" /><Skeleton variant="text" width="90%" /></Grid>
+          </Grid>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom><Skeleton width="40%" /></Typography>
+          <Grid container spacing={2}>
+            <Grid size="xs"><Skeleton variant="text" width="80%" /><Skeleton variant="text" width="60%" /></Grid>
+            <Grid size="xs"><Skeleton variant="text" width="80%" /><Skeleton variant="text" width="60%" /></Grid>
+          </Grid>
+        </Paper>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {[...Array(4)].map((_, i) => (
+            <Grid size="xs" key={i}>
+              <Skeleton variant="rectangular" height={150} />
+            </Grid>
+          ))}
+        </Grid>
+        {[...Array(2)].map((_, i) => (
+          <Paper key={i} variant="outlined" sx={{ mb: 1 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton width="60%" />
+            </AccordionSummary>
+          </Paper>
+        ))}
+      </Box>
+    );
+  } else {
+    if (NProgress.isStarted()) NProgress.done();
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            TRY AGAIN
+          </Button>
+        }>
+          <Typography fontWeight="bold">{reportTitle} Data Error</Typography>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  // No data state
+  if (!data || data.length === 0) {
+    return (
+      <Alert severity="info" sx={{ mt: 2 }}>
+        No {reportTitle.toLowerCase()} data available for this region.
+        <Button color="primary" size="small" onClick={fetchData} sx={{ml: 2}}>
+          REFRESH
+        </Button>
+      </Alert>
+    );
+  }
+
+  const involvementTypes = data ? transformDataToInvolvements(data) : [];
+  const stats = data ? getSummaryStats(data) : { active: 0, total: 0, percent: 0, status: 'No Data' };
 
   const handleViewModeChange = (event, newMode) => {
     if (newMode !== null) {
@@ -356,11 +459,11 @@ export default function RegionCommunityInvolvementView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size="xs">
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size="xs">
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -400,7 +503,7 @@ export default function RegionCommunityInvolvementView({ filterParams }) {
             const display = getInvolvementDisplay(name, involvementData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 

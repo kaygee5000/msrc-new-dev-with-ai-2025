@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
 import {
     Box,
     Typography,
@@ -12,7 +13,10 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Paper
+    Paper,
+    Button, // For Load Data and Try Again
+    Skeleton // For loading state
+    // Stack might be needed for layout if not already used implicitly
 } from '@mui/material';
 
 const DataDisplayTable = ({ data, title }) => {
@@ -68,15 +72,23 @@ const DataDisplayTable = ({ data, title }) => {
     );
 };
 
-export default function GeneralIssuesDisplay({ filterParams }) {
+export default function GeneralIssuesDisplay({ filterParams, loadOnDemand = false }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
     const title = 'General Issues';
 
     const fetchData = useCallback(async () => {
+        NProgress.start();
+        setLoading(true);
+        setDataLoaded(false); // Indicate attempt to load fresh data
+        setError(null);
         if (!filterParams || (!filterParams.school_id && !filterParams.circuit_id && !filterParams.district_id && !filterParams.region_id)) {
             setData(null);
+            setLoading(false);
+            NProgress.done();
+            if (!loadOnDemand) setDataLoaded(true); // Data is 'loaded' as empty if not on-demand
             return;
         }
         setLoading(true);
@@ -99,30 +111,104 @@ export default function GeneralIssuesDisplay({ filterParams }) {
             }
             const resultData = await res.json();
             setData(resultData);
+            setDataLoaded(true); // Data successfully loaded
         } catch (e) {
-            console.error(`Error fetching ${title}:`, e);
+            console.error(`Error fetching ${title} data:`, e);
             setError(e.message);
             setData(null);
+            // dataLoaded remains false if an error occurs
+        } finally {
+            setLoading(false);
+            NProgress.done();
         }
-        setLoading(false);
-    }, [filterParams]);
+    }, [filterParams, title]); // Added title to deps, though it's constant here.
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (loadOnDemand) {
+            // If on-demand, clear data and show button until explicitly loaded or filters change
+            setData(null);
+            setDataLoaded(false);
+            setError(null); // Clear previous errors
+        } else {
+            // If not on-demand, fetch data immediately
+            fetchData();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterParams, loadOnDemand]); // fetchData is not in deps to control calls explicitly
+
+    // --- Conditional Rendering --- 
 
     if (loading) {
         return (
-            <Box display="flex" alignItems="center" p={2}>
-                <CircularProgress size={24} sx={{ mr: 1 }}/>
-                <Typography variant="body2">Loading {title}...</Typography>
+            <Box sx={{ p: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                    <Skeleton width="40%" />
+                </Typography>
+                <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                        <TableHead sx={{ backgroundColor: 'grey.100' }}>
+                            <TableRow>
+                                {[1, 2, 3, 4].map(i => (
+                                    <TableCell key={i}><Skeleton width="80%" /></TableCell>
+                                ))}
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {[1, 2, 3].map(i => (
+                                <TableRow key={i}>
+                                    {[1, 2, 3, 4].map(j => (
+                                        <TableCell key={j}><Skeleton /></TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
             </Box>
         );
     }
 
     if (error) {
-        return <Alert severity="warning" sx={{ mt: 1, mb: 2 }}>Error loading {title}: {error}</Alert>;
+        return (
+            <Alert severity="error" sx={{ m: 2, p: 2 }}> {/* Changed severity to error for consistency */}
+                <Typography gutterBottom>Error loading {title} data: {error}</Typography>
+                <Button variant="contained" onClick={fetchData} size="small" disabled={loading}>
+                    {loading ? 'Retrying...' : 'Try Again'}
+                </Button>
+            </Alert>
+        );
     }
+
+    if (loadOnDemand && !dataLoaded) {
+        return (
+            <Box sx={{ p: 3, textAlign: 'center', mt: 4 }}>
+                <Typography variant="h6" gutterBottom>Load {title}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{mb:2}}>
+                    Click the button to fetch the latest general issues information.
+                </Typography>
+                <Button variant="contained" onClick={fetchData} size="large" disabled={loading}>
+                    {loading ? `Loading ${title}...` : `Load ${title}`}
+                </Button>
+            </Box>
+        );
+    }
+
+    // Check for no data after attempting to load (or if not onDemand and initial load is empty)
+    // This is different from the !data check inside DataDisplayTable, which handles the case within the table itself.
+    // This top-level check allows showing a refresh button if needed.
+    if (dataLoaded && (!data || data.length === 0)) {
+        return (
+            <Alert severity="info" sx={{ m: 2, p: 2 }}>
+                No {title.toLowerCase()} data found for the selected filters.
+                {loadOnDemand && 
+                    <Button onClick={fetchData} sx={{ ml: 2 }} size="small" variant="outlined" disabled={loading}>
+                        {loading ? 'Refreshing...' : 'Refresh Data'}
+                    </Button>
+                }
+            </Alert>
+        );
+    }
+    // --- End Conditional Rendering ---
 
     return (
         <Box sx={{ width: '100%' }}>

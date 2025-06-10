@@ -1,11 +1,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 import {
   Box,
   Paper,
   Typography,
   Grid,
   Chip,
+  Skeleton,
+  Button,
   CardContent,
   Stack,
   Tooltip,
@@ -219,16 +223,26 @@ const transformDataToMetrics = (rawData) => {
   return metricTypes;
 };
 
-export default function RegionSecurityView({ filterParams }) {
+export default function RegionSecurityView({ filterParams, loadOnDemand = false, reportTitle = 'Region Security Report' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
-  const title = 'Security';
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const fetchData = useCallback(async () => {
+    if (!filterParams?.region_id) {
+      setData(null);
+      setDistrictsData([]);
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+      return;
+    }
+    NProgress.start();
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
@@ -237,6 +251,7 @@ export default function RegionSecurityView({ filterParams }) {
     
     setLoading(true);
     setError(null);
+    setDataLoaded(false);
     
     const q = new URLSearchParams();
     ['region_id', 'year', 'term'].forEach(k => filterParams[k] && q.append(k, filterParams[k]));
@@ -253,6 +268,7 @@ export default function RegionSecurityView({ filterParams }) {
       if (!res.ok) throw new Error((await res.json()).message || `Error ${res.status}`);
       const securityData = await res.json();
       setData(securityData);
+      setDataLoaded(true);
       
       // Group data by district, then by circuit, then by school
       const districtMap = new Map();
@@ -301,34 +317,124 @@ export default function RegionSecurityView({ filterParams }) {
       setDistrictsData(districtsArray);
     } catch(e) { 
       console.error(`Error fetching ${title}:`, e); 
-      setError(e.message); 
+      setError(e.message || 'An unexpected error occurred.');
       setData(null);
       setDistrictsData([]);
+      setDataLoaded(true);
     }
     
     setLoading(false);
+    NProgress.done();
   }, [filterParams]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => {
+    if (loadOnDemand) {
+      setData(null);
+      setDistrictsData([]);
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+    } else {
+      if (filterParams.year && filterParams.term && filterParams.region_id) {
+        fetchData();
+      } else {
+        setData(null);
+        setDistrictsData([]);
+        setError(null);
+        setLoading(false);
+        setDataLoaded(false);
+        if (NProgress.isStarted()) NProgress.done();
+      }
+    }
+  }, [filterParams, loadOnDemand, fetchData]);
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
-  
-  if (error) return (
-    <Alert severity="error" sx={{ mt: 2 }}>
-      Error loading {title} data: {error}
-    </Alert>
-  );
-
-  if (!data || data.length === 0) return (
-    <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available for this region.</Alert>
-  );
+  // --- On-demand conditional rendering ---
+  if (loadOnDemand && !dataLoaded && !loading && !error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>{reportTitle}</Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Click the button to load the {reportTitle.toLowerCase()} for the selected region.
+          </Typography>
+          <Button variant="contained" color="primary" onClick={fetchData} startIcon={<SecurityIcon />}>
+            Load {reportTitle}
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
+  if (loading) {
+    if (!NProgress.isStarted()) NProgress.start();
+    return (
+      <Box sx={{ p: 2 }}>
+        <Paper elevation={2} sx={{ mb: 3, p: 2 }}>
+          <Skeleton variant="text" width="40%" height={40} sx={{ mb: 2 }} />
+          <Accordion sx={{mb:2}} defaultExpanded disabled>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton variant="text" width="60%" height={30} />
+            </AccordionSummary>
+            <AccordionDetails>
+              <Grid container spacing={2}>
+                {[...Array(2)].map((_, i) => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
+                    <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <Skeleton variant="circular" width={24} height={24} sx={{ mr: 1 }} />
+                        <Skeleton variant="text" width="60%" />
+                      </Box>
+                      <Skeleton variant="text" width="40%" sx={{ mb: 0.5 }} />
+                      <Skeleton variant="rectangular" width="100%" height={10} sx={{ mb: 1 }} />
+                      <Skeleton variant="text" width="80%" />
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+          <Skeleton variant="text" width="30%" height={30} sx={{mt:2, mb:1}} />
+          {[...Array(2)].map((_, i) => (
+            <Accordion key={i} sx={{mb:1}} disabled>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Skeleton variant="text" width="50%" height={24} />
+              </AccordionSummary>
+            </Accordion>
+          ))}
+        </Paper>
+      </Box>
+    );
+  } else {
+    if (NProgress.isStarted()) NProgress.done();
+  }
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            TRY AGAIN
+          </Button>
+        }>
+          <Typography fontWeight="bold">{reportTitle} Error</Typography>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+  if (dataLoaded && !loading && (!data || data.length === 0)) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="info" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            REFRESH DATA
+          </Button>
+        }>
+          <Typography fontWeight="bold">No {reportTitle} Data</Typography>
+          No {reportTitle.toLowerCase()} found for the selected filters.
+        </Alert>
+      </Box>
+    );
+  }
 
   const metricTypes = transformDataToMetrics(data);
   const stats = getSummaryStats(data);
@@ -361,11 +467,11 @@ export default function RegionSecurityView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -404,7 +510,7 @@ export default function RegionSecurityView({ filterParams }) {
             const display = getSecurityDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 

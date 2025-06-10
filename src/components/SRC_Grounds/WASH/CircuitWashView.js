@@ -153,9 +153,49 @@ const getSummaryStats = (data) => {
 };
 
 // Transform raw data into metric-based format for summary
-const transformDataToMetrics = (rawData) => {
+const transformDataToMetrics = (rawData, loadOnDemand, dataLoaded, setDataLoaded, loading, error, reportTitle) => {
   if (!rawData || rawData.length === 0) return [];
   
+  // NProgress integration
+  useEffect(() => {
+    if (loading) NProgress.start();
+    else NProgress.done();
+    return () => NProgress.done();
+  }, [loading]);
+
+  // On-demand UI logic
+  if (loadOnDemand && !dataLoaded) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Button variant="contained" color="primary" onClick={() => { setDataLoaded(true); }}>Load {reportTitle}</Button>
+      </Box>
+    );
+  }
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
+      </Box>
+    );
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Retry</Button>
+      </Box>
+    );
+  }
+  if (!rawData) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="info">No data available.</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Refresh</Button>
+      </Box>
+    );
+  }
+
   // Aggregate data for the circuit level
   const aggregatedData = {};
   rawData.forEach(item => {
@@ -301,15 +341,15 @@ export default function CircuitWashView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">District</Typography>
             <Typography variant="body2">{circuitInfo.district || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -348,7 +388,7 @@ export default function CircuitWashView({ filterParams }) {
             const display = getWashDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 

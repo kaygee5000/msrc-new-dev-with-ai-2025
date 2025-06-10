@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import NProgress from 'nprogress';
+import Skeleton from '@mui/material/Skeleton';
+import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import {
     Box,
     Typography,
@@ -62,16 +66,38 @@ function a11yProps(index) {
     };
 }
 
-export default function RegionReportContainer({ filterParams }) {
+export default function RegionReportContainer({ filterParams, loadOnDemand = false }) {
     const [currentTab, setCurrentTab] = useState(0);
     const [subTab, setSubTab] = useState(0);
+    const [containerLoaded, setContainerLoaded] = useState(!loadOnDemand);
+    const [containerLoading, setContainerLoading] = useState(false);
+    const [containerError, setContainerError] = useState(null);
 
-    const subTabCounts = [3, 4, 5];
-    const effectiveSubTab = Math.min(subTab, subTabCounts[currentTab] - 1);
+    const subTabCounts = [3, 3, 4, 5]; // Adjusted for 4 main tabs, sub-tabs per main tab
+    const effectiveSubTab = Math.min(subTab, (subTabCounts[currentTab] || 1) - 1);
 
     useEffect(() => { setSubTab(0); }, [currentTab]);
+    useEffect(() => {
+        if (containerLoading) NProgress.start();
+        else NProgress.done();
+        return () => NProgress.done();
+    }, [containerLoading]);
 
     const handleTabChange = (event, newValue) => { setCurrentTab(newValue); };
+
+    const handleContainerLoad = async () => {
+        setContainerLoading(true);
+        setContainerError(null);
+        try {
+            // Simulate async data fetch for container-level data (can be replaced with real API call if needed)
+            await new Promise(resolve => setTimeout(resolve, 800));
+            setContainerLoaded(true);
+        } catch (err) {
+            setContainerError('Failed to load region report data.');
+        } finally {
+            setContainerLoading(false);
+        }
+    };
 
     if (!filterParams || !filterParams.region_id || !filterParams.year || !filterParams.term) {
         return (
@@ -79,6 +105,51 @@ export default function RegionReportContainer({ filterParams }) {
                 <Typography variant="h6" color="error">Region Information Missing</Typography>
                 <Typography>Please select a region, year, and term to view the report.</Typography>
             </Paper>
+        );
+    }
+
+    // On-Demand Loading UI at container level
+    if (loadOnDemand && !containerLoaded) {
+        return (
+            <Box sx={{ textAlign: 'center', py: 5 }}>
+                {containerLoading ? (
+                    <Skeleton variant="rectangular" width={320} height={56} sx={{ mx: 'auto', mb: 2 }} />
+                ) : containerError ? (
+                    <>
+                        <Alert severity="error" sx={{ mb: 2 }}>{containerError}</Alert>
+                        <Button variant="contained" color="primary" onClick={handleContainerLoad} disabled={containerLoading}>
+                            Retry Loading Region Report
+                        </Button>
+                    </>
+                ) : (
+                    <Button variant="contained" color="primary" onClick={handleContainerLoad}>
+                        Load Region Report
+                    </Button>
+                )}
+            </Box>
+        );
+    }
+
+    // Main container loading skeleton
+    if (containerLoading) {
+        return (
+            <Box sx={{ mt: 2 }}>
+                <Skeleton variant="rectangular" height={48} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" height={64} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" height={240} />
+            </Box>
+        );
+    }
+
+    // Error state
+    if (containerError) {
+        return (
+            <Box sx={{ mt: 2 }}>
+                <Alert severity="error" sx={{ mb: 2 }}>{containerError}</Alert>
+                <Button variant="contained" color="primary" onClick={handleContainerLoad}>
+                    Retry Loading Region Report
+                </Button>
+            </Box>
         );
     }
 
@@ -127,7 +198,7 @@ export default function RegionReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <RegionCommunityInvolvementView filterParams={filterParams} />
+                        <RegionCommunityInvolvementView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
                         <PlaceholderView viewName="Region Meetings Held" filterParams={filterParams} />
@@ -149,16 +220,16 @@ export default function RegionReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <RegionTextbooksView filterParams={filterParams} />
+                        <RegionTextbooksView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <RegionPupilPerformanceView filterParams={filterParams} />
+                        <RegionPupilPerformanceView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <RegionRecordBooksView filterParams={filterParams} />
+                        <RegionRecordBooksView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <RegionSupportGrantsView filterParams={filterParams} />
+                        <RegionSupportGrantsView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                 </TabPanel>
 
@@ -175,19 +246,19 @@ export default function RegionReportContainer({ filterParams }) {
                         </Tabs>
                     </Box>
                     <TabPanel value={effectiveSubTab} index={0}>
-                        <RegionSanitationView filterParams={filterParams} />
+                        <RegionSanitationView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={1}>
-                        <RegionSecurityView filterParams={filterParams} />
+                        <RegionSecurityView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={2}>
-                        <RegionSchoolStructureView filterParams={filterParams} />
+                        <RegionSchoolStructureView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={3}>
-                        <RegionFurnitureView filterParams={filterParams} />
+                        <RegionFurnitureView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                     <TabPanel value={effectiveSubTab} index={4}>
-                        <RegionWashView filterParams={filterParams} />
+                        <RegionWashView filterParams={filterParams} loadOnDemand={true} />
                     </TabPanel>
                 </TabPanel>
             </Paper>

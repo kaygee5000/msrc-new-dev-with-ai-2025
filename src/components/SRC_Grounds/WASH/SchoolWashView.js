@@ -202,10 +202,50 @@ const getSummaryStats = (data) => {
 };
 
 // Transform raw data into facility-based format
-const transformDataToFacilities = (rawData) => {
+const transformDataToFacilities = (rawData, loadOnDemand, dataLoaded, setDataLoaded, loading, error, reportTitle) => {
   if (!rawData || rawData.length === 0) return [];
   
   // Create sample facilities based on common WASH components
+  // NProgress integration
+  useEffect(() => {
+    if (loading) NProgress.start();
+    else NProgress.done();
+    return () => NProgress.done();
+  }, [loading]);
+
+  // On-demand UI logic
+  if (loadOnDemand && !dataLoaded) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Button variant="contained" color="primary" onClick={() => { setDataLoaded(true); }}>Load {reportTitle}</Button>
+      </Box>
+    );
+  }
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
+      </Box>
+    );
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Retry</Button>
+      </Box>
+    );
+  }
+  if (!rawData) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="info">No data available.</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Refresh</Button>
+      </Box>
+    );
+  }
+  
   // In a real implementation, this would map actual database fields to facilities
   const facilities = [
     { name: 'Water Access', data: rawData[0] },

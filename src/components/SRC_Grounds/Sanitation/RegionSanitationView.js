@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
 import {
   Box,
   Paper,
@@ -12,7 +14,9 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  LinearProgress
+  LinearProgress,
+  Skeleton,
+  Button
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WcIcon from '@mui/icons-material/Wc';
@@ -129,14 +133,26 @@ const ItemStatusBreakdown = ({ aggregatedData, levelName }) => {
   );
 };
 
-export default function RegionSanitationView({ filterParams }) {
-  const [regionData, setRegionData] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function RegionSanitationView({ filterParams, loadOnDemand = false, reportTitle: initialReportTitle = 'Region Sanitation Report' }) {
+  const [data, setData] = useState([]); // Renamed from regionData
+  const [loading, setLoading] = useState(false); // Default to false, fetchData will set true
   const [error, setError] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const reportTitle = initialReportTitle;
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    if (!filterParams?.region_id) { // Moved early exit to the top
+      setData([]);
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+      return;
+    }
+
+    NProgress.start();
+    setLoading(true); // setError(null) is already here from above or will be set by NProgress start logic if needed
+    setData([]); // Clear previous data before fetching new
     const q = new URLSearchParams({ ...filterParams, level: 'region' });
     try {
       const res = await fetch(`/api/school-report/grounds/sanitation?${q.toString()}`);
@@ -144,41 +160,151 @@ export default function RegionSanitationView({ filterParams }) {
         const errData = await res.json();
         throw new Error(errData.message || `Error ${res.status}`);
       }
-      const data = await res.json();
-      setRegionData(data);
+      const fetchedData = await res.json();
+      setData(fetchedData);
+      setDataLoaded(true);
     } catch (e) {
-      console.error('Error fetching region sanitation data:', e);
-      setError(e.message);
+      console.error(`Error fetching ${reportTitle}:`, e);
+      setError(e.message || 'An unexpected error occurred.');
+      setData([]); // Clear data on error
+      setDataLoaded(true); // Mark as data fetch attempted
     }
     setLoading(false);
-  }, [filterParams]);
+    NProgress.done();
+  }, [filterParams, reportTitle]);
 
   useEffect(() => {
-    if (filterParams.year && filterParams.term && filterParams.region_id) { // Region view typically needs at least region_id
+    if (loadOnDemand) {
+      setData([]);
+      setError(null);
+      setLoading(false);
+      setDataLoaded(false);
+      if (NProgress.isStarted()) NProgress.done();
+    } else {
+      // Original condition for auto-fetch
+      if (filterParams.year && filterParams.term && filterParams.region_id) {
         fetchData();
+      } else {
+        // If not loading on demand and params are insufficient, clear everything
+        setData([]);
+        setError(null);
+        setLoading(false);
+        setDataLoaded(false);
+        if (NProgress.isStarted()) NProgress.done();
+      }
     }
-  }, [fetchData, filterParams]);
+  }, [filterParams, loadOnDemand, fetchData]);
 
-  if (loading) {
+  // Helper for Skeleton
+  const SkeletonItemStatusBreakdown = () => (
+    <Grid container spacing={2}>
+      {[...Array(2)].map((_, i) => ( // Show 2 skeleton items for brevity
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
+          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Skeleton variant="circular" width={24} height={24} sx={{ mr: 1 }} />
+              <Skeleton variant="text" width="60%" />
+            </Box>
+            <Skeleton variant="text" width="40%" sx={{ mb: 0.5 }} />
+            <Skeleton variant="rectangular" width="100%" height={10} sx={{ mb: 1 }} />
+            <Skeleton variant="text" width="80%" />
+          </Paper>
+        </Grid>
+      ))}
+    </Grid>
+  );
+
+  if (loadOnDemand && !dataLoaded && !loading && !error) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 3 }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading region sanitation data...</Typography>
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            {reportTitle}
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Click the button to load the {reportTitle.toLowerCase()} for the selected region.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={fetchData}
+            startIcon={<SanitizerIcon />}
+          >
+            Load {reportTitle}
+          </Button>
+        </Paper>
       </Box>
     );
   }
 
-  if (error) {
-    return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
+  if (loading) {
+    if (!NProgress.isStarted()) NProgress.start();
+    return (
+      <Box sx={{ p: 2 }}>
+        <Paper elevation={2} sx={{ mb: 3, p: 2 }}>
+          <Skeleton variant="text" width="40%" height={40} sx={{ mb: 2 }} /> {/* Region Name */}
+          
+          {/* Region Summary Accordion Skeleton */}
+          <Accordion sx={{mb:2}} defaultExpanded disabled>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton variant="text" width="60%" height={30} />
+            </AccordionSummary>
+            <AccordionDetails>
+              <SkeletonItemStatusBreakdown />
+            </AccordionDetails>
+          </Accordion>
+
+          <Skeleton variant="text" width="30%" height={30} sx={{mt:2, mb:1}} /> {/* "Districts in..." */}
+          
+          {/* District Accordions Skeleton */}
+          {[...Array(2)].map((_, i) => (
+            <Accordion key={i} sx={{mb:1}} disabled>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Skeleton variant="text" width="50%" height={24} />
+              </AccordionSummary>
+            </Accordion>
+          ))}
+        </Paper>
+      </Box>
+    );
+  } else {
+    if (NProgress.isStarted()) NProgress.done();
   }
 
-  if (!regionData || regionData.length === 0) {
-    return <Alert severity="info" sx={{ m: 2 }}>No region sanitation data available for the selected filters.</Alert>;
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            TRY AGAIN
+          </Button>
+        }>
+          <Typography fontWeight="bold">{reportTitle} Error</Typography>
+          {error}
+        </Alert>
+      </Box>
+    );
+  }
+
+  // Note: Changed regionData to data here
+  if (dataLoaded && !loading && (!data || data.length === 0)) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" sx={{ p: 3, minHeight: 200 }}>
+        <Alert severity="info" action={
+          <Button color="inherit" size="small" onClick={fetchData} sx={{ml: 2}}>
+            REFRESH DATA
+          </Button>
+        }>
+          <Typography fontWeight="bold">No {reportTitle} Data</Typography>
+          No {reportTitle.toLowerCase()} found for the selected filters.
+        </Alert>
+      </Box>
+    );
   }
 
   return (
     <Box sx={{ p: 2 }}>
-      {regionData.map((region) => (
+      {data.map((region) => (
         <Paper key={region.region_id} elevation={2} sx={{ mb: 3, p: 2 }}>
           <Typography variant="h5" gutterBottom>
             {region.region_name} Region

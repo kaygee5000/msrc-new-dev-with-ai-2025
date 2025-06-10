@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import NProgress from 'nprogress';
 import {
   Box,
   Paper,
@@ -21,7 +22,9 @@ import {
   ToggleButton,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Button, // Added for Load Data and Try Again buttons
+  Skeleton // Added for loading state
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -188,19 +191,27 @@ const transformDataToMetrics = (rawData) => {
   return metricTypes;
 };
 
-export default function RegionWashView({ filterParams }) {
+export default function RegionWashView({ filterParams, loadOnDemand = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
   const [districtsData, setDistrictsData] = useState([]);
   const [viewMode, setViewMode] = useState('card');
   const [regionInfo, setRegionInfo] = useState({});
   const title = 'WASH';
 
   const fetchData = useCallback(async () => {
+    NProgress.start();
+    setLoading(true);
+    setDataLoaded(false); // Indicate that we are attempting to load fresh data
+    setError(null);
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
+      setLoading(false);
+      NProgress.done();
+      if (!loadOnDemand) setDataLoaded(true); // Data is 'loaded' as empty if not on-demand
       return;
     }
     
@@ -268,36 +279,113 @@ export default function RegionWashView({ filterParams }) {
       }));
       
       setDistrictsData(districtsArray);
+      setDataLoaded(true); // Data successfully loaded
     } catch(e) { 
-      console.error(`Error fetching ${title}:`, e); 
+      console.error(`Error fetching ${title} data:`, e); 
       setError(e.message); 
       setData(null);
       setDistrictsData([]);
+      // dataLoaded remains false if an error occurs
+    } finally {
+      setLoading(false);
+      NProgress.done();
     }
-    
-    setLoading(false);
-  }, [filterParams]);
+  }, [filterParams, title]); // Added title to deps, though it's constant here.
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => {
+    if (loadOnDemand) {
+      // If on-demand, clear data and show button until explicitly loaded or filters change
+      setData(null);
+      setDistrictsData([]);
+      setDataLoaded(false);
+      setError(null); // Clear previous errors
+    } else {
+      // If not on-demand, fetch data immediately
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterParams, loadOnDemand]); // fetchData is not in deps to control calls explicitly
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
-  
-  if (error) return (
-    <Alert severity="error" sx={{ mt: 2 }}>
-      Error loading {title} data: {error}
-    </Alert>
-  );
+  // --- Conditional Rendering --- 
 
-  if (!data || data.length === 0) return (
-    <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available for this region.</Alert>
-  );
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        {/* Skeleton for Header */}
+        <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+            <Skeleton variant="text" width="40%" height={40} />
+            <Skeleton variant="rounded" width={100} height={35} />
+          </Stack>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 8 }}><Skeleton variant="text" width="60%" height={20} /></Grid>
+            <Grid size={{ xs: 12, md: 8 }}><Skeleton variant="text" width="60%" height={20} /></Grid>
+          </Grid>
+        </Paper>
+
+        {/* Skeleton for Summary Stats */}
+        <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
+            <Box>
+              <Skeleton variant="text" width="50%" height={30} sx={{ mb: 1 }} />
+              <Skeleton variant="text" width="70%" />
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+              <Skeleton variant="text" width="30%" height={50} />
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Skeleton for Metric Cards (if card view) */}
+        <Grid container spacing={2} sx={{ mt: 1, mb: 3 }}>
+          {[1, 2, 3, 4].map(i => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+              <Skeleton variant="rectangular" height={150} />
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* Skeleton for District Accordions */}
+        <Typography variant="h6" gutterBottom sx={{ mt: 3 }}><Skeleton width="30%" /></Typography>
+        {[1, 2].map((i) => (
+          <Accordion key={i} disabled sx={{ mb: 1, '& .MuiAccordionSummary-root': { opacity: 1 } }} >
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Skeleton variant="text" width="60%" height={30} />
+            </AccordionSummary>
+            <AccordionDetails>
+              <Skeleton variant="rectangular" height={100} />
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ m: 2, p: 2 }}>
+        <Typography gutterBottom>Error loading {title} data: {error}</Typography>
+        <Button variant="contained" onClick={fetchData} size="small" disabled={loading}>
+          {loading ? 'Retrying...' : 'Try Again'}
+        </Button>
+      </Alert>
+    );
+  }
+
+  // This condition means data has been loaded (or attempted), and it's empty or null.
+  if (!data || data.length === 0) {
+    return (
+      <Alert severity="info" sx={{ m: 2, p: 2 }}>
+        No {title.toLowerCase()} data available for this region and selected filters.
+        {loadOnDemand && 
+          <Button onClick={fetchData} sx={{ ml: 2 }} size="small" variant="outlined" disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+        }
+      </Alert>
+    );
+  }
+  // --- End Conditional Rendering ---
 
   const metricTypes = transformDataToMetrics(data);
   const stats = getSummaryStats(data);
@@ -330,11 +418,11 @@ export default function RegionWashView({ filterParams }) {
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -373,7 +461,7 @@ export default function RegionWashView({ filterParams }) {
             const display = getWashDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 

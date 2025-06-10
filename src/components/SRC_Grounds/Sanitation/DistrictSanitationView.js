@@ -199,11 +199,54 @@ const CircuitSanitationTable = ({ circuits }) => {
   );
 };
 
-export default function DistrictSanitationView({ filterParams }) {
-  const [districtLevelData, setDistrictLevelData] = useState(null); // Store the single district object
-  const [loading, setLoading] = useState(true);
+export default function DistrictSanitationView({ filterParams, loadOnDemand = false, reportTitle = 'Sanitation' }) {
+  const [districtLevelData, setDistrictLevelData] = useState(null); 
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState('summary'); // 'summary' or 'table'
+  const [circuitsData, setCircuitsData] = useState([]);
+  const [viewMode, setViewMode] = useState('card');
+  const [districtInfo, setDistrictInfo] = useState({});
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
+
+  // NProgress integration
+  useEffect(() => {
+    if (loading) NProgress.start();
+    else NProgress.done();
+    return () => NProgress.done();
+  }, [loading]);
+
+  // On-demand UI logic
+  if (loadOnDemand && !dataLoaded) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Button variant="contained" color="primary" onClick={() => { setDataLoaded(true); }} data-testid="load-btn">Load {reportTitle}</Button>
+      </Box>
+    );
+  }
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
+      </Box>
+    );
+  }
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Retry</Button>
+      </Box>
+    );
+  }
+  if (!districtLevelData) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="info">No data available.</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Refresh</Button>
+      </Box>
+    );
+  }
 
   const handleViewModeChange = (event) => {
     setViewMode(event.target.checked ? 'table' : 'summary');
@@ -212,6 +255,7 @@ export default function DistrictSanitationView({ filterParams }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    NProgress.start();
     const q = new URLSearchParams({ ...filterParams, level: 'district' });
     try {
       const res = await fetch(`/api/school-report/grounds/sanitation?${q.toString()}`);

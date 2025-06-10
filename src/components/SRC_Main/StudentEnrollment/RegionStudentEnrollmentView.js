@@ -167,7 +167,8 @@ const transformDataToMetrics = (rawData) => {
 };
 
 export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand = false }) {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(null); // Main data for enrollment figures
+  // dataLoaded is true if !loadOnDemand (initial load) or after successful fetch
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
   const [error, setError] = useState(null);
@@ -178,9 +179,20 @@ export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand
 
   const fetchData = useCallback(async () => {
     NProgress.start();
+    setLoading(true);
+    setDataLoaded(false); // Indicate that we are attempting to load fresh data
+    setError(null);
+    NProgress.start();
     if (!filterParams?.region_id) {
       setData(null);
       setDistrictsData([]);
+      setLoading(false); // Stop loading
+      NProgress.done(); // Stop progress bar
+      // Consider data 'loaded' (with nothing) if filters are invalid, to prevent perpetual loading/button state
+      // However, for loadOnDemand, we want the button to reappear if filters change to something invalid then valid again.
+      // Let's manage this by not setting setDataLoaded(true) here if loadOnDemand is true.
+      // If !loadOnDemand, then it's an initial load with bad filters, so data is effectively 'loaded' as empty.
+      if (!loadOnDemand) setDataLoaded(true);
       return;
     }
     
@@ -257,37 +269,87 @@ export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand
       }));
       
       setDistrictsData(districtsArray);
-    } catch(e) { 
-      console.error(`Error fetching ${title}:`, e); 
-      setError(e.message); 
+    } catch (e) {
+      console.error(`Error fetching ${title} data:`, e);
+      setError(e.message);
       setData(null);
       setDistrictsData([]);
+      // setDataLoaded remains false if an error occurs
+    } finally {
+      setLoading(false);
+      NProgress.done();
     }
-    
-    setLoading(false);
-    setDataLoaded(true);
-    NProgress.done();
-  }, [filterParams, title]);
+  }, [filterParams, title]); // Removed regionInfo from deps as it's set within fetchData
 
   useEffect(() => {
-    if (!loadOnDemand) {
+    if (loadOnDemand) {
+      // If on-demand, ensure data is cleared, and button is shown until explicitly loaded
+      // This also handles filter changes: new filters mean new data to load on demand.
+      setData(null);
+      setDistrictsData([]);
+      setDataLoaded(false);
+      setError(null); // Clear previous errors for a fresh start with the button
+    } else {
+      // If not on-demand, fetch data immediately when filters change or on initial mount
       fetchData();
     }
-    // eslint-disable-next-line
-  }, [filterParams, loadOnDemand]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterParams, loadOnDemand]); // fetchData is not in deps here to control calls explicitly based on loadOnDemand and filterParams
 
-  if (loading) return (
-    <Box sx={{ textAlign: 'center', py: 3 }}>
-      <CircularProgress />
-      <Typography variant="body2" sx={{ mt: 1 }}>Loading {title} data...</Typography>
-    </Box>
-  );
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+            <Skeleton variant="text" width="50%" height={35} />
+            <Skeleton variant="rounded" width={80} height={35} />
+          </Stack>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}><Skeleton variant="text" width="70%" height={20} /></Grid>
+            <Grid size={{ xs: 12, sm: 6 }}><Skeleton variant="text" width="70%" height={20} /></Grid>
+          </Grid>
+        </Paper>
+        
+        <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.paper', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <Skeleton variant="text" width="40%" height={30} sx={{ mb: 1 }} />
+          <Skeleton variant="text" width="70%" />
+          <Skeleton variant="text" width="60%" />
+        </Paper>
+
+        <Grid container spacing={2} sx={{ mt: 1, mb: 3 }}>
+          {[1, 2, 3, 4].map(i => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+              <Skeleton variant="rectangular" height={140} />
+            </Grid>
+          ))}
+        </Grid>
+
+        <Skeleton variant="text" width="30%" height={30} sx={{ mb: 2, mt: 4 }} />
+        {[1, 2, 3].map(i => (
+          <Skeleton variant="rectangular" height={55} sx={{ mb: 2, borderRadius: 1 }} key={i} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ m: 2, p: 2 }}>
+        <Typography gutterBottom>Error loading {title} data: {error}</Typography>
+        <Button variant="contained" onClick={fetchData} size="small">
+          Try Again
+        </Button>
+      </Alert>
+    );
+  }
 
   if (loadOnDemand && !dataLoaded) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Button variant="contained" onClick={fetchData} disabled={loading}>
-          {loading ? 'Loading...' : 'Load Data'}
+      <Box sx={{ p: 3, textAlign: 'center', mt: 4 }}>
+        <Typography variant="h6" gutterBottom>Load Student Enrollment Data</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{mb:2}}>Click the button to fetch the latest enrollment figures for the selected region.</Typography>
+        <Button variant="contained" onClick={fetchData} size="large">
+          Load {title} Data
         </Button>
         {loading && <Skeleton variant="rectangular" height={120} sx={{ mt: 2 }} />}
       </Box>
@@ -305,6 +367,7 @@ export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand
   );
 
   const metricTypes = transformDataToMetrics(data);
+  // Data is loaded and available, proceed to render
   const stats = getSummaryStats(data);
 
   const handleViewModeChange = (event, newMode) => {
@@ -335,11 +398,11 @@ export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand
           </ToggleButtonGroup>
         </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Year</Typography>
             <Typography variant="body2">{filterParams.year || 'N/A'}</Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Typography variant="caption" color="text.secondary">Term</Typography>
             <Typography variant="body2">{filterParams.term || 'N/A'}</Typography>
           </Grid>
@@ -377,7 +440,7 @@ export default function RegionStudentEnrollmentView({ filterParams, loadOnDemand
             const display = getEnrollmentDisplay(name, metricData);
             
             return (
-              <Grid item xs={12} sm={6} md={4} key={idx}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
                 <Paper 
                   variant="outlined" 
                   sx={{ 

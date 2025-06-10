@@ -171,26 +171,28 @@ const getSummaryStats = (data) => {
 // Transform raw data into activity-based format
 const transformDataToActivities = (rawData) => {
   if (!rawData || rawData.length === 0) return [];
-  
   // For now, create sample activities based on common community involvement types
   // In a real implementation, this would map actual database fields to activities
-  const activities = [
+  return [
     { name: 'PTA Meetings', data: rawData[0] },
     { name: 'Community Outreach', data: rawData[0] },
     { name: 'Volunteer Activities', data: rawData[0] },
     { name: 'Parent Engagement', data: rawData[0] },
   ];
-  
-  return activities;
 };
 
-export default function SchoolCommunityInvolvementView({ filterParams }) {
+import NProgress from 'nprogress';
+import Skeleton from '@mui/material/Skeleton';
+import Button from '@mui/material/Button';
+
+export default function SchoolCommunityInvolvementView({ filterParams, loadOnDemand = false, reportTitle = 'Community Involvement' }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('card');
   const [schoolInfo, setSchoolInfo] = useState({});
-  const title = 'Community Involvement';
+  const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
+  const title = reportTitle || 'Community Involvement';
 
   const fetchData = useCallback(async () => {
     if (!filterParams?.school_id) {
@@ -223,25 +225,46 @@ export default function SchoolCommunityInvolvementView({ filterParams }) {
     setLoading(false);
   }, [filterParams]);
 
+  // NProgress integration
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (loading) NProgress.start();
+    else NProgress.done();
+    return () => NProgress.done();
+  }, [loading]);
 
-  if (loading) {
+  // On-demand loading UI logic
+  if (loadOnDemand && !dataLoaded) {
     return (
-      <Box sx={{ textAlign: 'center', py: 3 }}>
-        <CircularProgress />
-        <Typography variant="body2" sx={{ mt: 1 }}>Loading {title}...</Typography>
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Button variant="contained" color="primary" onClick={() => setDataLoaded(true)}>
+          Load {title}
+        </Button>
       </Box>
     );
   }
-
-  if (error) {
-    return <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>;
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rectangular" height={56} sx={{ mb: 2 }} />
+        <Skeleton variant="rectangular" height={200} />
+      </Box>
+    );
   }
-
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Retry</Button>
+      </Box>
+    );
+  }
   if (!data || data.length === 0) {
-    return <Alert severity="info" sx={{ mt: 2 }}>No {title.toLowerCase()} data available.</Alert>;
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Alert severity="info">No {title.toLowerCase()} data available.</Alert>
+        <Button variant="outlined" onClick={() => { setDataLoaded(false); setTimeout(() => setDataLoaded(true), 50); }}>Refresh</Button>
+      </Box>
+    );
   }
 
   const activities = transformDataToActivities(data);
