@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Toolbar, AppBar, IconButton, Typography, Divider, Box,
-  Collapse, Button, Avatar, Menu, MenuItem, CircularProgress
+  Collapse, Button, Avatar, Menu, MenuItem, Skeleton, Grid
 } from '@mui/material';
 import {
   Dashboard, Domain, LocationCity, Business, School, Groups, BarChart, Assessment, ListAlt, Settings, Menu as MenuIcon,
@@ -90,18 +90,57 @@ export default function DashboardLayout({ children }) {
     }));
   };
 
-  // Show loading spinner while checking authentication
-  if (authLoading) {
+  // Show loading skeleton while checking authentication
+  if (authLoading && !isAuthenticated) {
     return (
       <Box 
         sx={{ 
           display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh' 
+          flexDirection: 'column',
+          width: '100%',
+          height: '100vh',
+          p: 3
         }}
       >
-        <CircularProgress />
+        {/* Header Skeleton */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, width: '100%' }}>
+          <Skeleton variant="rectangular" width={180} height={40} />
+          <Skeleton variant="circular" width={40} height={40} />
+        </Box>
+        
+        {/* Main content layout skeleton */}
+        <Box sx={{ display: 'flex', flexGrow: 1 }}>
+          {/* Sidebar skeleton */}
+          <Box sx={{ width: 240, mr: 3 }}>
+            <Skeleton variant="rectangular" width={240} height={50} sx={{ mb: 2 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+            <Skeleton variant="rectangular" width={240} height={30} sx={{ mb: 1 }} />
+          </Box>
+          
+          {/* Main content skeleton */}
+          <Box sx={{ flexGrow: 1 }}>
+            <Skeleton variant="rectangular" width="100%" height={200} sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Skeleton variant="rectangular" width="100%" height={120} />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Skeleton variant="rectangular" width="100%" height={120} />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Skeleton variant="rectangular" width="100%" height={120} />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Skeleton variant="rectangular" width="100%" height={120} />
+              </Grid>
+            </Grid>
+            <Skeleton variant="rectangular" width="100%" height={300} sx={{ mt: 2 }} />
+          </Box>
+        </Box>
       </Box>
     );
   }
@@ -304,5 +343,3 @@ export default function DashboardLayout({ children }) {
     </Box>
   );
 }
-
-

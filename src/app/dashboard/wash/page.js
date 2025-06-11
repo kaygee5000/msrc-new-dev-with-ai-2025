@@ -1,10 +1,19 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Grid, CircularProgress, Alert, Card, CardContent, Stack, Chip, Tooltip, IconButton } from '@mui/material';
+import { Box, Typography, Paper, Grid, Skeleton, Alert, Card, CardContent, Stack, Chip, Tooltip, IconButton } from '@mui/material';
 import { WaterDrop, LocalHospital, Wc, CheckCircle, Cancel, HelpOutline, TrendingUp, TrendingDown, TrendingFlat, Download } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
+
+// Configure NProgress
+NProgress.configure({ 
+  showSpinner: false,
+  minimum: 0.1,
+  easing: 'ease',
+  speed: 500
+});
 
 const fetchWashData = async (filters) => {
   const params = new URLSearchParams(filters);
@@ -200,6 +209,7 @@ export default function WashDashboard() {
     const loadData = async () => {
       setLoading(true);
       setError(null);
+      NProgress.start();
       try {
         const data = await fetchWashData(filterPeriod);
         setWashData(data);
@@ -207,6 +217,7 @@ export default function WashDashboard() {
         setError(err.message);
       } finally {
         setLoading(false);
+        NProgress.done();
       }
     };
     loadData();
@@ -217,9 +228,86 @@ export default function WashDashboard() {
   };
 
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress />
-      <Typography variant="h6" sx={{ ml: 2 }}>Loading WASH Dashboard...</Typography>
+    <Box sx={{ p: 3 }}>
+      {/* Header Skeleton */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <Skeleton variant="text" width={300} height={40} />
+        <Skeleton variant="circular" width={40} height={40} />
+      </Stack>
+
+      {/* Period Selection Skeleton */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Skeleton variant="text" width={200} height={30} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width={150} height={24} />
+      </Paper>
+
+      {/* General Indicators Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Grid container spacing={2}>
+        {Array(8).fill(0).map((_, index) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+            <Card variant="outlined" sx={{ height: '100%' }}>
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <Skeleton variant="circular" width={24} height={24} />
+                  <Skeleton variant="text" width="80%" height={24} />
+                </Stack>
+                <Skeleton variant="rectangular" width={80} height={24} />
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Facility Availability Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Grid container spacing={2}>
+        {Array(5).fill(0).map((_, index) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+            <Card variant="outlined" sx={{ height: '100%' }}>
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <Skeleton variant="circular" width={24} height={24} />
+                  <Skeleton variant="text" width="80%" height={24} />
+                </Stack>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="100%" height={24} />
+                  <Skeleton variant="text" width="100%" height={24} />
+                  <Skeleton variant="text" width="100%" height={24} />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Problems Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Grid container spacing={2}>
+        {Array(4).fill(0).map((_, index) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+            <Card variant="outlined" sx={{ height: '100%' }}>
+              <CardContent>
+                <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <Skeleton variant="circular" width={24} height={24} />
+                  <Skeleton variant="text" width="80%" height={24} />
+                </Stack>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="100%" height={24} />
+                  <Skeleton variant="text" width="100%" height={24} />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Trends Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Skeleton variant="rectangular" width="100%" height={300} />
+        <Skeleton variant="text" width="70%" height={20} sx={{ mt: 2 }} />
+      </Paper>
     </Box>
   );
 
@@ -347,5 +435,3 @@ export default function WashDashboard() {
     </Box>
   );
 }
-
-

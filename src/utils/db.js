@@ -84,6 +84,19 @@ export async function createPool() {
   return mysql.createPool(dbConfig);
 }
 
+
+/**
+ * Get database connection configuration
+ * @returns {Object} Database configuration object
+ */
+export function getConnectionConfig() {
+  return {
+    ...dbConfig,
+    // Ensure password is not exposed in logs
+    password: dbConfig.password ? '***' : undefined
+  };
+}
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   if (pool) {

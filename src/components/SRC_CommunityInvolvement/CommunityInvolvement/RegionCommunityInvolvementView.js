@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import NProgress from 'nprogress';
 import {
@@ -232,6 +231,13 @@ export default function RegionCommunityInvolvementView({ filterParams, loadOnDem
   const [dataLoaded, setDataLoaded] = useState(!loadOnDemand);
   const title = 'Community Involvement';
 
+  // Add the missing handleViewModeChange function
+  const handleViewModeChange = (event, newMode) => {
+    if (newMode !== null) {
+      setViewMode(newMode);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     NProgress.start();
     setLoading(true);
@@ -436,12 +442,6 @@ export default function RegionCommunityInvolvementView({ filterParams, loadOnDem
   const involvementTypes = data ? transformDataToInvolvements(data) : [];
   const stats = data ? getSummaryStats(data) : { active: 0, total: 0, percent: 0, status: 'No Data' };
 
-  const handleViewModeChange = (event, newMode) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
-    }
-  };
-
   return (
     <Box sx={{ width: '100%' }}>
       {/* Region info and metadata */}
@@ -602,5 +602,3 @@ export default function RegionCommunityInvolvementView({ filterParams, loadOnDem
     </Box>
   );
 }
-
-

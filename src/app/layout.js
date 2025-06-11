@@ -4,6 +4,7 @@ import MUIProvider from "@/components/MUIProvider";
 import EmotionCache from "@/components/EmotionCache";
 import ClientProviders from "@/components/ClientProviders";
 import AppShell from '../components/AppShell';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 
 // Use Inter as a replacement for Geist (as Geist is not available in Google Fonts)
 const inter = Inter({
@@ -22,7 +23,7 @@ export const metadata = {
   title: "mSRC - Mobile School Report Card",
   description: "A platform for Ghana Education Service to collect and analyze school-level indicators",
   icons: {
-    icon: '/favicon.ico',
+    icon: "/favicon.ico",
   },
 };
 
@@ -33,9 +34,8 @@ export default function RootLayout({ children }) {
         <EmotionCache>
           <MUIProvider>
             <ClientProviders>
-              <AppShell>
-                {children}
-              </AppShell>
+              <ServiceWorkerRegistration />
+              <AppShell>{children}</AppShell>
             </ClientProviders>
           </MUIProvider>
         </EmotionCache>

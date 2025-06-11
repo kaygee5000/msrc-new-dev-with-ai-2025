@@ -6,7 +6,6 @@ import {
   Typography, 
   Paper, 
   Grid, 
-  CircularProgress, 
   Alert, 
   Card, 
   CardContent, 
@@ -20,7 +19,8 @@ import {
   MenuItem,
   Button,
   Breadcrumbs,
-  Link
+  Link,
+  Skeleton
 } from '@mui/material';
 import { 
   School, 
@@ -34,9 +34,25 @@ import {
   Assessment,
   Business,
   Verified,
-  Build
+  Build,
+  People,
+  Person,
+  Female
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import Avatar from '@mui/material/Avatar';
+import progressBar from '@/utils/nprogress';
+
+// Custom NProgress styles
+const npProgressStyle = `
+  #nprogress .bar {
+    background: #2196f3 !important;
+    height: 3px !important;
+  }
+  #nprogress .peg {
+    box-shadow: 0 0 10px #2196f3, 0 0 5px #2196f3 !important;
+  }
+`;
 
 const fetchTvetData = async (filters) => {
   const params = new URLSearchParams(filters);
@@ -287,13 +303,46 @@ export default function TvetDashboard() {
   
   // Available periods for filtering
   const [availablePeriods, setAvailablePeriods] = useState([]);
+  
+  // Years for period selector
+  const [availableYears, setAvailableYears] = useState([
+    '2023', '2024', '2025'
+  ]);
+  
+  // Terms for period selector
+  const [availableTerms, setAvailableTerms] = useState([
+    'Term 1', 'Term 2', 'Term 3'
+  ]);
+  
+  // Weeks for period selector
+  const [availableWeeks, setAvailableWeeks] = useState([
+    'Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 
+    'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10'
+  ]);
 
   useEffect(() => {
+    // Configure NProgress
+    progressBar.configure({ 
+      showSpinner: false,
+      minimum: 0.1,
+      easing: 'ease',
+      speed: 500,
+      trickleSpeed: 200, // Make progress more visible
+      parent: 'body' // Ensure it shows at the top of the page
+    });
+    
+    // Add custom styles to make NProgress more visible
+    const style = document.createElement('style');
+    style.textContent = npProgressStyle;
+    document.head.appendChild(style);
+    
     loadData();
+    
   }, []);
   
   // Handle period filter submission
   const handlePeriodSubmit = () => {
+    progressBar.start();
     loadData({
       year: selectedYear,
       term: selectedTerm,
@@ -326,6 +375,7 @@ export default function TvetDashboard() {
     setBreadcrumbs(newBreadcrumbs);
     
     // Load data for the selected level
+    progressBar.start();
     loadData({ level, levelId });
   };
 
@@ -339,6 +389,7 @@ export default function TvetDashboard() {
     // Load data for this level
     setSelectedLevel(breadcrumb.level);
     setSelectedLevelId(breadcrumb.id);
+    progressBar.start();
     loadData({ level: breadcrumb.level, levelId: breadcrumb.id });
   };
 
@@ -346,6 +397,8 @@ export default function TvetDashboard() {
   const loadData = async (filters = {}) => {
     try {
       setLoading(true);
+      progressBar.start();
+      
       const finalFilters = {
         year: filters.year || selectedYear,
         term: filters.term || selectedTerm,
@@ -383,6 +436,7 @@ export default function TvetDashboard() {
       setError(err.message);
     } finally {
       setLoading(false);
+      progressBar.done();
     }
   };
 
@@ -390,10 +444,139 @@ export default function TvetDashboard() {
     alert('Export functionality will be implemented here!');
   };
 
+  // Skeleton loading components
+  const SkeletonSummaryCard = () => (
+    <Card elevation={2} sx={{ height: '100%' }}>
+      <CardContent>
+        <Skeleton variant="text" width="60%" height={32} />
+        <Skeleton variant="text" width="40%" height={24} sx={{ mt: 1 }} />
+        <Skeleton variant="text" width="80%" height={24} sx={{ mt: 1 }} />
+      </CardContent>
+    </Card>
+  );
+  
+  const SkeletonChart = () => (
+    <Box sx={{ width: '100%', height: 300, p: 2 }}>
+      <Skeleton variant="rectangular" width="100%" height="100%" />
+    </Box>
+  );
+  
+  const SkeletonTable = () => (
+    <Box sx={{ width: '100%', p: 2 }}>
+      <Skeleton variant="text" width="100%" height={40} />
+      <Skeleton variant="text" width="100%" height={40} />
+      <Skeleton variant="text" width="100%" height={40} />
+      <Skeleton variant="text" width="100%" height={40} />
+      <Skeleton variant="text" width="100%" height={40} />
+    </Box>
+  );
+
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress />
-      <Typography variant="h6" sx={{ ml: 2 }}>Loading TVET Dashboard...</Typography>
+    <Box sx={{ p: 3 }}>
+      {/* Period Selector */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>Period Selection</Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel>Year</InputLabel>
+              <Select
+                value={selectedYear}
+                label="Year"
+                onChange={(e) => setSelectedYear(e.target.value)}
+                disabled={loading}
+              >
+                <MenuItem value="">All Years</MenuItem>
+                {availableYears.map(year => (
+                  <MenuItem key={year} value={year}>{year}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel>Term</InputLabel>
+              <Select
+                value={selectedTerm}
+                label="Term"
+                onChange={(e) => setSelectedTerm(e.target.value)}
+                disabled={loading}
+              >
+                <MenuItem value="">All Terms</MenuItem>
+                {availableTerms.map(term => (
+                  <MenuItem key={term} value={term}>{term}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel>Week</InputLabel>
+              <Select
+                value={selectedWeek}
+                label="Week"
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                disabled={loading}
+              >
+                <MenuItem value="">All Weeks</MenuItem>
+                {availableWeeks.map(week => (
+                  <MenuItem key={week} value={week}>{week}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid size={{ xs: 12 }} sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handlePeriodSubmit}
+              disabled={loading}
+            >
+              Load Data
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+      
+      {/* Skeleton loading state */}
+      <Grid container spacing={3}>
+        {/* Summary Cards */}
+        {[1, 2, 3, 4].map(i => (
+          <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
+            <SkeletonSummaryCard />
+          </Grid>
+        ))}
+        
+        {/* Charts */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Paper sx={{ p: 2, height: '100%' }}>
+            <Skeleton variant="text" width="50%" height={32} sx={{ mb: 2 }} />
+            <SkeletonChart />
+          </Paper>
+        </Grid>
+        
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ p: 2, height: '100%' }}>
+            <Skeleton variant="text" width="70%" height={32} sx={{ mb: 2 }} />
+            <SkeletonChart />
+          </Paper>
+        </Grid>
+        
+        {/* Tables */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: 2 }}>
+            <Skeleton variant="text" width="60%" height={32} sx={{ mb: 2 }} />
+            <SkeletonTable />
+          </Paper>
+        </Grid>
+        
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: 2 }}>
+            <Skeleton variant="text" width="60%" height={32} sx={{ mb: 2 }} />
+            <SkeletonTable />
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   );
 
@@ -610,7 +793,7 @@ export default function TvetDashboard() {
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
                 <Avatar sx={{ bgcolor: 'info.main' }}>
-                  <Man />
+                  <Person />
                 </Avatar>
                 <Box>
                   <Typography variant="body2" color="text.secondary">Boys Enrolled</Typography>
@@ -625,7 +808,7 @@ export default function TvetDashboard() {
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center">
                 <Avatar sx={{ bgcolor: 'secondary.main' }}>
-                  <Woman />
+                  <Female />
                 </Avatar>
                 <Box>
                   <Typography variant="body2" color="text.secondary">Girls Enrolled</Typography>
@@ -760,4 +943,3 @@ export default function TvetDashboard() {
     </Box>
   );
 }
-

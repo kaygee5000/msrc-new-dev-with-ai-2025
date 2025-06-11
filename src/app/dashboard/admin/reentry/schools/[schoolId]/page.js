@@ -1,11 +1,10 @@
 'use client';
-import { useEffect, use } from 'react';
+import { useEffect } from 'react';
 import ReentryEntityDetailView from '@/components/reentry/ReentryEntityDetailView';
 
 export default function SchoolDetailPage({ params }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = use(params);
-  const { schoolId } = unwrappedParams;
+  // Access schoolId directly from params
+  const { schoolId } = params;
   
   // Define breadcrumbs for this page
   const breadcrumbs = [

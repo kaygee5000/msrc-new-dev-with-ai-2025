@@ -1,11 +1,9 @@
 'use client';
-import { use } from 'react';
 import ReentryEntityDetailView from '@/components/reentry/ReentryEntityDetailView';
 
 export default function RegionDetailPage({ params }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = use(params);
-  const { regionId } = unwrappedParams;
+  // Access regionId directly from params
+  const { regionId } = params;
   
   // Define breadcrumbs for this page
   const breadcrumbs = [

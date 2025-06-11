@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { 
   Card, CardContent, Typography, Grid, Box, 
-  CircularProgress, Tabs, Tab, Paper, Divider,
-  Button
+  Tabs, Tab, Paper, Divider,
+  Button, Skeleton
 } from '@mui/material';
 import { 
   PersonOutline, School, AccountBalance, 
@@ -15,6 +15,16 @@ import DataTable from '../../components/DataTable';
 import Link from 'next/link';
 import { formatDate } from '@/utils/dates';
 import Image from 'next/image';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
+
+// Configure NProgress
+NProgress.configure({ 
+  showSpinner: false,
+  minimum: 0.1,
+  easing: 'ease',
+  speed: 500
+});
 
 // Custom TabPanel component for the tabbed interface
 function TabPanel(props) {
@@ -52,6 +62,7 @@ const DashboardPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        NProgress.start();
         const dashboardResponse = await fetch('/api/dashboard/stats');
         const dashboardResult = await dashboardResponse.json();
         setDashboardData(dashboardResult);
@@ -60,6 +71,7 @@ const DashboardPage = () => {
         setDashboardData(null);
       } finally {
         setLoading(false);
+        NProgress.done();
       }
     };
     fetchData();
@@ -71,8 +83,64 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
+      <Box sx={{ p: 2 }}>
+        {/* Summary Cards Skeleton */}
+        <Box sx={{ mb: 2, mt: 1 }}>
+          <Skeleton variant="text" width={300} height={40} />
+        </Box>
+        
+        {/* Entity Count Cards Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4].map((item) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={item}>
+              <Card>
+                <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                  <Box sx={{ width: '100%' }}>
+                    <Skeleton variant="text" width="60%" height={20} />
+                    <Skeleton variant="text" width="40%" height={30} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+        
+        {/* Submission Stats Skeleton */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          {[1, 2, 3, 4].map((item) => (
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={item}>
+              <Card>
+                <CardContent sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+                  <Box sx={{ width: '100%' }}>
+                    <Skeleton variant="text" width="60%" height={20} />
+                    <Skeleton variant="text" width="40%" height={30} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+        
+        {/* Analytics Tabs Skeleton */}
+        <Paper sx={{ width: '100%', mb: 4 }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', p: 1 }}>
+            <Skeleton variant="rectangular" width="70%" height={40} />
+          </Box>
+          <Box sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Skeleton variant="text" width="50%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" width="100%" height={350} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Skeleton variant="text" width="50%" height={30} sx={{ mb: 2 }} />
+                <Skeleton variant="rectangular" width="100%" height={350} />
+              </Grid>
+            </Grid>
+          </Box>
+        </Paper>
       </Box>
     );
   }

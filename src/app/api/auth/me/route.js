@@ -16,14 +16,29 @@ export async function GET(req) {
           success: false, 
           message: 'Not authenticated' 
         }, 
-        { status: 401 }
+        { 
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
       );
     }
     
-    // Return the user data from the session
+    // Return the user data from the session with caching headers
     return NextResponse.json({
       success: true,
       user: session.user
+    }, {
+      status: 200,
+      headers: {
+        // Cache for 15 minutes (900 seconds)
+        'Cache-Control': 'private, max-age=900',
+        // Add ETag for validation
+        'ETag': `"user-${session.user.id || session.user.email}-${Date.now()}"`,
+      }
     });
     
   } catch (error) {
@@ -33,7 +48,14 @@ export async function GET(req) {
         success: false, 
         message: 'Failed to get user data' 
       }, 
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
     );
   }
 }

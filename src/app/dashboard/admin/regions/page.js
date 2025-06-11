@@ -86,7 +86,7 @@ export default function RegionsAdmin() {
       }
       
       const data = await response.json();
-      console.log(data.regions, 'regions data');	
+      // console.log(data.regions, 'regions data');	
       
       if (Array.isArray(data.regions)) {
         setRegions(data.regions);

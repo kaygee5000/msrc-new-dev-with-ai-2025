@@ -6,7 +6,6 @@ import {
   Typography, 
   Paper, 
   Grid, 
-  CircularProgress, 
   Alert, 
   Card, 
   CardContent, 
@@ -21,7 +20,8 @@ import {
   MenuItem,
   Button,
   Breadcrumbs,
-  Link
+  Link,
+  Skeleton
 } from '@mui/material';
 import { 
   School, 
@@ -38,6 +38,16 @@ import {
   ChildCare
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import NProgress from 'nprogress';
+import 'nprogress/nprogress.css';
+
+// Configure NProgress
+NProgress.configure({ 
+  showSpinner: false,
+  minimum: 0.1,
+  easing: 'ease',
+  speed: 500
+});
 
 const fetchReentryData = async (filters) => {
   const params = new URLSearchParams(filters);
@@ -214,6 +224,7 @@ export default function ReentryDashboard() {
   const handleLevelChange = async (level, levelId, levelName) => {
     setSelectedLevel(level);
     setSelectedLevelId(levelId);
+    NProgress.start();
     
     // Update breadcrumbs
     const newBreadcrumbs = [...breadcrumbs];
@@ -239,6 +250,8 @@ export default function ReentryDashboard() {
   // Navigate to a specific breadcrumb
   const navigateToBreadcrumb = (index) => {
     const breadcrumb = breadcrumbs[index];
+    NProgress.start();
+    
     // Truncate breadcrumbs to this level
     const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
     setBreadcrumbs(newBreadcrumbs);
@@ -253,6 +266,7 @@ export default function ReentryDashboard() {
   const loadData = async (filters = {}) => {
     try {
       setLoading(true);
+      NProgress.start();
       const finalFilters = {
         ...filters,
         year: selectedYear || undefined,
@@ -292,6 +306,7 @@ export default function ReentryDashboard() {
       setError(`Error loading pregnancy & re-entry data: ${err.message}`);
     } finally {
       setLoading(false);
+      NProgress.done();
     }
   };
 
@@ -313,9 +328,96 @@ export default function ReentryDashboard() {
   };
 
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress />
-      <Typography variant="h6" sx={{ ml: 2 }}>Loading Pregnancy & Re-entry Dashboard...</Typography>
+    <Box sx={{ p: 3 }}>
+      {/* Header Skeleton */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <Skeleton variant="text" width={350} height={40} />
+        <Skeleton variant="circular" width={40} height={40} />
+      </Stack>
+
+      {/* Period Selection Skeleton */}
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Skeleton variant="text" width={200} height={30} sx={{ mb: 2 }} />
+        <Grid container spacing={2} alignItems="center">
+          <Grid size={{xs:12, sm:3}}>
+            <Skeleton variant="rectangular" width="100%" height={40} />
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <Skeleton variant="rectangular" width="100%" height={40} />
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <Skeleton variant="rectangular" width="100%" height={40} />
+          </Grid>
+          <Grid size={{xs:12, sm:3}}>
+            <Skeleton variant="rectangular" width="100%" height={40} />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Breadcrumbs Skeleton */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Skeleton variant="text" width="60%" height={24} />
+      </Paper>
+
+      {/* Summary Stats Skeleton */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {Array(4).fill(0).map((_, index) => (
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="70%" height={24} />
+                  <Skeleton variant="text" width="40%" height={30} />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Charts Skeleton */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Skeleton variant="text" width="50%" height={30} sx={{ mb: 2 }} />
+              <Skeleton variant="rectangular" width="100%" height={300} />
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Skeleton variant="text" width="50%" height={30} sx={{ mb: 2 }} />
+              <Skeleton variant="rectangular" width="100%" height={300} />
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Support Services Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Grid container spacing={3}>
+        {Array(2).fill(0).map((_, index) => (
+          <Grid size={{ xs: 12, md: 6 }} key={index}>
+            <Card>
+              <CardContent>
+                <Stack spacing={1}>
+                  <Skeleton variant="text" width="80%" height={24} />
+                  <Skeleton variant="rectangular" width="100%" height={100} />
+                  <Skeleton variant="text" width="40%" height={24} />
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Trends Skeleton */}
+      <Skeleton variant="text" width={250} height={30} sx={{ mt: 4, mb: 2 }} />
+      <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
+        <Skeleton variant="rectangular" width="100%" height={350} />
+      </Paper>
     </Box>
   );
 
@@ -686,4 +788,3 @@ export default function ReentryDashboard() {
     </Box>
   );
 }
-

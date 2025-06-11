@@ -1,11 +1,9 @@
 'use client';
-import { use } from 'react';
 import ReentryEntityDetailView from '@/components/reentry/ReentryEntityDetailView';
 
 export default function DistrictDetailPage({ params }) {
-  // Unwrap params using React.use()
-  const unwrappedParams = use(params);
-  const { districtId } = unwrappedParams;
+  // Access districtId directly from params
+  const { districtId } = params;
   
   // Define breadcrumbs for this page
   const breadcrumbs = [

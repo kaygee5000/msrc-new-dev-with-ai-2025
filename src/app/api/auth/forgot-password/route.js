@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getUserByEmail } from '@/utils/db';
 import TokenService from '@/utils/tokenService';
 import EmailService from '@/utils/emailService';
 
@@ -17,8 +16,16 @@ export async function POST(req) {
       );
     }
     
-    // Find user by email
-    const user = await getUserByEmail(email);
+    // Find user by email using the users API endpoint
+    const usersResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_APP_URL}/api/users?email=${encodeURIComponent(email)}`
+    );
+    
+    let user = null;
+    if (usersResponse.ok) {
+      const data = await usersResponse.json();
+      user = data.users && data.users.length > 0 ? data.users[0] : null;
+    }
     
     // For security reasons, don't reveal if the email exists or not
     // Just return success even if the email doesn't exist

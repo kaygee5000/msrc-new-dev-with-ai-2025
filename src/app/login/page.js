@@ -20,13 +20,15 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Divider
+  Divider,
+  Snackbar
 } from '@mui/material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Visibility, VisibilityOff, Email, Phone } from '@mui/icons-material';
 import ProgramSelectionDialog from '@/components/ProgramSelectionDialog';
 import { useAuth } from '@/context/AuthContext';
+import { useNotification } from '@/components/NotificationProvider';
 
 // Mark this page as statically generated
 export const dynamic = 'force-static';
@@ -34,6 +36,7 @@ export const dynamic = 'force-static';
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading: authLoading, error: authError, login, isAuthenticated, setSelectedProgram } = useAuth();
+  const { showNotification } = useNotification();
 
   // Map NextAuth error codes to user-friendly messages
   const friendlyErrors = {
@@ -78,6 +81,9 @@ export default function LoginPage() {
   // Check if user is already authenticated on component mount
   useEffect(() => {
     if (isAuthenticated) {
+      // Show success notification
+      showNotification('Login successful! Redirecting to dashboard...', 'success');
+      
       // If user has multiple program roles, show program selection
       if (user.programRoles && user.programRoles.length > 1) {
         setShowProgramDialog(true);
@@ -86,7 +92,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, showNotification]);
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {
@@ -218,6 +224,9 @@ export default function LoginPage() {
   const handleProgramSelect = (programId) => {
     // Update the selected program in the auth context
     setSelectedProgram(programId);
+    
+    // Show success notification
+    showNotification('Program selected successfully! Redirecting to dashboard...', 'success');
     
     // Close the dialog and redirect to dashboard
     setShowProgramDialog(false);

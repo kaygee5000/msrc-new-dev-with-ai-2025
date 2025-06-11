@@ -158,14 +158,14 @@ export default function RegionReportContainer({ filterParams, loadOnDemand = fal
         <Box sx={{mt: 2}}>
             <RegionSummary regionId={filterParams.region_id} year={filterParams.year} term={filterParams.term} />
             <Paper elevation={2} sx={{ mt: 1, overflow: 'hidden' }}>
-                {/* <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={currentTab} onChange={handleTabChange} aria-label="Region Report Categories" variant="fullWidth">
                         <Tab label="Main" {...a11yProps(0)} />
                         <Tab label="Community Involvement" {...a11yProps(1)} />
                         <Tab label="School Management" {...a11yProps(2)} />
                         <Tab label="School Grounds" {...a11yProps(3)} />
                     </Tabs>
-                </Box> */}
+                </Box>
 
                 {/* Main Tab Panel */}
                 <TabPanel value={currentTab} index={0}>
@@ -189,7 +189,7 @@ export default function RegionReportContainer({ filterParams, loadOnDemand = fal
                 </TabPanel>
 
                 {/* Community Involvement Tab Panel */}
-                <TabPanel value={currentTab} index={0}>
+                <TabPanel value={currentTab} index={1}>
                     <Typography variant="h6" gutterBottom>Region Community Involvement</Typography>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                         <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
@@ -210,7 +210,7 @@ export default function RegionReportContainer({ filterParams, loadOnDemand = fal
                 </TabPanel>
 
                 {/* School Management Tab Panel */}
-                <TabPanel value={currentTab} index={1}>
+                <TabPanel value={currentTab} index={2}>
                     <Typography variant="h6" gutterBottom>Region School Management</Typography>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                         <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
@@ -235,7 +235,7 @@ export default function RegionReportContainer({ filterParams, loadOnDemand = fal
                 </TabPanel>
 
                 {/* School Grounds Tab Panel */}
-                <TabPanel value={currentTab} index={2}>
+                <TabPanel value={currentTab} index={3}>
                     <Typography variant="h6" gutterBottom>Region School Grounds</Typography>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                         <Tabs value={effectiveSubTab} onChange={(e, v) => setSubTab(v)} variant="fullWidth">
