@@ -15,16 +15,7 @@ import DataTable from '../../components/DataTable';
 import Link from 'next/link';
 import { formatDate } from '@/utils/dates';
 import Image from 'next/image';
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
-
-// Configure NProgress
-NProgress.configure({ 
-  showSpinner: false,
-  minimum: 0.1,
-  easing: 'ease',
-  speed: 500
-});
+import progressBar from '@/utils/nprogress';
 
 // Custom TabPanel component for the tabbed interface
 function TabPanel(props) {
@@ -59,10 +50,13 @@ const DashboardPage = () => {
   const [currentTab, setCurrentTab] = useState(0);
 
   useEffect(() => {
+    // Initialize progressBar
+    progressBar.setup();
+    
     const fetchData = async () => {
       try {
         setLoading(true);
-        NProgress.start();
+        progressBar.start();
         const dashboardResponse = await fetch('/api/dashboard/stats');
         const dashboardResult = await dashboardResponse.json();
         setDashboardData(dashboardResult);
@@ -71,7 +65,7 @@ const DashboardPage = () => {
         setDashboardData(null);
       } finally {
         setLoading(false);
-        NProgress.done();
+        progressBar.done();
       }
     };
     fetchData();

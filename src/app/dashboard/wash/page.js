@@ -4,16 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Paper, Grid, Skeleton, Alert, Card, CardContent, Stack, Chip, Tooltip, IconButton } from '@mui/material';
 import { WaterDrop, LocalHospital, Wc, CheckCircle, Cancel, HelpOutline, TrendingUp, TrendingDown, TrendingFlat, Download } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
+import progressBar from '@/utils/nprogress';
 
-// Configure NProgress
-NProgress.configure({ 
-  showSpinner: false,
-  minimum: 0.1,
-  easing: 'ease',
-  speed: 500
-});
+// Configure progressBar
+progressBar.setup();
 
 const fetchWashData = async (filters) => {
   const params = new URLSearchParams(filters);
@@ -206,10 +200,12 @@ export default function WashDashboard() {
   const [filterPeriod, setFilterPeriod] = useState({ year: '2024', term: 'Term 1', level: 'region' }); // Default filter
 
   useEffect(() => {
+    progressBar.setup();
+    
     const loadData = async () => {
       setLoading(true);
       setError(null);
-      NProgress.start();
+      progressBar.start();
       try {
         const data = await fetchWashData(filterPeriod);
         setWashData(data);
@@ -217,7 +213,7 @@ export default function WashDashboard() {
         setError(err.message);
       } finally {
         setLoading(false);
-        NProgress.done();
+        progressBar.done();
       }
     };
     loadData();

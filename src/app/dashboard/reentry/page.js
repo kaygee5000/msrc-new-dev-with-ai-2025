@@ -38,16 +38,15 @@ import {
   ChildCare
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
-import NProgress from 'nprogress';
-import 'nprogress/nprogress.css';
+import progressBar from '@/utils/nprogress';
 
 // Configure NProgress
-NProgress.configure({ 
-  showSpinner: false,
-  minimum: 0.1,
-  easing: 'ease',
-  speed: 500
-});
+// NProgress.configure({ 
+//   showSpinner: false,
+//   minimum: 0.1,
+//   easing: 'ease',
+//   speed: 500
+// });
 
 const fetchReentryData = async (filters) => {
   const params = new URLSearchParams(filters);
@@ -224,7 +223,7 @@ export default function ReentryDashboard() {
   const handleLevelChange = async (level, levelId, levelName) => {
     setSelectedLevel(level);
     setSelectedLevelId(levelId);
-    NProgress.start();
+    progressBar.start();
     
     // Update breadcrumbs
     const newBreadcrumbs = [...breadcrumbs];
@@ -250,7 +249,7 @@ export default function ReentryDashboard() {
   // Navigate to a specific breadcrumb
   const navigateToBreadcrumb = (index) => {
     const breadcrumb = breadcrumbs[index];
-    NProgress.start();
+    progressBar.start();
     
     // Truncate breadcrumbs to this level
     const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
@@ -266,7 +265,7 @@ export default function ReentryDashboard() {
   const loadData = async (filters = {}) => {
     try {
       setLoading(true);
-      NProgress.start();
+      progressBar.start();
       const finalFilters = {
         ...filters,
         year: selectedYear || undefined,
@@ -306,7 +305,7 @@ export default function ReentryDashboard() {
       setError(`Error loading pregnancy & re-entry data: ${err.message}`);
     } finally {
       setLoading(false);
-      NProgress.done();
+      progressBar.done();
     }
   };
 

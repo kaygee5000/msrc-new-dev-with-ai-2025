@@ -43,17 +43,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import Avatar from '@mui/material/Avatar';
 import progressBar from '@/utils/nprogress';
 
-// Custom NProgress styles
-const npProgressStyle = `
-  #nprogress .bar {
-    background: #2196f3 !important;
-    height: 3px !important;
-  }
-  #nprogress .peg {
-    box-shadow: 0 0 10px #2196f3, 0 0 5px #2196f3 !important;
-  }
-`;
-
 const fetchTvetData = async (filters) => {
   const params = new URLSearchParams(filters);
   const response = await fetch(`/api/tvet-dashboard?${params.toString()}`);
@@ -321,20 +310,10 @@ export default function TvetDashboard() {
   ]);
 
   useEffect(() => {
-    // Configure NProgress
-    progressBar.configure({ 
-      showSpinner: false,
-      minimum: 0.1,
-      easing: 'ease',
-      speed: 500,
-      trickleSpeed: 200, // Make progress more visible
-      parent: 'body' // Ensure it shows at the top of the page
-    });
+    // Use the setup method from the progressBar utility
+    progressBar.setup();
     
-    // Add custom styles to make NProgress more visible
-    const style = document.createElement('style');
-    style.textContent = npProgressStyle;
-    document.head.appendChild(style);
+    // No need to add custom styles here as they're already in the utility
     
     loadData();
     
