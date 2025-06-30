@@ -806,7 +806,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
                     <FormLabel component="legend">
-                      Q14. How effective is the teacher's time management?
+                      Q14. How effective is the time management of the teacher?
                     </FormLabel>
                     <RadioGroup
                       name="q14_time_management"
@@ -914,7 +914,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
                     <FormLabel component="legend">
-                      Q20. How well does the teacher connect to students' prior knowledge?
+                      Q20. How well does the teacher connect to prior knowledge of students?
                     </FormLabel>
                     <RadioGroup
                       name="q20_prior_knowledge"
@@ -966,7 +966,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
                     <FormLabel component="legend">
-                      Q22. How effective are the teacher's questioning techniques?
+                      Q22. How effective are the questioning techniques of the teacher?
                     </FormLabel>
                     <RadioGroup
                       name="q22_questioning_techniques"
@@ -1154,7 +1154,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
                     <FormLabel component="legend">
-                      Q31. How clear are the teacher's instructions to students?
+                      Q31. How clear are the instructions of the teacher to students?
                     </FormLabel>
                     <RadioGroup
                       name="q31_clear_instructions"
@@ -1173,7 +1173,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <FormControl component="fieldset" fullWidth sx={{ mb: 3 }}>
                     <FormLabel component="legend">
-                      Q32. Is the language used appropriate for the students' level?
+                      Q32. Is the language used appropriate for the level of students?
                     </FormLabel>
                     <RadioGroup
                       name="q32_language_appropriate"
