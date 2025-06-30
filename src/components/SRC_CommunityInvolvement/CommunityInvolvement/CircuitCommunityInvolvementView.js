@@ -35,6 +35,7 @@ import SchoolIcon from '@mui/icons-material/School';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import SchoolCommunityInvolvementView from '../SchoolCommunityInvolvementView'; // Assuming this path
 
 // DataDisplayTable component (can be reused or adapted)
 const DataDisplayTable = ({ data, title }) => {

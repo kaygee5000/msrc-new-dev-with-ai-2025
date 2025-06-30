@@ -107,7 +107,7 @@ export default function DistrictOutputEditPage() {
     if (isAuthenticated && itineraryId) {
       fetchData();
     }
-  }, [isAuthenticated, itineraryId]);
+  }, [isAuthenticated, itineraryId, fetchExistingSubmission]);
   
   // Filter districts when region changes
   useEffect(() => {
@@ -122,7 +122,7 @@ export default function DistrictOutputEditPage() {
   }, [formData.region_id, districts]);
   
   // Fetch existing submission if available
-  const fetchExistingSubmission = async () => {
+  const fetchExistingSubmission = useCallback(async () => {
     try {
       const response = await fetch(`/api/rtp/output/district?itineraryId=${itineraryId}`);
       if (response.ok) {
@@ -158,7 +158,7 @@ export default function DistrictOutputEditPage() {
     } catch (error) {
       console.error('Error fetching existing submission:', error);
     }
-  };
+  }, [itineraryId, user.id, districts]);
   
   // Redirect if not authenticated
   useEffect(() => {

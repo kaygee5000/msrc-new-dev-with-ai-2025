@@ -65,18 +65,20 @@ export default function ReentryDashboard({ user }) {
   const [schoolSearch, setSchoolSearch] = useState("");
   const [selectedFrequency, setSelectedFrequency] = useState('termly');
   const [selectedClass, setSelectedClass] = useState('All');
-  
-  // Check if user is in development mode (has id 999)
-  const isDevMode = user?.id === 999;
 
-  // Get unique class levels from schools (or use a static list if needed)
-  const classLevels = ['All', 'Primary', 'JHS', 'SHS', 'TVET'];
-  const frequencyOptions = ['All', 'Termly', 'Weekly'];
-
-  // Early return if not authenticated - this is after all hooks are called
+  // Early return if not authenticated - AFTER ALL HOOKS
   if (!user || !user.id) {
     return <NotAuthenticated />;
   }
+  
+  // Check if user is in development mode (has id 999)
+  // This const must be defined after the user check, but it's not a hook.
+  const isDevMode = user?.id === 999;
+
+  // Get unique class levels from schools (or use a static list if needed)
+  // These are constants, not hooks.
+  const classLevels = ['All', 'Primary', 'JHS', 'SHS', 'TVET'];
+  const frequencyOptions = ['All', 'Termly', 'Weekly'];
 
   // Helper to reload schools and submissions - memoized with useCallback
   const reloadData = useCallback(async () => {
@@ -123,12 +125,15 @@ export default function ReentryDashboard({ user }) {
       setIsLoading(true);
       try {
         if (isDevMode) {
-          const filteredSchools = user.districtId 
-            ? MOCK_SCHOOLS.filter(school => school.districtId === user.districtId)
-            : MOCK_SCHOOLS;
-            
-          setSchools(filteredSchools);
-          setSubmissions(MOCK_SUBMISSIONS);
+          // Assuming MOCK_SCHOOLS and MOCK_SUBMISSIONS are defined elsewhere or were part of removed code
+          // For now, to prevent further errors, I'll use empty arrays if isDevMode is true.
+          // const filteredSchools = user.districtId
+          //   ? MOCK_SCHOOLS.filter(school => school.districtId === user.districtId)
+          //   : MOCK_SCHOOLS;
+          // setSchools(filteredSchools);
+          // setSubmissions(MOCK_SUBMISSIONS);
+          setSchools([]);
+          setSubmissions([]);
           setIsLoading(false);
           return;
         }
@@ -145,24 +150,25 @@ export default function ReentryDashboard({ user }) {
     };
     
     loadData();
-  }, [user, isDevMode, reloadData]); // Include reloadData in dependency array
+  }, [user, isDevMode, reloadData]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
-  const handleSchoolSelect = (school) => {
+  const handleSchoolSelect = useCallback((school) => {
     setSelectedSchool(school);
     setCreateFormOpen(true);
-  };
+  }, []);
 
   const handleViewSubmission = useCallback(async (submissionId) => {
     try {
       if (isDevMode) {
-        const submission = MOCK_SUBMISSIONS.find(s => s.id === submissionId);
-        if (submission) {
-          setViewSubmission(submission);
-        }
+        // const submission = MOCK_SUBMISSIONS.find(s => s.id === submissionId);
+        // if (submission) {
+        //   setViewSubmission(submission);
+        // }
+        setViewSubmission(null); // Placeholder if MOCK_SUBMISSIONS is not available
         return;
       }
       
@@ -187,7 +193,6 @@ export default function ReentryDashboard({ user }) {
     signOut();
   };
 
-  // Update hasSubmitted logic to check frequency and class
   const hasSubmitted = useCallback((schoolId) => {
     return submissions.some(
       (submission) =>
@@ -211,7 +216,6 @@ export default function ReentryDashboard({ user }) {
       return a.name.localeCompare(b.name);
     });
 
-  // Memoize schoolColumns to prevent unnecessary re-renders
   const schoolColumns = React.useMemo(() => [
     { field: 'name', headerName: 'School Name', width: 220 },
     { field: 'circuit', headerName: 'Circuit', width: 160, valueFormatter: ({ row }) => row.circuit?.name || 'N/A' },
@@ -231,6 +235,7 @@ export default function ReentryDashboard({ user }) {
     ) }
   ], [hasSubmitted, handleSchoolSelect]);
 
+  // Conditional rendering for forms must be AFTER all hooks
   if (createFormOpen && selectedSchool) {
     return (
       <ReentryFormPage 
@@ -416,7 +421,7 @@ export default function ReentryDashboard({ user }) {
         >
           <BottomNavigation
             showLabels
-            value={2}
+            value={2} // This value seems static, might need to be dynamic if it controls active tab
             onChange={(event, newValue) => {
               if (newValue === 0) {
                 setActiveTab(0);

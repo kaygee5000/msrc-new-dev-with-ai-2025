@@ -193,7 +193,7 @@ export default function ConnectionStatus() {
                 {hasDatabaseError && (
                   <>
                     <li>The database server is experiencing issues</li>
-                    <li>There's a connection error between the app server and database</li>
+                    <li>There&apos;s a connection error between the app server and database</li>
                     <li>A query failed due to SQL or other database errors</li>
                   </>
                 )}

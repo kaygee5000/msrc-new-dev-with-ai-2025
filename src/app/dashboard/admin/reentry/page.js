@@ -191,7 +191,7 @@ export default function ReentryDashboard() {
   const [selectedTrendMetricKey, setSelectedTrendMetricKey] = useState(trendMetrics[0].key); // Default to first metric
 
   // Fetch available periods
-  const fetchPeriods = async (entityType = null, entityId = null) => {
+  const fetchPeriods = useCallback(async (entityType = null, entityId = null) => {
     try {
       // Build query parameters for the periods API using manual query string
       const queryParts = [];
@@ -291,10 +291,10 @@ export default function ReentryDashboard() {
         endDate: null
       });
     }
-  };
+  }, [updateAvailableWeeks]); // Corrected dependencies
 
   // Update available weeks based on selected year and term
-  const updateAvailableWeeks = (year, term, groupedPeriods = periodOptions.groupedPeriods) => {
+  const updateAvailableWeeks = useCallback((year, term, groupedPeriods = periodOptions.groupedPeriods) => {
     if (groupedPeriods && groupedPeriods[year] && groupedPeriods[year][term]) {
       const availableWeeks = groupedPeriods[year][term].map(w => ({
         value: w.week,
@@ -320,7 +320,7 @@ export default function ReentryDashboard() {
         weeks: []
       }));
     }
-  };
+  }, [periodOptions.groupedPeriods, timeRange.week]);
 
   // Handle period selection changes
   const handleYearChange = (event) => {
@@ -370,7 +370,7 @@ export default function ReentryDashboard() {
   };
 
   // Fetch data from API
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -510,7 +510,7 @@ export default function ReentryDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange.year, timeRange.term, timeRange.week]);
 
   // Function to fetch trend data
   const fetchTrendData = useCallback(async (view, currentFilters) => {
@@ -554,7 +554,7 @@ export default function ReentryDashboard() {
   useEffect(() => {
     // First fetch available periods
     fetchPeriods();
-  }, []);
+  }, [fetchPeriods]);
 
   // Fetch dashboard data when period changes or on initial load
   useEffect(() => {
@@ -563,7 +563,7 @@ export default function ReentryDashboard() {
       fetchData();
       fetchTrendData(trendViewBy, timeRange);
     }
-  }, [timeRange.year, timeRange.term, timeRange.week, trendViewBy]);
+  }, [timeRange, trendViewBy, fetchData, fetchTrendData]);
 
   // Update trend chart options based on API data
   const getTrendChartOptions = (metricName, dataKey) => {
