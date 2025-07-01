@@ -271,10 +271,10 @@ export default function QuestionsManagementPage({ params }) {
     if (itineraryId) {
       fetchItineraryData();
     }
-  }, [itineraryId, categoryFilter]);
+  }, [itineraryId, categoryFilter, selectedCategory, selectedType, search, applyFilters]);
 
   // Apply filters to questions
-  const applyFilters = (questionList, categoryId, type, searchTerm) => {
+  const applyFilters = useCallback((questionList, categoryId, type, searchTerm) => {
     let filtered = [...questionList];
     
     // Apply category filter
@@ -297,7 +297,7 @@ export default function QuestionsManagementPage({ params }) {
     }
     
     setFilteredQuestions(filtered);
-  };
+  }, []); // Added empty dependency array
   
   // Handle search input change
   const handleSearchChange = (e) => {
@@ -745,8 +745,8 @@ export default function QuestionsManagementPage({ params }) {
                         <Typography variant="body1" sx={{ py: 2 }}>
                           No questions found. Try adjusting your filters or adding new questions.
                         </Typography>
-                        <Button 
-                          variant="contained" 
+                        <Button
+                          variant="contained"
                           startIcon={<AddIcon />}
                           onClick={() => handleOpenQuestionDialog()}
                           sx={{ mt: 1 }}
@@ -981,7 +981,7 @@ export default function QuestionsManagementPage({ params }) {
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    No options added yet. Click "Add Option" to create answer choices.
+                    No options added yet. Click &quot;Add Option&quot; to create answer choices.
                   </Typography>
                 )}
               </Grid>
@@ -1013,7 +1013,7 @@ export default function QuestionsManagementPage({ params }) {
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the question: "{currentQuestion?.question_text}"? 
+            Are you sure you want to delete the question: &quot;{currentQuestion?.question_text}&quot;?
             This action cannot be undone.
           </DialogContentText>
         </DialogContent>

@@ -55,13 +55,13 @@ export default function UsersList() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalUsers, setTotalUsers] = useState(0);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, userId: null, userName: '' });
-  
+
   // Fetch users on component mount and when filters change
   useEffect(() => {
     fetchUsers();
-  }, [page, rowsPerPage, typeFilter]);
+  }, [page, rowsPerPage, typeFilter, fetchUsers]);
   
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -95,7 +95,7 @@ export default function UsersList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rowsPerPage, typeFilter, searchTerm]);
   
   const handleSearch = () => {
     setPage(1); // Reset to first page

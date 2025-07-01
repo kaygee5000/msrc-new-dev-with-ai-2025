@@ -436,7 +436,7 @@ export default function Circuits() {
                   <TableRow>
                     <TableCell colSpan={5} align="center">
                       <Typography variant="body1" sx={{ py: 3 }}>
-                        No circuits found. Click the "Add Circuit" button to create one.
+                        No circuits found. Click the &quot;Add Circuit&quot; button to create one.
                       </Typography>
                     </TableCell>
                   </TableRow>

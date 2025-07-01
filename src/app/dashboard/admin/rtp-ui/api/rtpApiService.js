@@ -161,7 +161,7 @@ export async function getDocumentUploads(useMockData = true) {
   return fetchData('documents', useMockData, mockDocumentUploads);
 }
 
-export default {
+const RtpApiService = {
   getAllSubmissions,
   getRecentSubmissions,
   getSubmissionById,
@@ -171,3 +171,5 @@ export default {
   getFilters,
   getDocumentUploads
 };
+
+export default RtpApiService;

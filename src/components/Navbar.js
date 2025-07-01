@@ -27,6 +27,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import PersonIcon from '@mui/icons-material/Person';
 import { useSession } from "next-auth/react";
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ProgramSwitcher from '@/components/ProgramSelector/index';
 import { useAuth } from '@/context/AuthContext';
@@ -255,12 +256,12 @@ export default function Navbar() {
               {/* Logo/Brand */}
               <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <img 
+                  <Image
                     src="/assets/msrc-logo.70a4620a.png" 
                     alt="MSRC Logo" 
+                    width={135} // Approximate width based on 40px height and typical logo aspect ratio
+                    height={40}
                     style={{ 
-                      height: '40px', 
-                      width: 'auto', 
                       marginRight: '8px' 
                     }} 
                   />

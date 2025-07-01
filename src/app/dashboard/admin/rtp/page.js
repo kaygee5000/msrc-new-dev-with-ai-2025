@@ -241,7 +241,7 @@ export default function RTPOverviewPage() {
         })
         .finally(() => setTrendLoading(false));
     }
-  }, [activeItinerary]);
+  }, [activeItinerary, stats]);
 
   useEffect(() => {
     const fetchRTPData = async () => {

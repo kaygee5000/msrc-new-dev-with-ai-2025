@@ -184,7 +184,7 @@ export default function ConsolidatedChecklistList() {
                   No checklists found
                 </Typography>
                 <Typography variant="body1" color="text.secondary" paragraph>
-                  You haven't submitted any consolidated checklists yet.
+                  You haven&apos;t submitted any consolidated checklists yet.
                 </Typography>
                 <Button
                   variant="contained"

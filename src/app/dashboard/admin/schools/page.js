@@ -499,7 +499,7 @@ export default function Schools() {
                   <TableRow>
                     <TableCell colSpan={7} align="center">
                       <Typography variant="body1" sx={{ py: 3 }}>
-                        No schools found. Click the "Add School" button to create one.
+                        No schools found. Click the &quot;Add School&quot; button to create one.
                       </Typography>
                     </TableCell>
                   </TableRow>

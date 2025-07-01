@@ -653,7 +653,7 @@ export async function submitSurvey(surveyData, useMockData = true) {
   }
 }
 
-export default {
+const RTPApiService = {
   getAllSubmissions,
   getRecentSubmissions,
   getSubmissionById,
@@ -663,3 +663,5 @@ export default {
   getFilters,
   submitSurvey
 };
+
+export default RTPApiService;

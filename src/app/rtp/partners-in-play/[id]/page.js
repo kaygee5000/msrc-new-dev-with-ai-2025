@@ -204,7 +204,7 @@ export default function PartnersInPlayWithItinerary({ params }) {
     if (isAuthenticated) {
       fetchInitialData();
     }
-  }, [isAuthenticated, itineraryId, user?.name]);
+  }, [isAuthenticated, itineraryId, user?.name, user?.first_name, user?.last_name]);
   
   // Fetch districts when a region is selected
   useEffect(() => {

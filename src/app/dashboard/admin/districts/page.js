@@ -391,7 +391,7 @@ export default function Districts() {
                   <TableRow>
                     <TableCell colSpan={4} align="center">
                       <Typography variant="body1" sx={{ py: 3 }}>
-                        No districts found. Click the "Add District" button to create one.
+                        No districts found. Click the &quot;Add District&quot; button to create one.
                       </Typography>
                     </TableCell>
                   </TableRow>

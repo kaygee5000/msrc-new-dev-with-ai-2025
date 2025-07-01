@@ -350,7 +350,7 @@ export default function RegionsAdmin() {
                     <TableRow>
                       <TableCell colSpan={5} align="center">
                         <Typography variant="body1" sx={{ py: 3 }}>
-                          No regions found. Click the "Add Region" button to create one.
+                          No regions found. Click the &quot;Add Region&quot; button to create one.
                         </Typography>
                       </TableCell>
                     </TableRow>

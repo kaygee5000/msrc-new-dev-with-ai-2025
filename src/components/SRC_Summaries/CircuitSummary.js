@@ -53,7 +53,7 @@ export default function CircuitSummary({ circuitId: entityId, selectedPeriod = {
       setStats({});
     }
     setLoading(false);
-  }, [entityId, year, term]);
+  }, [entityId, year, term, week]);
 
   useEffect(() => {
     fetchSummaryData();
