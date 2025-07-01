@@ -84,7 +84,7 @@ export default function ProgramRoleAssignment({
     // } else {
     //   setInitialLoading(false);
     // }
-  }, [userId, initialProgramRoles]);
+  }, [userId, initialProgramRoles, onProgramRolesChange]);
 
   // Fetch available programs
   useEffect(() => {
@@ -523,7 +523,7 @@ export default function ProgramRoleAssignment({
       
       {userProgramRoles.length === 0 ? (
         <Alert severity="info">
-          This user doesn't have access to any programs yet. {!readOnly && 'Click "Add Program Role" to grant program access.'}
+          This user doesn&apos;t have access to any programs yet. {!readOnly && 'Click &quot;Add Program Role&quot; to grant program access.'}
         </Alert>
       ) : (
         <List>

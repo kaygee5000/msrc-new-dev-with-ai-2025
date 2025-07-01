@@ -127,7 +127,7 @@ export default function SurveyDetailView({ entityType, entityName, region, distr
         (doc.school && schools.some(s => s.name === doc.school))
       ));
     }
-  }, [entityType, entityName]);
+  }, [entityType, entityName, schools]);
 
   // Handle teacher selection
   const handleTeacherSelect = (teacherName) => {

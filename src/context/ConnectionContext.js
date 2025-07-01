@@ -25,7 +25,7 @@ export function ConnectionProvider({ children }) {
      process.env.DEV_MODE === 'true');
 
   // Function to actively check connection by sending a ping request
-  const checkConnection = async () => {
+  const checkConnection = useCallback(async () => {
     if (connectionChecking) return;
     
     setConnectionChecking(true);
@@ -80,7 +80,7 @@ export function ConnectionProvider({ children }) {
     } finally {
       setConnectionChecking(false);
     }
-  };
+  }, [connectionChecking, isOnline, hasDatabaseError]);
 
   // Handle browser online/offline events
   useEffect(() => {
@@ -114,7 +114,7 @@ export function ConnectionProvider({ children }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [checkConnection, isDev]);
 
   // Create value object
   const value = {

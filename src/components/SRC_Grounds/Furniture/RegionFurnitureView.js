@@ -33,6 +33,10 @@ import SanitizerIcon from '@mui/icons-material/Sanitizer';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import DeskIcon from '@mui/icons-material/Desk';
+import ChairIcon from '@mui/icons-material/Chair';
+import SchoolIcon from '@mui/icons-material/School';
+import EventSeatIcon from '@mui/icons-material/EventSeat';
 
 // Import the enhanced DistrictFurnitureView for drill-down
 import DistrictFurnitureView from './DistrictFurnitureView';

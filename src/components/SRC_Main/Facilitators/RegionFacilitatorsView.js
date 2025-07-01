@@ -34,6 +34,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import PersonIcon from '@mui/icons-material/Person';
 
 // Import the enhanced District and Circuit views for drill-down
 import DistrictFacilitatorsView from './DistrictFacilitatorsView';

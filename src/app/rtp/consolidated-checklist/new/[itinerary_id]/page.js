@@ -190,7 +190,7 @@ export default function NewConsolidatedChecklist({ params }) {
     if (isAuthenticated) {
       fetchInitialData();
     }
-  }, [isAuthenticated, itineraryId, user]);
+  }, [isAuthenticated, itineraryId, user, formData.region_id, formData.district_id, formData.circuit_id, formData.school_id, formData.assessment_date]);
   
   // Fetch districts when a region is selected
   useEffect(() => {
@@ -827,7 +827,7 @@ export default function NewConsolidatedChecklist({ params }) {
                         )}
                       </Box>
                       <FormHelperText>
-                        Upload the school's LtP implementation plan (PDF or Word document)
+                        Upload the school&apos;s LtP implementation plan (PDF or Word document)
                       </FormHelperText>
                     </FormControl>
                   </Grid>
@@ -980,7 +980,7 @@ export default function NewConsolidatedChecklist({ params }) {
                 Consolidated Checklists
               </Button>
               {' / '}
-              <span style={{ marginLeft: '4px' }}>New Checklist</span>
+              <span style={{ marginLeft: "4px" }}>New Checklist</span>
             </Typography>
           </Box>
           

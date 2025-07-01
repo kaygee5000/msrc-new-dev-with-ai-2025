@@ -106,10 +106,12 @@ export function calculateStats(submissions) {
   };
 }
 
-export default {
+const RTPDataUtils = {
   formatDate,
   calculatePercentage,
   capPercentage,
   groupSubmissionsByEntity,
   calculateStats
 };
+
+export default RTPDataUtils;

@@ -1370,7 +1370,7 @@ export default function PartnersInPlayPage() {
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Q63. What are the teacher's main strengths in implementing RTP/LtP approaches?"
+                    label="Q63. What are the teacher&apos;s main strengths in implementing RTP/LtP approaches?"
                     name="q63_strengths"
                     value={formData.q63_strengths}
                     onChange={handleChange}
@@ -1413,25 +1413,25 @@ export default function PartnersInPlayPage() {
                 <ListItem>
                   <ListItemText 
                     primary="School" 
-                    secondary={schools.find(s => s.id.toString() === formData.school_id)?.name || 'Not selected'} 
+                    secondary={schools.find(s => s.id.toString() === formData.school_id)?.name || '&apos;Not selected&apos;'}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
                     primary="Teacher" 
-                    secondary={formData.teacher_name || 'Not provided'} 
+                    secondary={formData.teacher_name || '&apos;Not provided&apos;'}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
                     primary="Class Level" 
-                    secondary={formData.class_level || 'Not selected'} 
+                    secondary={formData.class_level || '&apos;Not selected&apos;'}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
                     primary="Subject" 
-                    secondary={formData.subject || 'Not selected'} 
+                    secondary={formData.subject || '&apos;Not selected&apos;'}
                   />
                 </ListItem>
                 <Divider />
@@ -1500,7 +1500,7 @@ export default function PartnersInPlayPage() {
                 type="submit"
                 disabled={saving}
               >
-                {saving ? 'Submitting...' : 'Submit'}
+                {saving ? 'Submitting&apos;...' : 'Submit'}
               </Button>
             ) : (
               <Button

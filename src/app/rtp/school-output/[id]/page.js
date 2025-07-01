@@ -75,7 +75,7 @@ export default function SchoolOutputForm({ params }) {
       fetchRegions();
       fetchQuestions();
     }
-  }, [isAuthenticated, itineraryId]);
+  }, [isAuthenticated, itineraryId, fetchItineraryDetails]); // Added fetchItineraryDetails
   
   // Redirect if not authenticated
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function SchoolOutputForm({ params }) {
   }, [isAuthenticated, isLoading, router]);
   
   // Fetch itinerary details from backend
-  const fetchItineraryDetails = async () => {
+  const fetchItineraryDetails = useCallback(async () => {
     try {
       const res = await fetch(`/api/rtp/itineraries/${itineraryId}`);
       if (!res.ok) throw new Error('Failed to load itinerary');
@@ -95,7 +95,7 @@ export default function SchoolOutputForm({ params }) {
     } catch (e) {
       console.error('Error loading itinerary:', e);
     }
-  };
+  }, [itineraryId]);
   
   // Fetch regions
   const fetchRegions = async () => {

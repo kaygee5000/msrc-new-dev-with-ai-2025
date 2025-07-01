@@ -39,7 +39,7 @@ const EntitySummary = ({
   // selectedPeriod is now controlled by props: controlledSelectedPeriod and onPeriodChange
 
   // Map entity types to API endpoints
-  const endpoints = {
+  const endpoints = React.useMemo(() => ({
     school: {
       stats: (id, params) => `/api/schools/${id}/stats${params ? `?${new URLSearchParams(params)}` : ''}`,
       periods: '/api/statistics/periods'
@@ -56,7 +56,7 @@ const EntitySummary = ({
       stats: (id, params) => `/api/regions/${id}/stats${params ? `?${new URLSearchParams(params)}` : ''}`,
       periods: '/api/statistics/periods'
     }
-  };
+  }), []); // Since the structure of endpoints is static, an empty dependency array is fine.
 
   // Reset suggestion flag if entityType changes, allowing new suggestion for new type
   useEffect(() => {
@@ -115,7 +115,7 @@ const EntitySummary = ({
       isMounted = false;
       controller.abort();
     };
-  }, [entityType, showPeriodSelector]); // Removed onPeriodChange and controlledSelectedPeriod from deps
+  }, [entityType, showPeriodSelector, endpoints, controlledSelectedPeriod?.year, onPeriodChange]);
 
   // Fetch statistics when entityId or period changes
   useEffect(() => {
@@ -163,7 +163,7 @@ const EntitySummary = ({
     };
     
     fetchStats();
-  }, [entityId, controlledSelectedPeriod.year, controlledSelectedPeriod.term, controlledSelectedPeriod.week, entityType]);
+  }, [entityId, controlledSelectedPeriod?.year, controlledSelectedPeriod?.term, controlledSelectedPeriod?.week, entityType, endpoints]);
 
   const handlePeriodChange = (field, value, isInitialSetup = false) => {
     if (!onPeriodChange) return;
