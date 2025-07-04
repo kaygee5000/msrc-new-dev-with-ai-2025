@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HierarchyViewPage from '../../app/dashboard/admin/rtp/hierarchy-view/[entityType]/[entityName]/page';
-import * as rtpApiService from '../../utils/RTP_apiService';
+// import * as rtpApiService from '../../utils/RTP_apiService'; // Removed to avoid redeclaration
 import { RTP_DataSourceProvider } from '../../context/RTP_DataSourceContext';
 import * as dataUtils from '../../utils/RTP_dataUtils';
 
@@ -60,7 +60,18 @@ jest.mock('@mui/x-date-pickers/AdapterDateFns', () => ({
 }));
 
 // Mock the API service and data utilities
-jest.mock('../../utils/RTP_apiService');
+// jest.mock('../../utils/RTP_apiService'); // Will use specific mock below
+import rtpApiService from '../../utils/RTP_apiService'; // Use default import
+
+jest.mock('../../utils/RTP_apiService', () => ({
+  __esModule: true,
+  default: {
+    getSubmissionsByEntity: jest.fn(),
+    // Add other functions that might be called by the component
+  },
+  // Mock named exports if any are used directly and need mocking
+}));
+
 jest.mock('../../utils/RTP_dataUtils', () => ({
   ...jest.requireActual('../../utils/RTP_dataUtils'),
   groupSubmissionsByEntity: jest.fn(),
@@ -68,20 +79,16 @@ jest.mock('../../utils/RTP_dataUtils', () => ({
 }));
 
 // Mock Next.js navigation hooks
+const mockUseRouter = jest.fn();
+const mockUsePathname = jest.fn();
+const mockUseParams = jest.fn();
+const mockUseSearchParams = jest.fn();
+
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: jest.fn(),
-    back: jest.fn(),
-    forward: jest.fn(),
-    refresh: jest.fn(),
-    replace: jest.fn(),
-    prefetch: jest.fn()
-  }),
-  usePathname: () => '/dashboard/admin/rtp/hierarchy-view/district/Test District',
-  useParams: () => ({ entityType: 'district', entityName: 'Test District' }),
-  useSearchParams: () => ({
-    get: jest.fn()
-  })
+  useRouter: mockUseRouter,
+  usePathname: mockUsePathname,
+  useParams: mockUseParams,
+  useSearchParams: mockUseSearchParams,
 }));
 
 // Mock data for testing
@@ -151,9 +158,24 @@ describe('Hierarchy View Page', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
-    
-    // Setup default mock implementations
+
+    // Setup default mock implementations for navigation hooks
+    mockUseRouter.mockImplementation(() => ({
+      push: jest.fn(),
+      back: jest.fn(),
+      forward: jest.fn(),
+      refresh: jest.fn(),
+      replace: jest.fn(),
+      prefetch: jest.fn()
+    }));
+    mockUsePathname.mockImplementation(() => '/dashboard/admin/rtp/hierarchy-view/district/Test District');
+    mockUseParams.mockImplementation(() => ({ entityType: 'district', entityName: 'Test District' }));
+    mockUseSearchParams.mockImplementation(() => ({ get: jest.fn() }));
+
+    // Setup default mock implementations for API service and data utils
+    // Assuming rtpApiService from the import IS the mocked default export
     rtpApiService.getSubmissionsByEntity.mockResolvedValue(mockSubmissions);
+
     dataUtils.groupSubmissionsByEntity.mockReturnValue({
       'School A': [mockSubmissions[0], mockSubmissions[2]],
       'School B': [mockSubmissions[1]]
@@ -185,40 +207,33 @@ describe('Hierarchy View Page', () => {
   it('renders hierarchy view after loading', async () => {
     renderWithProvider(<HierarchyViewPage />);
     
-    // Wait for loading to complete
     await waitFor(() => {
+      expect(screen.getByText('District: Test District')).toBeInTheDocument();
+      expect(screen.getByText('School A')).toBeInTheDocument();
+      expect(screen.getByText('School B')).toBeInTheDocument();
+      expect(screen.getByText('85%')).toBeInTheDocument(); // School A average score
+      expect(screen.getByText('2')).toBeInTheDocument(); // School A submission count
       expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     });
     
-    // Check for hierarchy view title
-    expect(screen.getByText('District: Test District')).toBeInTheDocument();
-    
-    // Check for child entities
-    expect(screen.getByText('School A')).toBeInTheDocument();
-    expect(screen.getByText('School B')).toBeInTheDocument();
-    
-    // Check for stats
-    expect(screen.getByText('85%')).toBeInTheDocument(); // School A average score
+    // Additional checks if necessary, though covered by waitFor
     expect(screen.getByText('75%')).toBeInTheDocument(); // School B average score
-    
-    // Check for submission counts
-    expect(screen.getByText('2')).toBeInTheDocument(); // School A submission count
-    expect(screen.getByText('1')).toBeInTheDocument(); // School B submission count
+    expect(screen.getByText('1')).toBeInTheDocument();   // School B submission count
   });
 
   it('handles API errors gracefully', async () => {
     // Mock API failure
-    rtpApiService.getSubmissionsByEntity.mockRejectedValue(new Error('API error'));
+    // Assuming rtpApiService is the mocked default export, containing getSubmissionsByEntity
+    rtpApiService.getSubmissionsByEntity.mockRejectedValue(new Error('API error')); // Simple error for this test
     
     renderWithProvider(<HierarchyViewPage />);
     
-    // Wait for loading to complete
+    // Wait for error message to appear
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText(/failed to load data/i)).toBeInTheDocument();
     });
-    
-    // Check for error message
-    expect(screen.getByText(/failed to load data/i)).toBeInTheDocument();
+    // Progress bar should also be gone by now
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('handles empty submissions gracefully', async () => {
@@ -227,29 +242,34 @@ describe('Hierarchy View Page', () => {
     
     renderWithProvider(<HierarchyViewPage />);
     
-    // Wait for loading to complete
+    // Wait for no data message to appear
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText(/no submissions found/i)).toBeInTheDocument();
     });
-    
-    // Check for no data message
-    expect(screen.getByText(/no submissions found/i)).toBeInTheDocument();
+    // Progress bar should also be gone
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('filters submissions correctly', async () => {
     renderWithProvider(<HierarchyViewPage />);
     
-    // Wait for loading to complete
+    // Wait for initial data to load and title to be present
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText('District: Test District')).toBeInTheDocument();
     });
-    
-    // Check initial state - all submissions should be visible
-    expect(screen.getAllByRole('row').length).toBeGreaterThan(3); // Header + 3 submissions
+    // It's possible the filters are rendered after another microtask,
+    // let's specifically wait for the label of the filter.
+    await waitFor(() => {
+      // Check initial state - all submissions should be visible BEFORE attempting to get the filter
+      expect(screen.getAllByRole('row').length).toBeGreaterThan(3); // Header + 3 submissions
+      expect(screen.getByLabelText(/survey type/i)).toBeInTheDocument();
+    });
     
     // Find and change the survey type filter
     const surveyTypeFilter = screen.getByLabelText(/survey type/i);
-    userEvent.selectOptions(surveyTypeFilter, 'school_output');
+    act(() => {
+      userEvent.selectOptions(surveyTypeFilter, 'school_output');
+    });
     
     // Check that only school_output submissions are visible
     await waitFor(() => {
@@ -263,7 +283,9 @@ describe('Hierarchy View Page', () => {
     
     // Change to itinerary filter
     const itineraryFilter = screen.getByLabelText(/itinerary/i);
-    userEvent.selectOptions(itineraryFilter, 'Itinerary 2');
+    act(() => {
+      userEvent.selectOptions(itineraryFilter, 'Itinerary 2');
+    });
     
     // Check that only Itinerary 2 submissions are visible
     await waitFor(() => {
@@ -281,23 +303,28 @@ describe('Hierarchy View Page', () => {
     
     // Wait for loading to complete
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText('District: Test District')).toBeInTheDocument(); // Ensure initial load
     });
     
     // Check initial API calls with mock data (true)
     expect(rtpApiService.getSubmissionsByEntity).toHaveBeenCalledWith('district', 'Test District', true);
+    rtpApiService.getSubmissionsByEntity.mockClear(); // Clear mock for the next assertion
+
     
     // Find and click the toggle switch
-    const toggleSwitch = screen.getByRole('checkbox', { name: /use mock data/i });
-    userEvent.click(toggleSwitch);
-    
-    // Wait for re-loading to complete
-    await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    const toggleSwitch = screen.getByRole('checkbox', { name: /using mock data/i });
+    act(() => {
+      userEvent.click(toggleSwitch);
     });
     
-    // Check API calls with live data (false)
-    expect(rtpApiService.getSubmissionsByEntity).toHaveBeenCalledWith('district', 'Test District', false);
+    // Wait for the API call with live data (false)
+    await waitFor(() => {
+      expect(rtpApiService.getSubmissionsByEntity).toHaveBeenCalledWith('district', 'Test District', false);
+    });
+    // Also ensure loading finishes if there's a visual indicator change
+    await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    });
   });
 
   it('switches between tabs correctly', async () => {
@@ -313,7 +340,9 @@ describe('Hierarchy View Page', () => {
     
     // Find and click the submissions tab
     const submissionsTab = screen.getByRole('tab', { name: /submissions/i });
-    userEvent.click(submissionsTab);
+    act(() => {
+      userEvent.click(submissionsTab);
+    });
     
     // Check that submissions tab content is displayed
     await waitFor(() => {
@@ -356,21 +385,16 @@ describe('Hierarchy View Page', () => {
   });
 
   it('handles invalid entity type gracefully', async () => {
-    // Mock invalid entity type
-    jest.mock('next/navigation', () => ({
-      ...jest.requireActual('next/navigation'),
-      useParams: () => ({ entityType: 'invalid', entityName: 'Test Entity' })
-    }));
+    // Override useParams for this specific test
+    mockUseParams.mockReturnValueOnce({ entityType: 'invalid', entityName: 'Test Entity' });
     
     renderWithProvider(<HierarchyViewPage />);
     
-    // Wait for loading to complete
+    // Wait for the error message to appear, which also implies loading is done or bypassed
     await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText(/invalid entity type: invalid/i)).toBeInTheDocument();
     });
-    
-    // Check for error message
-    expect(screen.getByText(/invalid entity type/i)).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
   it('displays correct date formatting', async () => {

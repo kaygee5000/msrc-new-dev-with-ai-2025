@@ -41,7 +41,7 @@ jest.mock('../../utils/RTP_apiService', () => ({
 }));
 
 // Import the mocked API service
-import * as rtpApiService from '../../utils/RTP_apiService';
+import rtpApiService from '../../utils/RTP_apiService';
 
 describe('RTP API Service - Simple Tests', () => {
   beforeEach(() => {

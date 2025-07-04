@@ -20,13 +20,6 @@ jest.mock('../../app/dashboard/admin/rtp-ui/components/IndicatorCard', () => {
   };
 });
 
-jest.mock('../../app/dashboard/admin/rtp-ui/components/DrilldownDialog', () => {
-  const React = require('react');
-  return function MockDrilldownDialog(props) {
-    return React.createElement('div', { 'data-testid': 'drilldown-dialog' }, 'Mock Dialog');
-  };
-});
-
 // Mock the API service
 jest.mock('../../utils/RTP_apiService');
 

@@ -131,7 +131,7 @@ describe('Survey View Page', () => {
     });
     
     // Check for survey details
-    expect(screen.getByText('Survey Details')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /survey details/i, level: 5 })).toBeInTheDocument();
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('Test School')).toBeInTheDocument();
     expect(screen.getByText('Test District')).toBeInTheDocument();
@@ -217,7 +217,9 @@ describe('Survey View Page', () => {
     
     // Find and click the toggle switch
     const toggleSwitch = screen.getByRole('checkbox', { name: /use mock data/i });
-    userEvent.click(toggleSwitch);
+    act(() => {
+      userEvent.click(toggleSwitch);
+    });
     
     // Wait for re-loading to complete
     await waitFor(() => {
@@ -238,7 +240,9 @@ describe('Survey View Page', () => {
     });
     
     // Check for score display
-    expect(screen.getByText('80%')).toBeInTheDocument(); // Overall score
+    await waitFor(() => {
+      expect(screen.getByText('80%')).toBeInTheDocument(); // Overall score
+    });
     
     // Check for progress indicators
     const progressBars = screen.getAllByRole('progressbar');
@@ -267,8 +271,8 @@ describe('Survey View Page', () => {
       expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     });
     
-    // Find and click the back button
-    const backButton = screen.getByRole('button', { name: /back/i });
+    // Find and click the back button (exact match)
+    const backButton = screen.getByRole('button', { name: /^back$/i });
     userEvent.click(backButton);
     
     // Check that back function was called
@@ -285,7 +289,9 @@ describe('Survey View Page', () => {
     
     // Check for formatted date (assuming the formatDate function formats to MM/DD/YYYY)
     // This test may need adjustment based on your actual date formatting
-    expect(screen.getByText(/04\/20\/2025/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/04\/20\/2025/i)).toBeInTheDocument();
+    });
   });
 
   it('links to related submissions correctly', async () => {
