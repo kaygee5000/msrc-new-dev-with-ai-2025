@@ -1,56 +1,57 @@
-"use client";
+“use client”;
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  Chip, 
-  Divider, 
-  CircularProgress,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Paper,
-  Tab,
-  Tabs,
-  useMediaQuery,
-  useTheme,
-  BottomNavigation,
-  BottomNavigationAction,
-  Card
-} from '@mui/material';
-import { fetchAPI, getList } from '@/utils/api';
-import { useRouter } from 'next/navigation';
-import AddIcon from '@mui/icons-material/Add';
-import HistoryIcon from '@mui/icons-material/History';
-import SchoolIcon from '@mui/icons-material/School';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import LogoutIcon from '@mui/icons-material/Logout';
-import SearchIcon from '@mui/icons-material/Search';
-import ReentryFormPage from './ReentryFormPage';
-import DataTable from './DataTable';
-import { useSession, signOut } from "next-auth/react";
+import React, { useState, useEffect, useCallback } from ‘react’;
+import {
+Box,
+Container,
+Typography,
+Button,
+Chip,
+Divider,
+CircularProgress,
+List,
+ListItem,
+ListItemText,
+IconButton,
+Paper,
+Tab,
+Tabs,
+useMediaQuery,
+useTheme,
+BottomNavigation,
+BottomNavigationAction,
+Card
+} from ‘@mui/material’;
+import { fetchAPI, getList } from ‘@/utils/api’;
+import { useRouter } from ‘next/navigation’;
+import AddIcon from ‘@mui/icons-material/Add’;
+import HistoryIcon from ‘@mui/icons-material/History’;
+import SchoolIcon from ‘@mui/icons-material/School’;
+import VisibilityIcon from ‘@mui/icons-material/Visibility’;
+import LogoutIcon from ‘@mui/icons-material/Logout’;
+import SearchIcon from ‘@mui/icons-material/Search’;
+import ReentryFormPage from ‘./ReentryFormPage’;
+import DataTable from ‘./DataTable’;
+import { useSession, signOut } from “next-auth/react”;
 
 // Move the non-authenticated UI to a separate component
 function NotAuthenticated() {
-  return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
-        <Typography variant="h6" color="error" gutterBottom>
-          You must be logged in to access this page.
-        </Typography>
-        <Button variant="contained" color="primary" href="/login">
-          Go to Login
-        </Button>
-      </Box>
-    </Container>
-  );
+return (
+<Container maxWidth=“sm” sx={{ py: 8 }}>
+<Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" minHeight="40vh">
+<Typography variant="h6" color="error" gutterBottom>
+You must be logged in to access this page.
+</Typography>
+<Button variant="contained" color="primary" href="/login">
+Go to Login
+</Button>
+</Box>
+</Container>
+);
 }
 
 export default function ReentryDashboard({ user }) {
+
   const router = useRouter();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -116,9 +117,10 @@ export default function ReentryDashboard({ user }) {
       setSchools([]);
       setSubmissions([]);
     } finally {
+
       setIsLoading(false);
+      return;
     }
-  }, [user.id, user.regionId, user.districtId, user.circuitId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -152,9 +154,8 @@ export default function ReentryDashboard({ user }) {
     loadData();
   }, [user, isDevMode, reloadData]);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
+
+}, [user, isDevMode, reloadData]); // Include reloadData in dependency array
 
   const handleSchoolSelect = useCallback((school) => {
     setSelectedSchool(school);
@@ -180,18 +181,15 @@ export default function ReentryDashboard({ user }) {
     }
   }, [isDevMode]);
 
-  const handleCloseForm = useCallback(() => {
-    setCreateFormOpen(false);
-    setSelectedSchool(null);
-    setViewSubmission(null);
-    if (!isDevMode) {
-      reloadData();
-    }
-  }, [isDevMode, reloadData]);
 
-  const handleLogout = () => {
-    signOut();
-  };
+const handleSchoolSelect = (school) => {
+setSelectedSchool(school);
+setCreateFormOpen(true);
+};
+
+const handleLogout = () => {
+signOut();
+};
 
   const hasSubmitted = useCallback((schoolId) => {
     return submissions.some(
@@ -202,19 +200,28 @@ export default function ReentryDashboard({ user }) {
     );
   }, [submissions, selectedFrequency, selectedClass]);
 
-  const filteredSchools = schools
-    .filter((school) => {
-      const search = schoolSearch.toLowerCase();
-      return (
-        school.name.toLowerCase().includes(search) ||
-        (school.circuit?.name || "").toLowerCase().includes(search)
-      );
-    })
-    .sort((a, b) => {
-      const circuitA = (a.circuit?.name || '').localeCompare(b.circuit?.name || '');
-      if (circuitA !== 0) return circuitA;
-      return a.name.localeCompare(b.name);
-    });
+
+
+// Memoize schoolColumns to prevent unnecessary re-renders
+const schoolColumns = React.useMemo(() => [
+{ field: ‘name’, headerName: ‘School Name’, width: 220 },
+{ field: ‘circuit’, headerName: ‘Circuit’, width: 160, valueFormatter: ({ row }) => row.circuit?.name || ‘N/A’ },
+{ field: ‘district’, headerName: ‘District’, width: 160, valueFormatter: ({ row }) => row.district?.name || ‘N/A’ },
+{ field: ‘submitted’, headerName: ‘Submitted’, width: 120, valueFormatter: ({ row }) => hasSubmitted(row.id) ? ‘Yes’ : ‘No’ },
+{ field: ‘actions’, headerName: ‘’, width: 140, valueFormatter: ({ row }) => (
+<Button
+variant=“contained”
+color=“primary”
+size=“small”
+startIcon={<AddIcon />}
+onClick={() => handleSchoolSelect(row)}
+disabled={hasSubmitted(row.id)}
+>
+{hasSubmitted(row.id) ? ‘Submitted’ : ‘Submit’}
+</Button>
+) }
+], [hasSubmitted]);
+
 
   const schoolColumns = React.useMemo(() => [
     { field: 'name', headerName: 'School Name', width: 220 },
@@ -259,160 +266,162 @@ export default function ReentryDashboard({ user }) {
     );
   }
 
-  return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, mb: isMobile ? 7 : 0 }}>
-      <Box 
-        display="flex" 
-        flexDirection={isMobile ? "column" : "row"} 
-        justifyContent={isMobile ? "center" : "space-between"} 
-        alignItems={isMobile ? "center" : "flex-start"} 
-        mb={3}
-      >
-        <Typography 
-          variant={isMobile ? "h5" : "h4"} 
-          component="h1"
-          textAlign={isMobile ? "center" : "left"}
-          mb={isMobile ? 2 : 0}
+
+return (
+<Container maxWidth=“lg” sx={{ py: { xs: 2, md: 4 }, mb: isMobile ? 7 : 0 }}>
+<Box
+display=“flex”
+flexDirection={isMobile ? “column” : “row”}
+justifyContent={isMobile ? “center” : “space-between”}
+alignItems={isMobile ? “center” : “flex-start”}
+mb={3}
+>
+<Typography
+variant={isMobile ? “h5” : “h4”}
+component=“h1”
+textAlign={isMobile ? “center” : “left”}
+mb={isMobile ? 2 : 0}
+>
+Pregnancy & Re-entry Dashboard
+</Typography>
+
+```
+    {!isMobile && (
+      <Box>
+        <Chip 
+          label={`${user.first_name || user.name || user.email}`} 
+          color="primary" 
+          variant="outlined" 
+        />
+        <Button 
+          variant="outlined" 
+          color="inherit"
+          onClick={handleLogout}
+          sx={{ ml: 1 }}
+          startIcon={<LogoutIcon />}
         >
-          Pregnancy & Re-entry Dashboard
-        </Typography>
-        
-        {!isMobile && (
-          <Box>
-            <Chip 
-              label={`${user.first_name || user.name || user.email}`} 
-              color="primary" 
-              variant="outlined" 
-            />
-            <Button 
-              variant="outlined" 
-              color="inherit"
-              onClick={handleLogout}
-              sx={{ ml: 1 }}
-              startIcon={<LogoutIcon />}
-            >
-              Logout
-            </Button>
-          </Box>
-        )}
+          Logout
+        </Button>
       </Box>
+    )}
+  </Box>
 
-      {!isMobile ? (
-        <Paper sx={{ mb: 4 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={handleTabChange}
-            variant="fullWidth"
-            indicatorColor="primary"
-            textColor="primary"
-          >
-            <Tab icon={<SchoolIcon />} label="My Schools" />
-            <Tab icon={<HistoryIcon />} label="Submission History" />
-          </Tabs>
-        </Paper>
-      ) : (
-        <Paper sx={{ mb: 3 }}>
-          <Tabs 
-            value={activeTab} 
-            onChange={handleTabChange}
-            variant="fullWidth"
-            indicatorColor="primary"
-            textColor="primary"
-          >
-            <Tab icon={<SchoolIcon />} aria-label="Schools" />
-            <Tab icon={<HistoryIcon />} aria-label="History" />
-          </Tabs>
-        </Paper>
-      )}
+  {!isMobile ? (
+    <Paper sx={{ mb: 4 }}>
+      <Tabs 
+        value={activeTab} 
+        onChange={handleTabChange}
+        variant="fullWidth"
+        indicatorColor="primary"
+        textColor="primary"
+      >
+        <Tab icon={<SchoolIcon />} label="My Schools" />
+        <Tab icon={<HistoryIcon />} label="Submission History" />
+      </Tabs>
+    </Paper>
+  ) : (
+    <Paper sx={{ mb: 3 }}>
+      <Tabs 
+        value={activeTab} 
+        onChange={handleTabChange}
+        variant="fullWidth"
+        indicatorColor="primary"
+        textColor="primary"
+      >
+        <Tab icon={<SchoolIcon />} aria-label="Schools" />
+        <Tab icon={<HistoryIcon />} aria-label="History" />
+      </Tabs>
+    </Paper>
+  )}
 
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" my={8}>
-          <CircularProgress />
+  {isLoading ? (
+    <Box display="flex" justifyContent="center" my={8}>
+      <CircularProgress />
+    </Box>
+  ) : (
+    <>
+      {activeTab === 0 ? (
+        <Box mb={2}>
+          <Box display="flex" alignItems="center" mb={2} gap={2} flexWrap="wrap">
+            <SearchIcon sx={{ mr: 1 }} />
+            <input
+              type="text"
+              placeholder="Search by school or circuit..."
+              value={schoolSearch}
+              onChange={e => setSchoolSearch(e.target.value)}
+              style={{ padding: 8, width: 220, borderRadius: 4, border: '1px solid #ccc', flex: '1 1 220px' }}
+            />
+            <select value={selectedFrequency} onChange={e => setSelectedFrequency(e.target.value)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 140, flex: '1 1 140px' }}>
+              {frequencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 140, flex: '1 1 140px' }}>
+              {classLevels.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+          </Box>
+          <DataTable 
+            columns={schoolColumns} 
+            rows={filteredSchools} 
+            pageSize={10} 
+            onRowClick={row => handleSchoolSelect(row)}
+          />
         </Box>
       ) : (
-        <>
-          {activeTab === 0 ? (
-            <Box mb={2}>
-              <Box display="flex" alignItems="center" mb={2} gap={2} flexWrap="wrap">
-                <SearchIcon sx={{ mr: 1 }} />
-                <input
-                  type="text"
-                  placeholder="Search by school or circuit..."
-                  value={schoolSearch}
-                  onChange={e => setSchoolSearch(e.target.value)}
-                  style={{ padding: 8, width: 220, borderRadius: 4, border: '1px solid #ccc', flex: '1 1 220px' }}
-                />
-                <select value={selectedFrequency} onChange={e => setSelectedFrequency(e.target.value)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 140, flex: '1 1 140px' }}>
-                  {frequencyOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-                <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 140, flex: '1 1 140px' }}>
-                  {classLevels.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </Box>
-              <DataTable 
-                columns={schoolColumns} 
-                rows={filteredSchools} 
-                pageSize={10} 
-                onRowClick={row => handleSchoolSelect(row)}
-              />
-            </Box>
-          ) : (
-            <Card>
-              <List dense={isMobile}>
-                {submissions.length > 0 ? (
-                  submissions.map((submission) => (
-                    <React.Fragment key={submission.id}>
-                      <ListItem
-                        secondaryAction={
-                          <IconButton 
-                            edge="end" 
-                            color="primary" 
-                            onClick={() => handleViewSubmission(submission.id)}
-                            size={isMobile ? "small" : "medium"}
-                          >
-                            <VisibilityIcon />
-                          </IconButton>
-                        }
+        <Card>
+          <List dense={isMobile}>
+            {submissions.length > 0 ? (
+              submissions.map((submission) => (
+                <React.Fragment key={submission.id}>
+                  <ListItem
+                    secondaryAction={
+                      <IconButton 
+                        edge="end" 
+                        color="primary" 
+                        onClick={() => handleViewSubmission(submission.id)}
+                        size={isMobile ? "small" : "medium"}
                       >
-                        <ListItemText
-                          primary={
-                            <Typography 
-                              variant={isMobile ? "body1" : "subtitle1"}
-                              sx={{ fontWeight: 'medium' }}
-                              noWrap
-                            >
-                              {submission.school?.name}
-                            </Typography>
-                          }
-                          secondary={
-                            <>
-                              <Typography variant="body2" component="span">
-                                {new Date(submission.createdAt).toLocaleDateString()}
-                              </Typography>
-                              <br />
-                              <Typography variant="body2" color="text.secondary" component="span">
-                                {submission.academicTerm || 'Term not specified'}
-                              </Typography>
-                            </>
-                          }
-                        />
-                      </ListItem>
-                      <Divider />
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <ListItem>
+                        <VisibilityIcon />
+                      </IconButton>
+                    }
+                  >
                     <ListItemText
-                      primary="No submission history found"
-                      secondary="Submit a new form for any of your assigned schools"
+                      primary={
+                        <Typography 
+                          variant={isMobile ? "body1" : "subtitle1"}
+                          sx={{ fontWeight: 'medium' }}
+                          noWrap
+                        >
+                          {submission.school?.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <>
+                          <Typography variant="body2" component="span">
+                            {new Date(submission.createdAt).toLocaleDateString()}
+                          </Typography>
+                          <br />
+                          <Typography variant="body2" color="text.secondary" component="span">
+                            {submission.academicTerm || 'Term not specified'}
+                          </Typography>
+                        </>
+                      }
                     />
                   </ListItem>
-                )}
-              </List>
-            </Card>
-          )}
-        </>
+                  <Divider />
+                </React.Fragment>
+              ))
+            ) : (
+              <ListItem>
+                <ListItemText
+                  primary="No submission history found"
+                  secondary="Submit a new form for any of your assigned schools"
+                />
+              </ListItem>
+            )}
+          </List>
+        </Card>
       )}
+    </>
+  )}
 
       {isMobile && (
         <Paper 
@@ -449,3 +458,4 @@ export default function ReentryDashboard({ user }) {
     </Container>
   );
 }
+
