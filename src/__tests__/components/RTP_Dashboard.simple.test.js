@@ -58,12 +58,6 @@ jest.mock('../../app/dashboard/admin/rtp-ui/components/IndicatorCard', () => {
   };
 });
 
-jest.mock('../../app/dashboard/admin/rtp-ui/components/DrilldownDialog', () => {
-  return function MockDrilldownDialog(props) {
-    return <div data-testid="drilldown-dialog">Mock Dialog</div>;
-  };
-});
-
 // Mock MUI components
 jest.mock('@mui/material', () => {
   const original = jest.requireActual('@mui/material');

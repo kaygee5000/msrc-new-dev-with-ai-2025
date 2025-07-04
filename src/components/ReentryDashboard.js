@@ -201,6 +201,7 @@ signOut();
   }, [submissions, selectedFrequency, selectedClass]);
 
 
+
 // Memoize schoolColumns to prevent unnecessary re-renders
 const schoolColumns = React.useMemo(() => [
 { field: ‘name’, headerName: ‘School Name’, width: 220 },
@@ -220,6 +221,7 @@ disabled={hasSubmitted(row.id)}
 </Button>
 ) }
 ], [hasSubmitted]);
+
 
   const schoolColumns = React.useMemo(() => [
     { field: 'name', headerName: 'School Name', width: 220 },
